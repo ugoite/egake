@@ -11,5 +11,8 @@ pub mod query;
 
 pub use error::{ResourceError, ResourceErrorKind, ResourceResult};
 pub use model::{Capability, FieldSchema, FieldType, ResourceSchema};
-pub use provider::{ResourceActionProvider, ResourceProvider};
+pub use provider::{
+    JsonResourceProvider, JsonResourceProviderAdapter, ResourceActionProvider, ResourceProvider,
+    apply_merge_patch, require_object_patch,
+};
 pub use query::{ListQuery, ResourcePage, Sort, SortDirection};

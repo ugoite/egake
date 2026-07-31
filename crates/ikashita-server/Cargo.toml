@@ -6,5 +6,14 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[dependencies]
+axum = "0.8"
+ikashita-resource = { path = "../ikashita-resource" }
+serde_json = "1.0"
+tokio = { version = "1.43", features = ["net", "rt-multi-thread"] }
+
 [lints]
 workspace = true
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

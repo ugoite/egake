@@ -3,7 +3,7 @@
 use std::{
     error::Error,
     fmt,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 /// The default primary-key column used by generated CSV resources.
@@ -14,6 +14,7 @@ pub const DEFAULT_RESOURCE_KEY: &str = "id";
 pub struct CsvResourceConfig {
     path: PathBuf,
     key: String,
+    name: Option<String>,
     writable: bool,
     backup_count: u8,
 }
@@ -25,6 +26,7 @@ impl CsvResourceConfig {
         Self {
             path: path.into(),
             key: DEFAULT_RESOURCE_KEY.to_owned(),
+            name: None,
             writable: false,
             backup_count: 0,
         }
@@ -34,6 +36,13 @@ impl CsvResourceConfig {
     #[must_use]
     pub fn with_key(mut self, key: impl Into<String>) -> Self {
         self.key = key.into();
+        self
+    }
+
+    /// Sets the resource name advertised by the provider.
+    #[must_use]
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
         self
     }
 
@@ -63,6 +72,12 @@ impl CsvResourceConfig {
         &self.key
     }
 
+    /// Returns the configured resource name, when one was supplied.
+    #[must_use]
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
     /// Returns whether writes are permitted.
     #[must_use]
     pub const fn writable(&self) -> bool {
@@ -82,6 +97,12 @@ impl CsvResourceConfig {
         }
         if self.key.trim().is_empty() {
             return Err(CsvConfigError::new("CSV resource key must not be empty"));
+        }
+        if self.name.as_deref().is_some_and(|name| name.trim().is_empty()) {
+            return Err(CsvConfigError::new("CSV resource name must not be empty"));
+        }
+        if self.path.components().any(|component| component == Component::ParentDir) {
+            return Err(CsvConfigError::new("CSV path traversal is not allowed"));
         }
         Ok(())
     }

@@ -1,5 +1,9 @@
 //! List query and pagination values.
 
+use serde::{Deserialize, Serialize};
+
+use crate::{ResourceError, ResourceErrorKind, ResourceResult};
+
 /// The default number of records returned by a list operation.
 pub const DEFAULT_PAGE_LIMIT: u64 = 50;
 /// The largest page a provider should return for one request.
@@ -16,7 +20,8 @@ const fn normalize_limit(limit: u64) -> u64 {
 }
 
 /// The direction for one sort key.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum SortDirection {
     /// Lowest values first.
     Ascending,
@@ -25,7 +30,7 @@ pub enum SortDirection {
 }
 
 /// A field and direction used to order list results.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Sort {
     /// Field name to sort by.
     pub field: String,
@@ -94,10 +99,71 @@ impl ListQuery {
         self.sort.push(sort);
         self
     }
+
+    /// Parses the standard URL query representation.
+    ///
+    /// The accepted keys are `q`, `sort`, `offset`, and `limit`. Sort values
+    /// are comma-separated field names; a leading `-` or a `:desc` suffix
+    /// requests descending order. An absent or empty sort value means no
+    /// ordering constraint.
+    pub fn from_query_string(query: &str) -> ResourceResult<Self> {
+        let mut parsed = Self::new();
+        let params: Vec<(String, String)> = serde_urlencoded::from_str(query).map_err(|error| {
+            ResourceError::new(ResourceErrorKind::Validation, "invalid list query")
+                .with_field("query", error.to_string())
+        })?;
+
+        for (key, value) in params {
+            match key.as_str() {
+                "q" => {
+                    if !value.is_empty() {
+                        parsed.search = Some(value);
+                    }
+                }
+                "sort" => parsed.sort = parse_sort(&value)?,
+                "offset" => {
+                    parsed.offset = value.parse::<u64>().map_err(|_| {
+                        ResourceError::new(ResourceErrorKind::Validation, "invalid list query")
+                            .with_field("offset", "must be a non-negative integer")
+                    })?;
+                }
+                "limit" => {
+                    let limit = value.parse::<u64>().map_err(|_| {
+                        ResourceError::new(ResourceErrorKind::Validation, "invalid list query")
+                            .with_field("limit", "must be a positive integer")
+                    })?;
+                    parsed.limit = normalize_limit(limit);
+                }
+                _ => {}
+            }
+        }
+        Ok(parsed)
+    }
+}
+
+fn parse_sort(value: &str) -> ResourceResult<Vec<Sort>> {
+    let mut sort = Vec::new();
+    for raw_field in value.split(',').filter(|field| !field.is_empty()) {
+        let (field, direction) = if let Some(field) = raw_field.strip_prefix('-') {
+            (field, SortDirection::Descending)
+        } else if let Some(field) = raw_field.strip_suffix(":desc") {
+            (field, SortDirection::Descending)
+        } else if let Some(field) = raw_field.strip_suffix(":asc") {
+            (field, SortDirection::Ascending)
+        } else {
+            (raw_field, SortDirection::Ascending)
+        };
+        if field.trim().is_empty() {
+            return Err(ResourceError::new(ResourceErrorKind::Validation, "invalid list query")
+                .with_field("sort", "sort fields must not be empty"));
+        }
+        sort.push(Sort { field: field.to_owned(), direction });
+    }
+    Ok(sort)
 }
 
 /// A page of records with the effective pagination values and total count.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ResourcePage<T> {
     /// Records returned for this page.
     pub items: Vec<T>,
@@ -137,5 +203,25 @@ mod tests {
 
         assert_eq!(query.sort[0].field, "name");
         assert_eq!(query.sort[1].direction, SortDirection::Descending);
+    }
+
+    #[test]
+    fn parses_standard_url_query_values() {
+        let query = ListQuery::from_query_string(
+            "q=Ada%20Lovelace&sort=-name,email:asc&offset=2&limit=900",
+        )
+        .expect("query");
+        assert_eq!(query.search.as_deref(), Some("Ada Lovelace"));
+        assert_eq!(query.sort[0], Sort::descending("name"));
+        assert_eq!(query.sort[1], Sort::ascending("email"));
+        assert_eq!(query.offset, 2);
+        assert_eq!(query.limit, MAX_PAGE_LIMIT);
+    }
+
+    #[test]
+    fn rejects_invalid_pagination_values() {
+        let error = ListQuery::from_query_string("limit=nope").expect_err("invalid limit");
+        assert_eq!(error.code(), "validation_failed");
+        assert!(error.fields.contains_key("limit"));
     }
 }
