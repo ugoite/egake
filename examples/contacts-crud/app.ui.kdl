@@ -1,0 +1,49 @@
+/- kdl-version 2
+app "contacts-admin" version="0.1" {
+    resource "contacts" schema="schemas/contacts.schema.json" {
+        require "list"
+        require "get"
+        require "create"
+        require "update"
+        require "delete"
+    }
+
+    state "query" value=""
+    state "draft" value=#null
+    state "preferences" value="{\"sort\":\"name\",\"columns\":[\"name\",\"email\"]}"
+
+    action "open-create"
+    action "open-edit"
+    action "delete-contact" {
+        refresh resource="contacts"
+    }
+    action "save-contact" {
+        upsert resource="contacts" value="$state.draft"
+        refresh resource="contacts"
+    }
+
+    page "main" title="Contacts" {
+        column gap="md" {
+            row align="end" {
+                text-input label="Search" bind="state.query"
+                button "Add" action="open-create" variant="primary"
+            }
+            data-table resource="contacts" key="id" {
+                column field="name" label="Name"
+                column field="email" label="Email"
+                column field="department" label="Department"
+                on "select" action="open-edit"
+            }
+            form id="editor" bind="state.draft" mode="drawer" {
+                text-input field="name" label="Name"
+                text-input field="email" label="Email"
+                select field="department" label="Department"
+                textarea field="note" label="Note"
+                row {
+                    button "Delete" variant="danger" action="delete-contact"
+                    button "Save" variant="primary" action="save-contact"
+                }
+            }
+        }
+    }
+}

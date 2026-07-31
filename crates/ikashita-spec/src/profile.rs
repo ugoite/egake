@@ -1,6 +1,6 @@
 //! KDL Application Profile identity and compatibility values.
 
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 /// The stable identifier of the application profile used by the MVP.
 pub const KDL_APPLICATION_PROFILE: &str = "kdl.application";
@@ -20,6 +20,15 @@ pub struct ProfileVersion {
 impl fmt::Display for ProfileVersion {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "{}.{}", self.major, self.minor)
+    }
+}
+
+impl FromStr for ProfileVersion {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let (major, minor) = value.split_once('.').ok_or(())?;
+        Ok(Self { major: major.parse().map_err(|_| ())?, minor: minor.parse().map_err(|_| ())? })
     }
 }
 
