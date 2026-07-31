@@ -31,12 +31,18 @@
 
   function apiError(response, payload) {
     var error = payload && payload.error ? payload.error : {};
+    var code = error.code || "internal";
     var message = error.message || ("Request failed (" + response.status + ")");
     if (error.fields) {
       var fields = Object.keys(error.fields).sort().map(function (key) { return key + ": " + error.fields[key]; });
       if (fields.length) message += " — " + fields.join(", ");
     }
-    return new Error(message);
+    var requestId = error.request_id ? " (request " + error.request_id + ")" : "";
+    var result = new Error(code + ": " + message + requestId);
+    result.code = code;
+    result.fields = error.fields || {};
+    result.request_id = error.request_id || null;
+    return result;
   }
 
   function request(path, options) {
@@ -94,6 +100,28 @@
     model.state.draft = record ? Object.assign({}, record) : {};
   }
 
+  function resourceKey(resource) {
+    var page = model.app.pages[0];
+    var result = "id";
+    function visit(components) {
+      (components || []).some(function (component) {
+        if (component.kind === "data-table" && resourceName(component) === resource) {
+          result = componentAttr(component, "key") || "id";
+          return true;
+        }
+        return visit(component.children);
+      });
+    }
+    visit(page && page.components);
+    return result;
+  }
+
+  function rememberError(error) {
+    model.errors.push(error && error.message ? error.message : String(error));
+    if (model.errors.length > 3) model.errors.shift();
+    render();
+  }
+
   function runAction(name, context) {
     var action = findAction(name);
     if (!action) { toast("Unknown action: " + name, "error"); return Promise.resolve(); }
@@ -103,7 +131,9 @@
     }
     if (name === "open-edit" || name.indexOf("open-edit") >= 0) {
       if (!context.record) { toast("Select a row first", "error"); return Promise.resolve(); }
-      setDraftFromRecord(context.record); model.state.editorOpen = true; model.state.editorId = context.record.id; render(); return Promise.resolve();
+      setDraftFromRecord(context.record); model.state.editorOpen = true;
+      model.state.editorId = context.id || context.record[resourceKey(context.resource || firstResource())];
+      render(); return Promise.resolve();
     }
     var steps = action.steps || [];
     var resourceForAction = context.resource || firstResource();
@@ -138,25 +168,32 @@
 
   function save(resource) {
     if (!resource) return Promise.reject(new Error("No resource is attached to this form"));
+    var key = resourceKey(resource);
+    var draft = Object.assign({}, model.state.draft || {});
+    var editing = model.state.editorId !== null && model.state.editorId !== undefined;
+    if (!editing && !draft[key]) {
+      draft[key] = "new-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1000000).toString(36);
+      model.state.draft = draft;
+    }
     return validateDraft(resource).then(function () {
-      var draft = Object.assign({}, model.state.draft || {});
-      var id = model.state.editorId || draft.id;
+      var id = editing ? model.state.editorId : null;
       var path = "/resources/" + encodeURIComponent(resource);
       var options;
-      if (id) { delete draft.id; options = { method: "PATCH", body: JSON.stringify(draft) }; path += "/items/" + encodeURIComponent(id); }
+      if (editing) { delete draft[key]; options = { method: "PATCH", body: JSON.stringify(draft) }; path += "/items/" + encodeURIComponent(id); }
       else { options = { method: "POST", body: JSON.stringify(draft) }; }
       return request(path, options).then(function () { return refresh(resource); }).then(function () { toast("Saved", "ok"); });
-    }).catch(function (error) { toast(error.message, "error"); throw error; });
+    }).catch(function (error) { rememberError(error); toast(error.message, "error"); throw error; });
   }
 
   function deleteSelected(resource) {
-    var id = model.state.editorId || (model.state.draft && model.state.draft.id);
+    var key = resourceKey(resource);
+    var id = model.state.editorId || (model.state.draft && model.state.draft[key]);
     if (!resource || !id) { toast("Select a record first", "error"); return Promise.resolve(); }
     if (!window.confirm("Delete this record?")) return Promise.resolve();
     return request("/resources/" + encodeURIComponent(resource) + "/items/" + encodeURIComponent(id), { method: "DELETE" })
       .then(function () { model.state.editorOpen = false; model.state.editorId = null; return refresh(resource); })
       .then(function () { toast("Deleted", "ok"); })
-      .catch(function (error) { toast(error.message, "error"); });
+      .catch(function (error) { rememberError(error); toast(error.message, "error"); });
   }
 
   function refresh(resource) {
@@ -169,7 +206,7 @@
     params.set("limit", "500");
     return request("/resources/" + encodeURIComponent(resource) + "?" + params.toString()).then(function (page) {
       model.records[resource] = page.items || []; render(); return page;
-    }).catch(function (error) { toast(error.message, "error"); throw error; });
+    }).catch(function (error) { rememberError(error); toast(error.message, "error"); throw error; });
   }
 
   function componentTableSort(resource) {
@@ -242,13 +279,15 @@
     var body = el("tbody");
     (model.records[resource] || []).forEach(function (record) {
       var row = el("tr"); attr(row, "data-selectable", "true");
-      if (model.state.editorId && valueOf(record[componentAttr(component, "key")]) === valueOf(model.state.editorId)) attr(row, "data-selected", "true");
+      var key = componentAttr(component, "key") || "id";
+      if (model.state.editorId && valueOf(record[key]) === valueOf(model.state.editorId)) attr(row, "data-selected", "true");
       (component.children || []).forEach(function (column) { row.appendChild(el("td", valueOf(record[componentAttr(column, "field")]))); });
       row.addEventListener("click", function () {
         model.selected[resource] = record;
         var event = (component.events || []).find(function (binding) { return binding.event === "select"; });
-        if (event) runAction(event.action, { resource: resource, record: record }).catch(function () {});
-        else { setDraftFromRecord(record); model.state.editorOpen = true; model.state.editorId = record.id; render(); }
+        var recordId = record[key];
+        if (event) runAction(event.action, { resource: resource, record: record, id: recordId }).catch(function () {});
+        else { setDraftFromRecord(record); model.state.editorOpen = true; model.state.editorId = recordId; render(); }
       });
       body.appendChild(row);
     });
@@ -300,7 +339,7 @@
       model.app = app; (app.states || []).forEach(function (state) { model.state[state.name] = state.value; });
       document.title = app.profile.name; render();
       return Promise.all((app.resources || []).filter(function (resource) { return resource.capabilities.indexOf("list") >= 0; }).map(function (resource) { return refresh(resource.name); }));
-    }).catch(function (error) { model.errors = [error.message]; render(); });
+    }).catch(function (error) { rememberError(error); });
   }
 
   load();

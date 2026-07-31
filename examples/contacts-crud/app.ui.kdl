@@ -35,6 +35,7 @@ app "contacts-admin" version="0.1" {
                 on "select" action="open-edit"
             }
             form id="editor" bind="state.draft" mode="drawer" {
+                text-input field="id" label="ID"
                 text-input field="name" label="Name"
                 text-input field="email" label="Email"
                 select field="department" label="Department"

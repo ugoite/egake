@@ -1327,10 +1327,13 @@ mod tests {
         let bundle = static_bundle(&validated.definition).expect("bundle");
         assert!(bundle.index_html().contains("Content-Security-Policy"));
         assert!(bundle.assets().contains_key("app.bundle.json"));
-        assert!(
-            !String::from_utf8_lossy(bundle.assets().get("runtime.js").expect("runtime"))
-                .contains("eval(")
-        );
+        let runtime = String::from_utf8_lossy(bundle.assets().get("runtime.js").expect("runtime"));
+        assert!(!runtime.contains("eval("));
+        assert!(!runtime.contains("innerHTML"));
+        assert!(runtime.contains("/api/ikashita/v1"));
+        assert!(runtime.contains("method: \"PATCH\""));
+        assert!(runtime.contains("window.confirm"));
+        assert!(runtime.contains("request_id"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 
