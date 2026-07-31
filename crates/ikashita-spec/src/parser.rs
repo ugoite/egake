@@ -434,6 +434,13 @@ fn parse_document(
 fn parse_resource(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<ResourceDefinition> {
     let resource_attributes = attributes(node, &["schema"], context);
     let name = string_argument(node, 0, context)?;
+    if !is_safe_resource_name(&name) {
+        context.error(
+            DiagnosticCode::InvalidAttribute,
+            format!("resource name '{name}' is not a safe API path segment"),
+            node_span(node),
+        );
+    }
     check_argument_count(node, 1, 1, context);
     let schema = required_string_attribute(&resource_attributes, node, "schema", context)?;
     let mut required_capabilities = BTreeSet::new();
@@ -1087,6 +1094,13 @@ pub(crate) fn validate(definition: &ApplicationDefinition) -> Result<(), Diagnos
         &mut diagnostics,
     );
     for resource in &definition.resources {
+        if !is_safe_resource_name(&resource.name) {
+            diagnostics.push(Diagnostic::new(
+                DiagnosticCode::InvalidAttribute,
+                Severity::Error,
+                format!("resource name '{}' is not a safe API path segment", resource.name),
+            ));
+        }
         if resource.schema.trim().is_empty() {
             diagnostics.push(Diagnostic::new(
                 DiagnosticCode::MissingAttribute,
@@ -1136,6 +1150,14 @@ pub(crate) fn validate(definition: &ApplicationDefinition) -> Result<(), Diagnos
     validate_bindings_against_forms(&definition.pages, &states, &forms, &mut diagnostics);
     diagnostics.sort_deterministic();
     if diagnostics.has_errors() { Err(diagnostics) } else { Ok(()) }
+}
+
+fn is_safe_resource_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.trim() == name
+        && name != "."
+        && name != ".."
+        && !name.chars().any(|character| character.is_control() || matches!(character, '/' | '\\'))
 }
 
 fn validate_unique_names<'a>(

@@ -285,7 +285,7 @@ fn command_new(args: NewArgs) -> Result<(), CliError> {
         .name
         .or_else(|| default_project_name(&args.path))
         .ok_or_else(|| CliError::message("application name must not be empty"))?;
-    if name.trim().is_empty() || name.contains('"') {
+    if name.trim().is_empty() || name.contains('"') || name.chars().any(char::is_control) {
         return Err(CliError::message(
             "application name must be non-empty and must not contain a quote",
         ))
@@ -547,6 +547,13 @@ fn load_validated(
     }
 
     for resource in &definition.resources {
+        if !is_safe_resource_name(&resource.name) {
+            diagnostics.push(project_diagnostic(
+                RESOURCE_CONFIG_ERROR_CODE,
+                format!("resource '{}' is not a safe API path segment", resource.name),
+                Some(&project.definition_relative.display().to_string()),
+            ));
+        }
         let schema_path =
             safe_project_join(&project.root, Path::new(&resource.schema), "JSON schema")
                 .map_err(|error| error.with_json(json_output))?;
@@ -567,12 +574,22 @@ fn load_validated(
             .with_json(json_output)
         })?;
         let info = validate_schema(&resource.name, &resource.schema, &schema, &mut diagnostics);
-        if let Some(config) = project.resources.get(&resource.name)
-            && check_data
-        {
+        let Some(config) = project.resources.get(&resource.name) else {
+            diagnostics.push(project_diagnostic(
+                RESOURCE_CONFIG_ERROR_CODE,
+                format!("resource '{}' has no resource configuration", resource.name),
+                Some("resources.kdl"),
+            ));
+            continue;
+        };
+        if check_data {
             match open_csv_provider(&project.root, &resource.name, config) {
                 Ok(provider) => {
-                    check_capabilities(resource, &provider.schema(), &mut diagnostics);
+                    let provider_schema = provider.schema();
+                    check_capabilities(resource, &provider_schema, &mut diagnostics);
+                    if let (Ok(provider_schema), Some(info)) = (&provider_schema, &info) {
+                        check_provider_schema(resource, provider_schema, info, &mut diagnostics);
+                    }
                     if let Some(info) = &info {
                         validate_csv_data(
                             &resource.name,
@@ -639,6 +656,56 @@ fn check_capabilities(
                     "resource '{}' does not provide required capability '{required}'",
                     resource.name
                 ),
+                Some("resources.kdl"),
+            ));
+        }
+    }
+}
+
+fn check_provider_schema(
+    resource: &ikashita_spec::ResourceDefinition,
+    provider: &ResourceSchema,
+    external: &SchemaInfo,
+    diagnostics: &mut Vec<CliDiagnostic>,
+) {
+    if provider.name != resource.name {
+        diagnostics.push(project_diagnostic(
+            DATA_ERROR_CODE,
+            format!(
+                "resource '{}' provider schema name does not match its declaration",
+                resource.name
+            ),
+            Some("resources.kdl"),
+        ));
+    }
+    let provider_fields: BTreeSet<&str> =
+        provider.fields.iter().map(|field| field.name.as_str()).collect();
+    for field in provider_fields.iter().copied() {
+        if !external.properties.contains_key(field) {
+            diagnostics.push(project_diagnostic(
+                DATA_ERROR_CODE,
+                format!(
+                    "resource '{}' provider field '{field}' is missing from its JSON schema",
+                    resource.name
+                ),
+                Some("resources.kdl"),
+            ));
+        }
+    }
+    for (field, property) in &external.properties {
+        if !provider_fields.contains(field.as_str()) {
+            diagnostics.push(project_diagnostic(
+                DATA_ERROR_CODE,
+                format!(
+                    "resource '{}' JSON schema field '{field}' is missing from the CSV provider",
+                    resource.name
+                ),
+                Some("resources.kdl"),
+            ));
+        } else if property.type_name.as_deref().is_some_and(|type_name| type_name != "string") {
+            diagnostics.push(project_diagnostic(
+                DATA_ERROR_CODE,
+                format!("resource '{}' CSV provider field '{field}' returns text but schema requires '{}'; use type=string", resource.name, property.type_name.as_deref().unwrap_or_default()),
                 Some("resources.kdl"),
             ));
         }
@@ -985,6 +1052,11 @@ fn parse_csv_node(node: &KdlNode) -> Result<(String, ResourceConfig), CliError> 
             CliError::message("resources.kdl: csv resource name must be a non-empty string")
         })?
         .to_owned();
+    if !is_safe_resource_name(&name) {
+        return Err(CliError::message(
+            "resources.kdl: csv resource name is not a safe API path segment",
+        ));
+    }
     let mut values = BTreeMap::new();
     for entry in node.entries().iter().filter(|entry| entry.name().is_some()) {
         let key = entry.name().expect("filtered property").value().to_owned();
@@ -1000,7 +1072,8 @@ fn parse_csv_node(node: &KdlNode) -> Result<(String, ResourceConfig), CliError> 
     let path = kdl_string(&values, "path")?
         .ok_or_else(|| CliError::message("resources.kdl: csv requires path=..."))?;
     let path = PathBuf::from(path);
-    if path.is_absolute()
+    if path.as_os_str().is_empty()
+        || path.is_absolute()
         || path.components().any(|component| component == PathComponent::ParentDir)
     {
         return Err(CliError::message(
@@ -1010,6 +1083,11 @@ fn parse_csv_node(node: &KdlNode) -> Result<(String, ResourceConfig), CliError> 
     let key = kdl_string(&values, "key")?.unwrap_or_else(|| "id".to_owned());
     if key.trim().is_empty() {
         return Err(CliError::message("resources.kdl: csv key must not be empty"));
+    }
+    if key.chars().any(char::is_control) {
+        return Err(CliError::message(
+            "resources.kdl: csv key must not contain control characters",
+        ));
     }
     let writable = kdl_bool(&values, "writable")?.unwrap_or(false);
     let backup_count = kdl_integer(&values, "backup-count")?.unwrap_or(0);
@@ -1045,8 +1123,17 @@ fn kdl_integer(values: &BTreeMap<String, KdlValue>, name: &str) -> Result<Option
 
 fn raw_resource_config(raw: RawResourceConfig) -> Result<ResourceConfig, String> {
     let path = raw.path.ok_or_else(|| "resource requires path".to_owned())?;
+    if path.as_os_str().is_empty()
+        || path.is_absolute()
+        || path.components().any(|component| component == PathComponent::ParentDir)
+    {
+        return Err("resource path must be relative and must not contain '..'".to_owned());
+    }
     if raw.key.trim().is_empty() {
         return Err("resource key must not be empty".to_owned());
+    }
+    if raw.key.chars().any(char::is_control) {
+        return Err("resource key must not contain control characters".to_owned());
     }
     Ok(ResourceConfig {
         path,
@@ -1062,13 +1149,53 @@ fn default_resource_key() -> String {
 
 fn safe_project_join(root: &Path, relative: &Path, label: &str) -> Result<PathBuf, CliError> {
     if relative.is_absolute()
-        || relative.components().any(|component| component == PathComponent::ParentDir)
+        || relative.components().any(|component| {
+            matches!(component, PathComponent::ParentDir | PathComponent::Prefix(_))
+        })
     {
         return Err(CliError::message(format!(
             "{label} path must be relative and must not contain '..'"
         )));
     }
-    Ok(root.join(relative))
+    let canonical_root = fs::canonicalize(root).map_err(|error| {
+        CliError::message(format!("{label} root could not be resolved safely: {error}"))
+    })?;
+    let candidate = root.join(relative);
+    let mut existing = candidate.clone();
+    loop {
+        match fs::symlink_metadata(&existing) {
+            Ok(_) => break,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if !existing.pop() {
+                    return Err(CliError::message(format!(
+                        "{label} path could not be resolved safely"
+                    )));
+                }
+            }
+            Err(error) => {
+                return Err(CliError::message(format!(
+                    "{label} path could not be resolved safely: {error}"
+                )));
+            }
+        }
+    }
+    let canonical_existing = fs::canonicalize(&existing).map_err(|error| {
+        CliError::message(format!("{label} path could not be resolved safely: {error}"))
+    })?;
+    if !canonical_existing.starts_with(&canonical_root) {
+        return Err(CliError::message(format!(
+            "{label} path resolves outside the project directory"
+        )));
+    }
+    Ok(candidate)
+}
+
+fn is_safe_resource_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.trim() == name
+        && name != "."
+        && name != ".."
+        && !name.chars().any(|character| character.is_control() || matches!(character, '/' | '\\'))
 }
 
 fn spec_diagnostic(diagnostic: &Diagnostic) -> CliDiagnostic {
@@ -1126,7 +1253,17 @@ fn write_bundle(output: &Path, bundle: &StaticBundle) -> Result<Vec<String>, Cli
     fs::write(output.join("index.html"), bundle.index_html())
         .map_err(|error| CliError::message(format!("could not write index.html: {error}")))?;
     for (name, contents) in bundle.assets() {
-        let path = output.join(name);
+        if name.is_empty()
+            || name.starts_with('/')
+            || name.contains('\\')
+            || name.chars().any(char::is_control)
+            || name
+                .split('/')
+                .any(|component| component.is_empty() || component == "." || component == "..")
+        {
+            return Err(CliError::message(format!("unsafe static asset path '{name}'")));
+        }
+        let path = safe_project_join(output, Path::new(name), "bundle asset")?;
         if name.contains('/')
             && let Some(parent) = path.parent()
         {
@@ -1312,11 +1449,18 @@ fn write_new_file(path: &Path, contents: &str) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::{
+        sync::atomic::{AtomicU64, Ordering},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    static TEMP_PROJECT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn temp_project() -> PathBuf {
         let suffix = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
-        std::env::temp_dir().join(format!("ikashita-cli-test-{}-{suffix}", process::id()))
+        let sequence = TEMP_PROJECT_COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir()
+            .join(format!("ikashita-cli-test-{}-{suffix}-{sequence}", process::id()))
     }
 
     #[test]
@@ -1352,6 +1496,22 @@ mod tests {
     }
 
     #[test]
+    fn schema_and_csv_provider_type_mismatches_are_diagnostics() {
+        let path = temp_project();
+        scaffold_project(&path, "test-app").expect("scaffold");
+        let schema_path = path.join("schemas/contacts.schema.json");
+        let schema = fs::read_to_string(&schema_path)
+            .expect("schema")
+            .replace("\"name\": { \"type\": \"string\" }", "\"name\": { \"type\": \"number\" }");
+        fs::write(schema_path, schema).expect("schema");
+        let error = load_validated(&path, false, true).expect_err("provider mismatch");
+        let rendered =
+            error.diagnostics.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
+        assert!(rendered.contains("returns text"));
+        fs::remove_dir_all(path).expect("cleanup");
+    }
+
+    #[test]
     fn resources_kdl_is_deterministic_and_rejects_traversal() {
         let path = temp_project();
         fs::create_dir_all(&path).expect("project");
@@ -1370,5 +1530,24 @@ mod tests {
         let error = parse_resources_kdl(&path, Path::new("resources.kdl")).expect_err("traversal");
         assert!(error.message.expect("message").contains(".."));
         fs::remove_dir_all(path).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn project_joins_reject_symlink_escape() {
+        use std::os::unix::fs::symlink;
+
+        let project = temp_project();
+        let outside = temp_project();
+        fs::create_dir_all(&project).expect("project");
+        fs::create_dir_all(&outside).expect("outside");
+        fs::write(outside.join("secret.txt"), "secret").expect("outside file");
+        symlink(&outside, project.join("link")).expect("symlink");
+
+        let error = safe_project_join(&project, Path::new("link/secret.txt"), "test")
+            .expect_err("symlink escape");
+        assert!(error.message.expect("message").contains("outside"));
+        fs::remove_dir_all(project).expect("cleanup");
+        fs::remove_dir_all(outside).expect("cleanup");
     }
 }

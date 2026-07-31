@@ -8,6 +8,7 @@ from ikashita import (
     ListQuery,
     ResourceASGIApp,
     ResourceBase,
+    ResourceError,
     ResourcePage,
     ResourceSchema,
     apply_merge_patch,
@@ -49,7 +50,7 @@ class MemoryResource(ResourceBase):
         return {"action": action, "input": value}
 
 
-def call(app, method, path, body=b"", headers=()):
+def call(app, method, path, body=b"", headers=(), query_string=b""):
     messages = []
     request_sent = False
 
@@ -67,7 +68,7 @@ def call(app, method, path, body=b"", headers=()):
         "type": "http",
         "method": method,
         "path": path,
-        "query_string": b"",
+        "query_string": query_string,
         "headers": list(headers),
     }
     asyncio.run(app(scope, receive, send))
@@ -114,3 +115,63 @@ class ResourceASGITest(unittest.TestCase):
 
         status, error, _ = call(self.app, "POST", "/api/ikashita/v1/resources/contacts", b"not json")
         self.assertEqual((status, error["error"]["code"]), (400, "validation_failed"))
+
+    def test_encoded_paths_oversized_input_and_invalid_request_ids_are_safe(self):
+        status, item, headers = call(
+            self.app,
+            "GET",
+            "/api/ikashita/v1/resources/contacts/items/%31",
+            headers=((b"x-request-id", b"bad\r\nvalue"),),
+        )
+        self.assertEqual((status, item["id"]), (200, "1"))
+        self.assertNotIn(b"\r", headers[b"x-request-id"])
+        self.assertNotIn(b"\n", headers[b"x-request-id"])
+
+        status, error, _ = call(
+            self.app,
+            "GET",
+            "/api/ikashita/v1/resources/contacts/items/%2e%2e",
+        )
+        self.assertEqual((status, error["error"]["code"]), (404, "not_found"))
+
+        status, error, _ = call(
+            self.app,
+            "GET",
+            "/api/ikashita/v1/resources/contacts",
+            query_string=b"q=" + b"x" * (16 * 1024),
+        )
+        self.assertEqual((status, error["error"]["code"]), (400, "validation_failed"))
+
+        limited = ResourceASGIApp({"contacts": MemoryResource()}, max_body_bytes=4)
+        status, error, _ = call(
+            limited,
+            "POST",
+            "/api/ikashita/v1/resources/contacts",
+            b'{"id":"2"}',
+        )
+        self.assertEqual((status, error["error"]["code"]), (400, "validation_failed"))
+
+    def test_provider_schema_mismatch_and_internal_errors_do_not_leak(self):
+        class MismatchedResource(MemoryResource):
+            def schema(self):
+                return ResourceSchema("other", (), CAPABILITIES)
+
+        status, error, _ = call(
+            ResourceASGIApp({"contacts": MismatchedResource()}),
+            "GET",
+            "/api/ikashita/v1/resources/contacts/schema",
+        )
+        self.assertEqual((status, error["error"]["code"]), (500, "internal"))
+        self.assertEqual(error["error"]["message"], "internal server error")
+
+        class LeakyResource(MemoryResource):
+            def get(self, resource_id):
+                raise ResourceError("internal", "secret storage path /tmp/private.csv")
+
+        status, error, _ = call(
+            ResourceASGIApp({"contacts": LeakyResource()}),
+            "GET",
+            "/api/ikashita/v1/resources/contacts/items/1",
+        )
+        self.assertEqual((status, error["error"]["code"]), (500, "internal"))
+        self.assertEqual(error["error"]["message"], "internal server error")

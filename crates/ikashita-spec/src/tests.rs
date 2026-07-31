@@ -89,6 +89,23 @@ app "demo" version="0.1" {
 }
 
 #[test]
+fn rejects_resource_names_that_are_ambiguous_in_http_paths() {
+    let source = r#"/- kdl-version 2
+app "demo" version="0.1" {
+    resource "../contacts" schema="schemas/contacts.json" {
+        require "list"
+    }
+}
+"#;
+    let diagnostics = parse_and_validate(source).expect_err("unsafe resource name");
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == DiagnosticCode::InvalidAttribute
+            && diagnostic.message.contains("safe API path segment")
+    }));
+}
+
+#[test]
 fn rejects_duplicate_state_names() {
     let source = r#"/- kdl-version 2
 app "demo" version="0.1" {

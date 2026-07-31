@@ -131,6 +131,12 @@ mutex-backed adapter is available when an existing generic provider uses
 mutable methods; providers with their own internal synchronization can
 implement the JSON boundary directly.
 
+Resource names are non-empty, trimmed, control-free single path segments;
+`.`, `..`, `/`, and `\\` are invalid. Provider schemas returned through an
+HTTP adapter must use the registered resource name and unique, non-empty field
+names. Registration is exact-name and duplicate registration is a conflict; it
+never replaces an existing provider.
+
 ### `update` uses merge-patch semantics
 
 `update(id, patch)` accepts an object-shaped merge patch. Object members are
@@ -152,7 +158,8 @@ The URL spelling is `q`, `sort`, `offset`, and `limit`. Sort is a comma-separate
 list of field names; `-field` and `field:desc` sort descending, while an
 unprefixed field or `field:asc` sorts ascending. Unknown query keys are ignored
 for forward compatibility. A zero limit normalizes to one and a limit above
-500 normalizes to 500.
+500 normalizes to 500. Encoded query strings are limited to 16 KiB; malformed
+encoding and invalid pagination values are validation failures.
 
 ### Errors are structured
 
@@ -184,9 +191,14 @@ shared by providers opened for the same canonical path. A write serializes the
 complete read-modify-write sequence, writes a temporary file in the CSV's
 directory, flushes and syncs it, optionally copies retained backups named
 `file.csv.bak.N`, and atomically renames the temporary file over the original.
+The containing directory is synced after replacement. Backup destinations must
+be regular files or removable symlinks, so a backup cannot redirect a write to
+another target. Failed writes remove only their temporary file and leave the
+previous primary and completed backup generations recoverable.
 CSV has a fixed column set, so a merge-patch `null` removes a JSON member and
 is persisted as an empty CSV cell; the provider returns the normalized
-fixed-column record. Records and values are never logged.
+fixed-column record. Records and values are never logged or echoed in storage
+error details.
 
 ## Build output
 
@@ -227,7 +239,9 @@ resources {
 ```
 
 CSV paths, schema paths, definition paths, and build output paths are
-project-relative and reject absolute paths and `..` components. The CLI checks
+project-relative and reject absolute paths and `..` components. Existing path
+components are canonicalized, so symlinks that resolve outside the project are
+also rejected, including symlinked bundle asset directories. The CLI checks
 the MVP JSON Schema subset (`object`, required string names, property types,
 enum, and `email`/`date`/`date-time` formats), and checks configured CSV rows
 without printing record values. A resource must expose every capability named
@@ -288,10 +302,20 @@ includes a request ID in both the body and the `x-request-id` response header.
 
 An incoming `x-request-id` is reused only when it is 1–128 ASCII
 alphanumeric/`-_.:` characters; otherwise the server generates a
-process-local deterministic ID. The HTTP layer does not log records or
-request bodies. CORS is disabled by default and this increment does not add an
-auth layer. An attached `StaticBundle` serves its index and named assets for
-non-API GETs, with the index as the fallback for application routes.
+process-local deterministic ID. JSON bodies are capped at 2 MiB and encoded
+list queries at 16 KiB. API path segments are percent-decoded exactly once;
+malformed encodings, control characters, reserved dot segments, and unsafe
+resource names are rejected, while encoded item IDs remain one ID segment.
+Unsupported methods and denied capabilities are 405. Unstructured adapter
+failures map 400/404/405/409/5xx to the corresponding contract categories.
+Internal and unavailable errors are returned with generic messages and without
+storage details. The HTTP layer does not log records or request bodies. CORS is
+disabled by default and this increment does not add an auth layer. An attached
+`StaticBundle` serves its index and named assets for non-API GETs, with the
+index as the fallback only for extensionless application routes; missing
+extension-bearing assets are 404. Asset paths cannot contain traversal or
+backslashes, and served assets receive content types derived from their safe
+extensions.
 
 ## Host/runtime adapters
 
@@ -317,12 +341,14 @@ invoke(action: string, input: JSON): JSON
 Methods may return a value or a promise so an embedded host can use either a
 local provider or an existing client. `ResourceClient` implements the HTTP
 provider facade. It accepts only a relative API root, validates encoded
-resource/item/action paths, uses `credentials: "same-origin"`, sends a safe
-`x-request-id`, and converts `{error:{code,message,fields,request_id}}` into a
-structured `ResourceError`. It does not accept an authorization-token option
-and never logs bodies, records, cookies, or credentials. `hasCapability` and
-`assertCapability` are available to injected providers and the HTTP facade;
-the facade checks the provider schema before each operation.
+resource/item/action paths and bounded queries, uses
+`credentials: "same-origin"`, sends a safe `x-request-id`, validates returned schema and
+page/result shapes, and converts `{error:{code,message,fields,request_id}}` into
+a structured `ResourceError`. Unsafe response request IDs are discarded. It
+does not accept an authorization-token option and never logs bodies, records,
+cookies, or credentials. `hasCapability` and `assertCapability` are available
+to injected providers and the HTTP facade; the facade checks the provider
+schema before each operation.
 
 `applyMergePatch` follows RFC 7396 and never mutates its inputs. Resource
 updates require an object patch; object members merge recursively, `null`
@@ -348,7 +374,9 @@ list, get, create, merge-patch update, delete, and invoke routes. It parses
 maximum 500), preserves structured error codes/fields, validates JSON object
 create/update values, and propagates a safe `x-request-id`. Sync resources and
 awaitable method results are both accepted. Unexpected provider exceptions are
-returned as a generic `internal` error without logging request data.
+returned as a generic `internal` error without logging request data. It rejects
+malformed/oversized query and body input, decodes path segments once, validates
+provider schema/result shapes, and does not echo internal provider messages.
 
 The core adapter does not know about auth. `ikashita.fastapi.create_fastapi_app`
 is an optional bridge that imports FastAPI only when called; deployment hosts

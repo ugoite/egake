@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 axum = "0.8"
 ikashita-resource = { path = "../ikashita-resource" }
+percent-encoding = "2.3"
 serde_json = "1.0"
 tokio = { version = "1.43", features = ["net", "rt-multi-thread"] }
 

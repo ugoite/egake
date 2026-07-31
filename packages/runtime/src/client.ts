@@ -12,11 +12,18 @@ import {
   Sort,
   StructuredError,
 } from "./types.ts";
-import { isJsonObject, requireObjectPatch } from "./merge-patch.ts";
+import {
+  isJsonObject,
+  isJsonValue,
+  requireObjectPatch,
+} from "./merge-patch.ts";
 
 const DEFAULT_BASE_PATH = "/api/ikashita/v1";
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 500;
+const MAX_QUERY_BYTES = 16 * 1024;
+const MAX_JSON_BODY = 2 * 1024 * 1024;
+const CAPABILITY_SET = new Set<Capability>(CAPABILITIES);
 let requestCounter = 0;
 
 /** Validates the request ID format accepted by the server adapter. */
@@ -71,6 +78,12 @@ function normalizeLimit(value: number): number {
 }
 
 function normalizeQuery(query: ListQuery): ListQuery {
+  if (typeof query !== "object" || query === null) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: "list query must be an object",
+    });
+  }
   if (!Number.isInteger(query.offset) || query.offset < 0) {
     throw new ResourceError({
       code: "validation_failed",
@@ -78,9 +91,45 @@ function normalizeQuery(query: ListQuery): ListQuery {
       fields: { offset: "must be a non-negative integer" },
     });
   }
+  if (query.q !== undefined && typeof query.q !== "string") {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: "query q must be a string",
+      fields: { q: "must be a string" },
+    });
+  }
+  if (!Array.isArray(query.sort)) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: "query sort must be an array",
+      fields: { sort: "must be an array" },
+    });
+  }
+  const sort = query.sort.map((item) => {
+    if (
+      typeof item !== "object" || item === null ||
+      typeof (item as Sort).field !== "string" ||
+      !((item as Sort).direction === "asc" ||
+        (item as Sort).direction === "desc") ||
+      (item as Sort).field.trim() === "" ||
+      (item as Sort).field.split("").some((char) => char.charCodeAt(0) < 0x20)
+    ) {
+      throw new ResourceError({
+        code: "validation_failed",
+        message: "query sort contains an invalid field",
+        fields: {
+          sort: "fields must be non-empty strings with asc/desc directions",
+        },
+      });
+    }
+    return {
+      field: (item as Sort).field,
+      direction: (item as Sort).direction,
+    };
+  });
   return {
     q: query.q === "" ? undefined : query.q,
-    sort: query.sort ?? [],
+    sort,
     offset: query.offset,
     limit: normalizeLimit(query.limit),
   };
@@ -104,26 +153,37 @@ function errorFromBody(
   if (typeof candidate === "object" && candidate !== null) {
     const error = candidate as Partial<StructuredError>;
     if (typeof error.code === "string" && typeof error.message === "string") {
+      const fields = error.fields && typeof error.fields === "object"
+        ? Object.fromEntries(
+          Object.entries(error.fields).filter(([, value]) =>
+            typeof value === "string"
+          ),
+        )
+        : {};
+      const bodyRequestId = typeof error.request_id === "string" &&
+          isSafeRequestId(error.request_id)
+        ? error.request_id
+        : requestId;
       return new ResourceError(
         {
           code: error.code,
           message: error.message,
-          fields: error.fields && typeof error.fields === "object"
-            ? error.fields
-            : {},
-          request_id: typeof error.request_id === "string"
-            ? error.request_id
-            : requestId,
+          fields,
+          request_id: bodyRequestId,
         },
         { status },
       );
     }
   }
-  const code = status === 404
-    ? "not_found"
-    : status === 405
+  const code = status === 400 || status === 422
+    ? "validation_failed"
+    : status === 401 || status === 403 || status === 405
     ? "capability_denied"
-    : status >= 500
+    : status === 404
+    ? "not_found"
+    : status === 409
+    ? "conflict"
+    : status === 502 || status === 503 || status === 504 || status === 429
     ? "unavailable"
     : "internal";
   return new ResourceError({
@@ -134,7 +194,12 @@ function errorFromBody(
 }
 
 function resourceName(value: string): string {
-  if (!value || value.includes("/")) {
+  if (
+    typeof value !== "string" || !value || value.trim() !== value ||
+    value === "." || value === ".." ||
+    value.includes("/") || value.includes("\\") ||
+    value.split("").some((char) => char.charCodeAt(0) < 0x20)
+  ) {
     throw new ResourceError({
       code: "validation_failed",
       message: "resource name is invalid",
@@ -144,13 +209,181 @@ function resourceName(value: string): string {
 }
 
 function pathSegment(value: string, label: string): string {
-  if (!value) {
+  if (
+    typeof value !== "string" || !value || value === "." || value === ".." ||
+    value.includes("\\") ||
+    value.split("").some((char) => char.charCodeAt(0) < 0x20)
+  ) {
     throw new ResourceError({
       code: "validation_failed",
       message: `${label} is required`,
     });
   }
-  return encodeURIComponent(value);
+  return encodeURIComponent(value).replaceAll(".", "%2E");
+}
+
+function validateRelativePath(path: string, label: string): void {
+  if (
+    typeof path !== "string" || !path.startsWith("/") ||
+    path.startsWith("//") || path.includes("\\") ||
+    /^[a-z][a-z\d+.-]*:/i.test(path) || path.includes("#")
+  ) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: `${label} must be a same-origin relative path`,
+    });
+  }
+  const pathname = path.split("?", 1)[0];
+  if (pathname.includes("//")) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: `${label} contains an empty path segment`,
+    });
+  }
+  for (const rawSegment of pathname.split("/")) {
+    let segment: string;
+    try {
+      segment = decodeURIComponent(rawSegment);
+    } catch {
+      throw new ResourceError({
+        code: "validation_failed",
+        message: `${label} contains invalid URL encoding`,
+      });
+    }
+    if (
+      segment === "." || segment === ".." || segment.includes("\\") ||
+      segment.split("").some((char) => char.charCodeAt(0) < 0x20)
+    ) {
+      throw new ResourceError({
+        code: "validation_failed",
+        message: `${label} contains a reserved path segment`,
+      });
+    }
+  }
+}
+
+function parseResourceSchema(
+  value: unknown,
+  expectedName: string,
+): ResourceSchema {
+  if (
+    !isJsonObject(value) || typeof value.name !== "string" ||
+    value.name !== expectedName || !Array.isArray(value.fields) ||
+    !Array.isArray(value.capabilities)
+  ) {
+    throw new ResourceError({
+      code: "internal",
+      message: "resource returned an invalid schema",
+    });
+  }
+  const fields = value.fields.map((field) => {
+    if (
+      !isJsonObject(field) || typeof field.name !== "string" ||
+      field.name.trim() === "" ||
+      !["text", "number", "boolean", "date", "json"].includes(
+        String(field.field_type),
+      ) ||
+      typeof field.required !== "boolean"
+    ) {
+      throw new ResourceError({
+        code: "internal",
+        message: "resource returned an invalid schema",
+      });
+    }
+    return {
+      name: field.name,
+      field_type: field
+        .field_type as ResourceSchema["fields"][number]["field_type"],
+      required: field.required,
+    };
+  });
+  if (new Set(fields.map((field) => field.name)).size !== fields.length) {
+    throw new ResourceError({
+      code: "internal",
+      message: "resource returned an invalid schema",
+    });
+  }
+  const capabilities = value.capabilities.map((capability) => {
+    if (
+      typeof capability !== "string" ||
+      !CAPABILITY_SET.has(capability as Capability)
+    ) {
+      throw new ResourceError({
+        code: "internal",
+        message: "resource returned an invalid schema",
+      });
+    }
+    return capability as Capability;
+  });
+  if (new Set(capabilities).size !== capabilities.length) {
+    throw new ResourceError({
+      code: "internal",
+      message: "resource returned an invalid schema",
+    });
+  }
+  return {
+    name: value.name,
+    fields,
+    capabilities,
+  };
+}
+
+function objectResponse<T extends JsonObject>(
+  value: unknown,
+  operation: string,
+): T {
+  if (!isJsonObject(value) || !isJsonValue(value)) {
+    throw new ResourceError({
+      code: "internal",
+      message: `resource returned an invalid ${operation} result`,
+    });
+  }
+  return value as T;
+}
+
+function pageResponse<T extends JsonObject>(value: unknown): ResourcePage<T> {
+  if (
+    !isJsonObject(value) || !Array.isArray(value.items) ||
+    typeof value.total !== "number" || !Number.isInteger(value.total) ||
+    value.total < 0 ||
+    typeof value.offset !== "number" || !Number.isInteger(value.offset) ||
+    value.offset < 0 ||
+    typeof value.limit !== "number" || !Number.isInteger(value.limit) ||
+    value.limit < 1 ||
+    value.limit > MAX_LIMIT ||
+    !value.items.every((item) => isJsonObject(item) && isJsonValue(item))
+  ) {
+    throw new ResourceError({
+      code: "internal",
+      message: "resource returned an invalid list page",
+    });
+  }
+  return value as unknown as ResourcePage<T>;
+}
+
+function jsonBody(value: JsonValue, label: string): string {
+  if (!isJsonValue(value)) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: `${label} must contain only JSON data`,
+    });
+  }
+  let body: string;
+  try {
+    body = JSON.stringify(value);
+  } catch (cause) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: `${label} must contain only JSON data`,
+    }, { cause });
+  }
+  if (new TextEncoder().encode(body).byteLength > MAX_JSON_BODY) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: "request JSON body is too large",
+    });
+  }
+  return body;
 }
 
 /** A browser-safe HTTP client for the documented same-origin JSON API. */
@@ -162,13 +395,11 @@ export class ResourceClient {
 
   constructor(options: ResourceClientOptions = {}) {
     const basePath = options.basePath ?? DEFAULT_BASE_PATH;
-    if (
-      !basePath.startsWith("/") || basePath.startsWith("//") ||
-      /^[a-z][a-z\d+.-]*:/i.test(basePath)
-    ) {
+    validateRelativePath(basePath, "basePath");
+    if (basePath.includes("?")) {
       throw new ResourceError({
         code: "validation_failed",
-        message: "basePath must be a same-origin relative path",
+        message: "basePath must not contain a query string",
       });
     }
     this.basePath = basePath.replace(/\/+$/, "");
@@ -178,7 +409,7 @@ export class ResourceClient {
         ? globalThis.location.origin
         : undefined);
     this.requestIdOption = options.requestId;
-    if (this.origin) {
+    if (this.origin !== undefined) {
       try {
         if (
           new URL(this.basePath, this.origin).origin !==
@@ -205,16 +436,14 @@ export class ResourceClient {
 
   /** Performs one same-origin JSON request. This is public for embedded adapters. */
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    if (
-      !path.startsWith("/") || path.startsWith("//") ||
-      /^[a-z][a-z\d+.-]*:/i.test(path)
-    ) {
+    validateRelativePath(path, "request path");
+    const relativeUrl = `${this.basePath}${path}`;
+    if (relativeUrl.length > MAX_QUERY_BYTES * 2) {
       throw new ResourceError({
         code: "validation_failed",
-        message: "request path must be same-origin relative",
+        message: "request path is too large",
       });
     }
-    const relativeUrl = `${this.basePath}${path}`;
     if (
       this.origin &&
       new URL(relativeUrl, this.origin).origin !== new URL(this.origin).origin
@@ -227,16 +456,30 @@ export class ResourceClient {
     const url = this.origin
       ? new URL(relativeUrl, this.origin).toString()
       : relativeUrl;
-    const supplied = typeof this.requestIdOption === "function"
-      ? this.requestIdOption()
-      : this.requestIdOption;
-    const requestId = supplied && isSafeRequestId(supplied)
+    let supplied: unknown;
+    try {
+      supplied = typeof this.requestIdOption === "function"
+        ? this.requestIdOption()
+        : this.requestIdOption;
+    } catch {
+      supplied = undefined;
+    }
+    const requestId = typeof supplied === "string" && isSafeRequestId(supplied)
       ? supplied
       : makeRequestId();
     const headers = new Headers(init.headers);
     headers.set("accept", "application/json");
     headers.set("x-request-id", requestId);
     if (init.body !== undefined) {
+      if (
+        typeof init.body === "string" &&
+        new TextEncoder().encode(init.body).byteLength > MAX_JSON_BODY
+      ) {
+        throw new ResourceError({
+          code: "validation_failed",
+          message: "request JSON body is too large",
+        });
+      }
       headers.set("content-type", "application/json");
     }
     let response: Response;
@@ -253,8 +496,21 @@ export class ResourceClient {
         request_id: requestId,
       }, { cause });
     }
-    const responseRequestId = response.headers.get("x-request-id") ?? requestId;
-    const text = await response.text();
+    const responseHeaderRequestId = response.headers.get("x-request-id");
+    const responseRequestId = typeof responseHeaderRequestId === "string" &&
+        isSafeRequestId(responseHeaderRequestId)
+      ? responseHeaderRequestId
+      : requestId;
+    let text: string;
+    try {
+      text = await response.text();
+    } catch (cause) {
+      throw new ResourceError({
+        code: "unavailable",
+        message: "resource response was unavailable",
+        request_id: responseRequestId,
+      }, { cause });
+    }
     let value: unknown = null;
     if (text) {
       try {
@@ -278,7 +534,9 @@ export class ResourceClient {
 
   /** Builds an encoded resource path without accepting slash-bearing names. */
   resourcePath(resource: string, suffix = ""): string {
-    return `/resources/${resourceName(resource)}${suffix}`;
+    const path = `/resources/${resourceName(resource)}${suffix}`;
+    validateRelativePath(path, "resource path");
+    return path;
   }
 }
 
@@ -291,9 +549,9 @@ class RemoteResourceProvider<T extends JsonObject>
   ) {}
 
   schema(): Promise<ResourceSchema> {
-    return this.schemaCache ??= this.client.request<ResourceSchema>(
+    return this.schemaCache ??= this.client.request<unknown>(
       this.client.resourcePath(this.name, "/schema"),
-    );
+    ).then((value) => parseResourceSchema(value, this.name));
   }
 
   private async require(capability: Capability): Promise<void> {
@@ -308,42 +566,55 @@ class RemoteResourceProvider<T extends JsonObject>
     if (normalized.sort.length) params.set("sort", sortQuery(normalized.sort));
     params.set("offset", String(normalized.offset));
     params.set("limit", String(normalized.limit));
-    return await this.client.request<ResourcePage<T>>(
+    if (params.toString().length > MAX_QUERY_BYTES) {
+      throw new ResourceError({
+        code: "validation_failed",
+        message: "list query is too large",
+      });
+    }
+    const page = await this.client.request<unknown>(
       `${this.client.resourcePath(this.name)}?${params.toString()}`,
     );
+    return pageResponse<T>(page);
   }
 
   async get(id: string): Promise<T> {
     await this.require("get");
-    return await this.client.request<T>(
+    const value = await this.client.request<unknown>(
       this.client.resourcePath(this.name, `/items/${pathSegment(id, "id")}`),
     );
+    return objectResponse<T>(value, "get");
   }
 
   async create(value: T): Promise<T> {
     await this.require("create");
-    if (!isJsonObject(value)) {
+    if (!isJsonObject(value) || !isJsonValue(value)) {
       throw new ResourceError({
         code: "validation_failed",
         message: "resource value must be a JSON object",
       });
     }
-    return await this.client.request<T>(this.client.resourcePath(this.name), {
-      method: "POST",
-      body: JSON.stringify(value),
-    });
+    const result = await this.client.request<unknown>(
+      this.client.resourcePath(this.name),
+      {
+        method: "POST",
+        body: jsonBody(value, "resource value"),
+      },
+    );
+    return objectResponse<T>(result, "create");
   }
 
   async update(id: string, mergePatch: JsonObject): Promise<T> {
     await this.require("update");
     requireObjectPatch(mergePatch);
-    return await this.client.request<T>(
+    const value = await this.client.request<unknown>(
       this.client.resourcePath(this.name, `/items/${pathSegment(id, "id")}`),
       {
         method: "PATCH",
-        body: JSON.stringify(mergePatch),
+        body: jsonBody(mergePatch, "resource update patch"),
       },
     );
+    return objectResponse<T>(value, "update");
   }
 
   async delete(id: string): Promise<void> {
@@ -356,16 +627,29 @@ class RemoteResourceProvider<T extends JsonObject>
 
   async invoke(action: string, input: JsonValue): Promise<JsonValue> {
     await this.require("invoke");
-    return await this.client.request<JsonValue>(
+    if (!isJsonValue(input)) {
+      throw new ResourceError({
+        code: "validation_failed",
+        message: "action input must be JSON",
+      });
+    }
+    const result = await this.client.request<JsonValue>(
       this.client.resourcePath(
         this.name,
         `/actions/${pathSegment(action, "action")}`,
       ),
       {
         method: "POST",
-        body: JSON.stringify(input),
+        body: jsonBody(input, "action input"),
       },
     );
+    if (!isJsonValue(result)) {
+      throw new ResourceError({
+        code: "internal",
+        message: "resource returned an invalid action result",
+      });
+    }
+    return result;
   }
 }
 

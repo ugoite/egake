@@ -163,11 +163,17 @@ impl CsvResourceProvider {
         }
         if let Some(key_index) = self.headers.iter().position(|header| header == &self.key) {
             validate_unique_keys(&current_records, key_index, &self.key)?;
+            validate_unique_value_keys(values, &self.key)?;
         }
         let temp_path = temporary_path(&self.path);
+        let permissions = fs::metadata(&self.path)
+            .map_err(|error| io_error("inspect CSV permissions", error))?
+            .permissions();
         let write_result = write_csv(&temp_path, &self.headers, values)
+            .and_then(|()| fs::set_permissions(&temp_path, permissions))
             .and_then(|()| retain_backups(&self.path, self.backup_count))
-            .and_then(|()| fs::rename(&temp_path, &self.path));
+            .and_then(|()| fs::rename(&temp_path, &self.path))
+            .and_then(|()| sync_parent_directory(&self.path));
         if write_result.is_err() {
             let _ = fs::remove_file(&temp_path);
         }
@@ -240,7 +246,7 @@ impl JsonResourceProvider for CsvResourceProvider {
                 ResourceErrorKind::Conflict,
                 "resource key already exists",
             )
-            .with_field(&self.key, key));
+            .with_field(&self.key, "must be unique"));
         }
         let mut normalized = Map::new();
         for header in &self.headers {
@@ -395,8 +401,9 @@ fn read_rows(path: &Path) -> ResourceResult<(Vec<String>, Vec<StringRecord>)> {
 }
 
 fn csv_error(operation: &str, error: csv::Error) -> ResourceError {
+    let _ = error;
     ResourceError::new(ResourceErrorKind::Validation, operation)
-        .with_field("csv", error.to_string())
+        .with_field("csv", "invalid CSV structure")
 }
 
 fn validate_unique_keys(
@@ -419,7 +426,22 @@ fn validate_unique_keys(
                 ResourceErrorKind::Conflict,
                 "CSV contains duplicate primary keys",
             )
-            .with_field(key, value));
+            .with_field(key, "must be unique"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_unique_value_keys(values: &[Map<String, Value>], key: &str) -> ResourceResult<()> {
+    let mut keys = std::collections::BTreeSet::new();
+    for value in values {
+        let key_value = value.get(key).and_then(Value::as_str).filter(|value| !value.is_empty());
+        if key_value.is_none() || !keys.insert(key_value) {
+            return Err(ResourceError::new(
+                ResourceErrorKind::Conflict,
+                "CSV values contain duplicate or empty primary keys",
+            )
+            .with_field(key, "must be unique and non-empty"));
         }
     }
     Ok(())
@@ -529,11 +551,31 @@ fn retain_backups(path: &Path, backup_count: u8) -> io::Result<()> {
         let old = backup_path(path, index);
         let new = backup_path(path, index + 1);
         if old.exists() {
+            remove_backup_destination(&new)?;
             fs::rename(old, new)?;
         }
     }
+    remove_backup_destination(&backup_path(path, 1))?;
     fs::copy(path, backup_path(path, 1))?;
     Ok(())
+}
+
+fn remove_backup_destination(path: &Path) -> io::Result<()> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    if metadata.file_type().is_symlink() || metadata.is_file() {
+        fs::remove_file(path)
+    } else {
+        Err(io::Error::new(io::ErrorKind::AlreadyExists, "CSV backup path is not a regular file"))
+    }
+}
+
+fn sync_parent_directory(path: &Path) -> io::Result<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    File::open(parent)?.sync_all()
 }
 
 fn backup_path(path: &Path, index: u8) -> PathBuf {
@@ -542,7 +584,7 @@ fn backup_path(path: &Path, index: u8) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{fs, sync::Arc, thread};
 
     use ikashita_resource::{Capability, JsonResourceProvider, ListQuery, ResourceErrorKind, Sort};
     use tempfile::tempdir;
@@ -620,5 +662,90 @@ mod tests {
 
         let config = CsvResourceConfig::new("../records.csv");
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn concurrent_providers_share_the_path_lock() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("concurrent.csv");
+        fs::write(&path, "id,name\n0,Start\n").expect("CSV fixture");
+        let first = Arc::new(
+            CsvResourceProvider::new(CsvResourceConfig::new(&path).with_writable(true))
+                .expect("provider"),
+        );
+        let second = Arc::new(
+            CsvResourceProvider::new(CsvResourceConfig::new(&path).with_writable(true))
+                .expect("provider"),
+        );
+        let handles = [first, second].into_iter().enumerate().map(|(offset, provider)| {
+            thread::spawn(move || {
+                for index in 0..8 {
+                    let id = (offset * 8 + index + 1).to_string();
+                    provider
+                        .create(serde_json::json!({"id": id, "name": "worker"}))
+                        .expect("create");
+                }
+            })
+        });
+        for handle in handles {
+            handle.join().expect("worker");
+        }
+        let reader = CsvResourceProvider::new(CsvResourceConfig::new(&path)).expect("reader");
+        let page = JsonResourceProvider::list(&reader, &ListQuery::new().with_pagination(0, 500))
+            .expect("list");
+        assert_eq!(page.total, 17);
+    }
+
+    #[test]
+    fn backup_rotation_preserves_recoverable_generations() {
+        let (directory, provider) = provider("id,name\n1,Ada\n", true);
+        provider.update("1", serde_json::json!({"name": "Grace"})).expect("update");
+        provider.update("1", serde_json::json!({"name": "Katherine"})).expect("update");
+        assert_eq!(
+            fs::read_to_string(directory.path().join("contacts.csv.bak.1")).expect("backup"),
+            "id,name\n1,Grace\n"
+        );
+        assert_eq!(
+            fs::read_to_string(directory.path().join("contacts.csv.bak.2")).expect("backup"),
+            "id,name\n1,Ada\n"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn backup_symlinks_cannot_redirect_a_write() {
+        use std::os::unix::fs::symlink;
+
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("contacts.csv");
+        let outside = directory.path().join("outside.txt");
+        fs::write(&path, "id,name\n1,Ada\n").expect("CSV fixture");
+        fs::write(&outside, "do not overwrite").expect("outside fixture");
+        symlink(&outside, directory.path().join("contacts.csv.bak.1")).expect("symlink");
+        let provider = CsvResourceProvider::new(
+            CsvResourceConfig::new(&path).with_writable(true).with_backup_count(1),
+        )
+        .expect("provider");
+        provider.update("1", serde_json::json!({"name": "Grace"})).expect("update");
+        assert_eq!(fs::read_to_string(outside).expect("outside"), "do not overwrite");
+        assert_eq!(
+            fs::read_to_string(directory.path().join("contacts.csv.bak.1")).expect("backup"),
+            "id,name\n1,Ada\n"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn replacement_preserves_csv_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("contacts.csv");
+        fs::write(&path, "id,name\n1,Ada\n").expect("CSV fixture");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("permissions");
+        let provider = CsvResourceProvider::new(CsvResourceConfig::new(&path).with_writable(true))
+            .expect("provider");
+        provider.update("1", serde_json::json!({"name": "Grace"})).expect("update");
+        assert_eq!(fs::metadata(path).expect("metadata").permissions().mode() & 0o777, 0o600);
     }
 }

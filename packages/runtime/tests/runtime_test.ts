@@ -166,3 +166,127 @@ Deno.test("capability checks preserve structured errors", () => {
   }
   throw new Error("missing capability was accepted");
 });
+
+Deno.test("client rejects traversal, malformed schemas, oversized queries, and unsafe response IDs", async () => {
+  let schemaCalls = 0;
+  const client = new ResourceClient({
+    fetch: async (_input, init) => {
+      schemaCalls += 1;
+      if (String(_input).endsWith("/schema")) {
+        return new Response(
+          JSON.stringify({
+            name: "contacts",
+            fields: [],
+            capabilities: ["schema", "list", "get"],
+          }),
+          { status: 200 },
+        );
+      }
+      assert(
+        (init?.headers as Headers).get("x-request-id") !== undefined,
+        "request ID missing",
+      );
+      return new Response("not json", {
+        status: 400,
+        headers: { "x-request-id": "unsafe request id" },
+      });
+    },
+  });
+  const provider = client.resource("contacts");
+  try {
+    await provider.list({
+      sort: [{ field: "", direction: "asc" }],
+      offset: 0,
+      limit: 50,
+    });
+  } catch (error) {
+    assert(error instanceof ResourceError, "invalid sort should be structured");
+    assertEquals(error.code, "validation_failed");
+  }
+  assertEquals(schemaCalls, 1);
+
+  try {
+    await provider.list({
+      sort: [],
+      offset: 0,
+      limit: 50,
+      q: "x".repeat(16 * 1024),
+    });
+  } catch (error) {
+    assert(
+      error instanceof ResourceError,
+      "oversized query should be structured",
+    );
+    assertEquals(error.code, "validation_failed");
+  }
+
+  try {
+    await provider.get("..");
+  } catch (error) {
+    assert(error instanceof ResourceError, "traversal ID should be structured");
+    assertEquals(error.code, "validation_failed");
+  }
+
+  try {
+    await client.request("/resources/contacts", {
+      method: "POST",
+      body: "x".repeat(2 * 1024 * 1024 + 1),
+    });
+  } catch (error) {
+    assert(
+      error instanceof ResourceError,
+      "oversized body should be structured",
+    );
+    assertEquals(error.code, "validation_failed");
+  }
+
+  try {
+    new ResourceClient({ basePath: "/api/../outside" });
+  } catch (error) {
+    assert(
+      error instanceof ResourceError,
+      "unsafe base path should be structured",
+    );
+    return;
+  }
+  throw new Error("unsafe base path was accepted");
+});
+
+Deno.test("client validates remote schema and maps unstructured HTTP errors", async () => {
+  const client = new ResourceClient({
+    fetch: async (input) => {
+      if (String(input).endsWith("/schema")) {
+        return new Response(
+          JSON.stringify({
+            name: "different-resource",
+            fields: [],
+            capabilities: ["schema"],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("not json", { status: 400 });
+    },
+  });
+  try {
+    await client.resource("contacts").schema();
+  } catch (error) {
+    assert(
+      error instanceof ResourceError,
+      "schema mismatch should be structured",
+    );
+    assertEquals(error.code, "internal");
+  }
+
+  const rawClient = new ResourceClient({
+    fetch: async () => new Response("not json", { status: 400 }),
+  });
+  try {
+    await rawClient.request("/resources/contacts");
+  } catch (error) {
+    assert(error instanceof ResourceError, "HTTP failure should be structured");
+    assertEquals(error.code, "validation_failed");
+    return;
+  }
+  throw new Error("HTTP failure was accepted");
+});
