@@ -1,0 +1,10 @@
+[package]
+name = "ikashita-server"
+description = "Static-bundle and server configuration primitives for ikashita"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true

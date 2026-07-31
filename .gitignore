@@ -1,0 +1,19 @@
+# Rust build output
+/target/
+/target/rust/
+
+# Generated application output
+/dist/
+/coverage/
+*.profraw
+
+# Local tooling and environment files
+/.mise/
+/.direnv/
+.env
+.env.*
+
+# Editor and operating-system files
+.DS_Store
+*.swp
+*.swo

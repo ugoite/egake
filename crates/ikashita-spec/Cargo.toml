@@ -1,0 +1,10 @@
+[package]
+name = "ikashita-spec"
+description = "Versioned KDL Application Profile metadata for ikashita"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
