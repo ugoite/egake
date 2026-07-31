@@ -277,13 +277,18 @@ function parseResourceSchema(
     });
   }
   const fields = value.fields.map((field) => {
+    const enumValues = isJsonObject(field) ? field.enum : undefined;
+    const format = isJsonObject(field) ? field.format : undefined;
     if (
       !isJsonObject(field) || typeof field.name !== "string" ||
       field.name.trim() === "" ||
-      !["text", "number", "boolean", "date", "json"].includes(
+      !["text", "number", "integer", "boolean", "date", "json"].includes(
         String(field.field_type),
       ) ||
-      typeof field.required !== "boolean"
+      typeof field.required !== "boolean" ||
+      (enumValues !== undefined &&
+        (!Array.isArray(enumValues) || !enumValues.every(isJsonValue))) ||
+      (format !== undefined && typeof format !== "string")
     ) {
       throw new ResourceError({
         code: "internal",
@@ -295,6 +300,10 @@ function parseResourceSchema(
       field_type: field
         .field_type as ResourceSchema["fields"][number]["field_type"],
       required: field.required,
+      ...(enumValues === undefined
+        ? {}
+        : { enum: enumValues as readonly JsonValue[] }),
+      ...(format === undefined ? {} : { format }),
     };
   });
   if (new Set(fields.map((field) => field.name)).size !== fields.length) {

@@ -115,6 +115,81 @@ Deno.test("client delegates provider-defined actions as JSON", async () => {
   assertEquals(calls[1].init?.body, JSON.stringify({ source: "test" }));
 });
 
+Deno.test("client accepts integer fields and preserves schema metadata", async () => {
+  const client = new ResourceClient({
+    fetch: async () =>
+      new Response(
+        JSON.stringify({
+          name: "metrics",
+          fields: [
+            {
+              name: "count",
+              field_type: "integer",
+              required: true,
+              enum: [0, 1, 2],
+            },
+            {
+              name: "updated_at",
+              field_type: "date",
+              required: false,
+              format: "date-time",
+            },
+          ],
+          capabilities: ["schema"],
+        }),
+        { status: 200 },
+      ),
+  });
+
+  const schema = await client.resource("metrics").schema();
+  assertEquals(schema.fields, [
+    {
+      name: "count",
+      field_type: "integer",
+      required: true,
+      enum: [0, 1, 2],
+    },
+    {
+      name: "updated_at",
+      field_type: "date",
+      required: false,
+      format: "date-time",
+    },
+  ]);
+});
+
+Deno.test("client rejects malformed schema metadata", async () => {
+  for (
+    const field of [
+      { name: "status", field_type: "text", required: false, enum: "active" },
+      { name: "status", field_type: "text", required: false, format: 42 },
+    ]
+  ) {
+    const client = new ResourceClient({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            name: "contacts",
+            fields: [field],
+            capabilities: ["schema"],
+          }),
+          { status: 200 },
+        ),
+    });
+    try {
+      await client.resource("contacts").schema();
+    } catch (error) {
+      assert(
+        error instanceof ResourceError,
+        "invalid schema should be structured",
+      );
+      assertEquals(error.code, "internal");
+      continue;
+    }
+    throw new Error("malformed schema metadata was accepted");
+  }
+});
+
 async function assertRejectsCode(
   operation: () => Promise<unknown>,
   code: string,

@@ -354,7 +354,7 @@ def _validate_schema(name: str, schema: Any) -> None:
     if not isinstance(schema, ResourceSchema) or schema.name != name:
         raise ResourceError("internal", "resource returned an invalid schema")
     field_names = set()
-    allowed_field_types = {"text", "number", "boolean", "date", "json"}
+    allowed_field_types = {"text", "number", "integer", "boolean", "date", "json"}
     for field in schema.fields:
         if not isinstance(field, FieldSchema):
             raise ResourceError("internal", "resource returned an invalid schema")
@@ -364,6 +364,14 @@ def _validate_schema(name: str, schema: Any) -> None:
             or field.name in field_names
             or field.field_type not in allowed_field_types
             or not isinstance(field.required, bool)
+            or (
+                field.enum_values is not None
+                and (
+                    not isinstance(field.enum_values, (tuple, list))
+                    or not all(_is_json_value(value) for value in field.enum_values)
+                )
+            )
+            or (field.format is not None and not isinstance(field.format, str))
         ):
             raise ResourceError("internal", "resource returned an invalid schema")
         field_names.add(field.name)

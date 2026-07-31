@@ -27,6 +27,7 @@ class MemoryResource(ResourceBase):
                 FieldSchema("name", "text"),
                 FieldSchema("status", "text", False, ("active", "paused")),
                 FieldSchema("email", "text", False, None, "email"),
+                FieldSchema("count", "integer", False, (0, 1, 2)),
             ),
             CAPABILITIES,
         )
@@ -91,6 +92,12 @@ class ResourceASGITest(unittest.TestCase):
         self.assertEqual(schema["name"], "contacts")
         self.assertEqual(schema["fields"][2]["enum"], ["active", "paused"])
         self.assertEqual(schema["fields"][3]["format"], "email")
+        self.assertEqual(schema["fields"][4], {
+            "name": "count",
+            "field_type": "integer",
+            "required": False,
+            "enum": [0, 1, 2],
+        })
 
         status, page, _ = call(self.app, "GET", "/api/ikashita/v1/resources/contacts")
         self.assertEqual(status, 200)
@@ -182,3 +189,19 @@ class ResourceASGITest(unittest.TestCase):
         )
         self.assertEqual((status, error["error"]["code"]), (500, "internal"))
         self.assertEqual(error["error"]["message"], "internal server error")
+
+    def test_invalid_schema_metadata_is_rejected(self):
+        for field in (
+            FieldSchema("status", "text", False, "active"),  # type: ignore[arg-type]
+            FieldSchema("status", "text", False, ("active",), 42),  # type: ignore[arg-type]
+        ):
+            class InvalidResource(MemoryResource):
+                def schema(self):
+                    return ResourceSchema("contacts", (field,), CAPABILITIES)
+
+            status, error, _ = call(
+                ResourceASGIApp({"contacts": InvalidResource()}),
+                "GET",
+                "/api/ikashita/v1/resources/contacts/schema",
+            )
+            self.assertEqual((status, error["error"]["code"]), (500, "internal"))
