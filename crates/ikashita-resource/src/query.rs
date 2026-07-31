@@ -8,6 +8,8 @@ use crate::{ResourceError, ResourceErrorKind, ResourceResult};
 pub const DEFAULT_PAGE_LIMIT: u64 = 50;
 /// The largest page a provider should return for one request.
 pub const MAX_PAGE_LIMIT: u64 = 500;
+/// The largest encoded list query accepted by transport adapters.
+pub const MAX_QUERY_BYTES: usize = 16 * 1024;
 
 const fn normalize_limit(limit: u64) -> u64 {
     if limit == 0 {
@@ -107,11 +109,18 @@ impl ListQuery {
     /// requests descending order. An absent or empty sort value means no
     /// ordering constraint.
     pub fn from_query_string(query: &str) -> ResourceResult<Self> {
+        if query.len() > MAX_QUERY_BYTES {
+            return Err(ResourceError::new(
+                ResourceErrorKind::Validation,
+                "request query is too large",
+            ));
+        }
         let mut parsed = Self::new();
-        let params: Vec<(String, String)> = serde_urlencoded::from_str(query).map_err(|error| {
-            ResourceError::new(ResourceErrorKind::Validation, "invalid list query")
-                .with_field("query", error.to_string())
-        })?;
+        let params: Vec<(String, String)> =
+            serde_urlencoded::from_str(query).map_err(|_error| {
+                ResourceError::new(ResourceErrorKind::Validation, "invalid list query")
+                    .with_field("query", "invalid encoding or query pair")
+            })?;
 
         for (key, value) in params {
             match key.as_str() {

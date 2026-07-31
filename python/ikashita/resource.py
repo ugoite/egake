@@ -79,6 +79,10 @@ class ResourcePage:
             raise ResourceError("validation_failed", "page total must be a non-negative integer")
         if not isinstance(self.offset, int) or isinstance(self.offset, bool) or self.offset < 0:
             raise ResourceError("validation_failed", "page offset must be a non-negative integer")
+        if not isinstance(self.items, (tuple, list)) or any(
+            not isinstance(item, dict) or not _is_json_value(item) for item in self.items
+        ):
+            raise ResourceError("internal", "resource returned an invalid page")
         object.__setattr__(self, "limit", normalize_limit(self.limit))
 
     def as_dict(self) -> Dict[str, Any]:
@@ -211,7 +215,7 @@ def normalize_limit(limit: int) -> int:
 def normalize_page(items: Iterable[JsonObject], total: int, offset: int, limit: int) -> ResourcePage:
     """Construct a page with the contract's limit bounds."""
 
-    if offset < 0 or not isinstance(offset, int) or isinstance(offset, bool):
+    if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
         raise ResourceError("validation_failed", "offset must be a non-negative integer", {"offset": "must be a non-negative integer"})
     return ResourcePage(tuple(items), total, offset, normalize_limit(limit))
 

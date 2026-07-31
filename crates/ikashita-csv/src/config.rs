@@ -115,8 +115,23 @@ impl CsvResourceConfig {
         if self.key.trim().is_empty() {
             return Err(CsvConfigError::new("CSV resource key must not be empty"));
         }
+        if self.key.chars().any(char::is_control) {
+            return Err(CsvConfigError::new(
+                "CSV resource key must not contain control characters",
+            ));
+        }
         if self.name.as_deref().is_some_and(|name| name.trim().is_empty()) {
             return Err(CsvConfigError::new("CSV resource name must not be empty"));
+        }
+        if self.name.as_deref().is_some_and(|name| {
+            name != name.trim()
+                || name == "."
+                || name == ".."
+                || name
+                    .chars()
+                    .any(|character| character.is_control() || matches!(character, '/' | '\\'))
+        }) {
+            return Err(CsvConfigError::new("CSV resource name is not a safe path segment"));
         }
         if self.path.components().any(|component| component == Component::ParentDir) {
             return Err(CsvConfigError::new("CSV path traversal is not allowed"));

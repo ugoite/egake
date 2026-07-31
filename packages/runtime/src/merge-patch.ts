@@ -63,7 +63,7 @@ export function applyMergePatch(
 export function requireObjectPatch(
   value: JsonValue,
 ): asserts value is JsonObject {
-  if (!isJsonObject(value)) {
+  if (!isJsonObject(value) || !isJsonValue(value)) {
     throw new ResourceError({
       code: "validation_failed",
       message: "resource update patch must be a JSON object",

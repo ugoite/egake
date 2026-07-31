@@ -15,4 +15,4 @@ pub use provider::{
     JsonResourceProvider, JsonResourceProviderAdapter, ResourceActionProvider, ResourceProvider,
     apply_merge_patch, require_object_patch,
 };
-pub use query::{ListQuery, ResourcePage, Sort, SortDirection};
+pub use query::{ListQuery, MAX_QUERY_BYTES, ResourcePage, Sort, SortDirection};
