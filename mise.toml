@@ -1,0 +1,49 @@
+min_version = "2025.11.3"
+
+[tools]
+rust = "1.94.0"
+deno = "2.8.3"
+
+[env]
+CARGO_TARGET_DIR = "target/rust"
+
+[tasks.setup]
+description = "Show the pinned toolchain and install the local Git hooks"
+depends = ["install-hooks"]
+run = [
+    "rustc --version",
+    "cargo --version",
+    "if command -v deno >/dev/null 2>&1; then deno --version; else echo 'Deno is not installed; no Deno task is required by the Rust foundation'; fi",
+]
+
+[tasks.fmt]
+description = "Format all Rust sources"
+run = "cargo fmt --all"
+
+[tasks."fmt:check"]
+description = "Check Rust formatting without changing files"
+run = "cargo fmt --all --check"
+
+[tasks.lint]
+description = "Run Clippy with warnings treated as errors"
+run = "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+
+[tasks.check]
+description = "Type-check every workspace target"
+run = "cargo check --workspace --all-targets"
+
+[tasks.test]
+description = "Run all workspace tests"
+run = "cargo test --workspace"
+
+[tasks.build]
+description = "Build every workspace target"
+run = "cargo build --workspace"
+
+[tasks.ci]
+description = "Run the complete local validation suite"
+depends = ["fmt:check", "lint", "check", "test", "build"]
+
+[tasks.install-hooks]
+description = "Configure the repository-local pre-commit hook"
+run = "git config core.hooksPath .githooks"
