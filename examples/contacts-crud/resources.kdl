@@ -1,0 +1,4 @@
+/- kdl-version 2
+resources {
+    csv "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
+}

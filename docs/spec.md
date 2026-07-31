@@ -197,6 +197,62 @@ source KDL file at runtime. A host may inject Resource Providers at the
 documented adapter boundary; provider data and credentials are not embedded in
 the static output.
 
+## CLI project and runtime increment
+
+The Rust `ikashita` binary resolves a project directory from a positional
+directory, `--project DIR`, or `.`. It requires `ikashita.toml` with an
+`[app]` table. `app.definition` defaults to `app.ui.kdl`; `app.name`, when
+present, must match the KDL `app` name. The commands are `new`, `validate`,
+`inspect`, `build`, `run`, `dev`, and `test`. Validation diagnostics retain
+the spec diagnostic codes and are stable in text or `--json` form. Schema
+diagnostics use the CLI range `IK3002` and data/config diagnostics use
+`IK3000`–`IK3003`.
+
+The CLI loads resource provider configuration from one of these equivalent
+conventions (using both is an error):
+
+```toml
+[resources.contacts]
+path = "data/contacts.csv"
+key = "id"
+writable = true
+backup_count = 2
+```
+
+```kdl
+/- kdl-version 2
+resources {
+    csv "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
+}
+```
+
+CSV paths, schema paths, definition paths, and build output paths are
+project-relative and reject absolute paths and `..` components. The CLI checks
+the MVP JSON Schema subset (`object`, required string names, property types,
+enum, and `email`/`date`/`date-time` formats), and checks configured CSV rows
+without printing record values. A resource must expose every capability named
+by its application definition before `run`/`dev` starts.
+
+`run` and `dev` construct `CsvResourceProvider` instances, attach the generated
+`StaticBundle` to `ikashita-server::ServerState`, and serve the documented
+same-origin `/api/ikashita/v1` routes. They default to `127.0.0.1:8787`; a
+non-loopback host requires `--allow-external` and emits an explicit warning.
+The server has no CORS layer by default. `dev` currently means a local
+development server with an in-memory generated bundle; file watching is
+intentionally outside this increment.
+
+The generated browser runtime uses only local JavaScript/CSS and DOM APIs. It
+renders the validated component tree, searches and refreshes tables, opens
+create/edit forms, saves with POST/PATCH, deletes after `confirm`, and shows
+structured provider failures as field-aware errors/toasts. It uses
+`textContent`/DOM construction and does not use `eval`, arbitrary HTML
+injection, CDN assets, remote URLs, or embedded resource records.
+
+`new` creates a working contacts CRUD fixture with `ikashita.toml`,
+`app.ui.kdl`, `resources.kdl`, a JSON schema, `data/contacts.csv`, and an
+`actions.rhai` documentation placeholder. The placeholder is never executed;
+the CLI does not provide an OS command or Rhai execution boundary.
+
 ## Ugoite integration boundary
 
 Ugoite integration is a separate adapter, not a dependency of any ikashita
