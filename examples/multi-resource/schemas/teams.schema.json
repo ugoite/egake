@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "required": ["name", "owner"],
+  "properties": {
+    "name": { "type": "string" },
+    "owner": { "type": "string" }
+  }
+}

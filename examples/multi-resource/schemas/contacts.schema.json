@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "required": ["name", "team"],
+  "properties": {
+    "name": { "type": "string" },
+    "team": { "type": "string" }
+  }
+}

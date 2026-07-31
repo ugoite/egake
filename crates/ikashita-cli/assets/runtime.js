@@ -3,6 +3,7 @@
   "use strict";
 
   var API = "/api/ikashita/v1";
+  var requestCounter = 0;
   var model = { app: null, state: {}, records: {}, selected: {}, errors: [], toast: null };
   var root = document.getElementById("ikashita-root");
 
@@ -46,7 +47,11 @@
   }
 
   function request(path, options) {
-    return window.fetch(API + path, Object.assign({ headers: { "Content-Type": "application/json" } }, options || {}))
+    requestCounter += 1;
+    var requestId = "req-browser-" + requestCounter.toString(36);
+    var requestOptions = Object.assign({ credentials: "same-origin" }, options || {});
+    requestOptions.headers = Object.assign({ "Content-Type": "application/json", "x-request-id": requestId }, (options && options.headers) || {});
+    return window.fetch(API + path, requestOptions)
       .then(function (response) {
         return response.text().then(function (text) {
           var payload = {};
@@ -122,6 +127,35 @@
     render();
   }
 
+  function actionInput(raw, context) {
+    if (raw === undefined || raw === null) return context && context.record ? context.record : {};
+    if (typeof raw !== "string") return raw;
+    if (raw.indexOf("$state.") === 0) return model.state[raw.slice(7)];
+    if (raw.indexOf("$context.") === 0) {
+      var path = raw.slice(9).split(".");
+      var value = context;
+      path.forEach(function (part) { value = value === undefined || value === null ? undefined : value[part]; });
+      return value;
+    }
+    try { return JSON.parse(raw); } catch (_) { return raw; }
+  }
+
+  function invokeProviderAction(resource, action, input) {
+    if (!resource || !action) return Promise.reject(new Error("invoke requires resource and action"));
+    return request("/resources/" + encodeURIComponent(resource) + "/actions/" + encodeURIComponent(action), {
+      method: "POST",
+      body: JSON.stringify(input)
+    }).then(function (result) {
+      model.lastActionResult = result;
+      toast("Action " + action + " completed", "ok");
+      return result;
+    }).catch(function (error) {
+      rememberError(error);
+      toast(error.message, "error");
+      throw error;
+    });
+  }
+
   function runAction(name, context) {
     var action = findAction(name);
     if (!action) { toast("Unknown action: " + name, "error"); return Promise.resolve(); }
@@ -148,7 +182,9 @@
         if (step.kind === "toast") { toast(step.text || "Done", "ok"); return undefined; }
         if (step.kind === "upsert") return save(resource).then(function () { model.state.editorOpen = false; });
         if (step.kind === "validate") return validateDraft(resource);
-        if (step.kind === "invoke") return undefined;
+        if (step.kind === "invoke") {
+          return invokeProviderAction(resource, attrs.action, actionInput(attrs.input, context));
+        }
         return undefined;
       });
     });

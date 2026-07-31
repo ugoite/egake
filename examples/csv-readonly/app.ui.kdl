@@ -1,0 +1,19 @@
+/- kdl-version 2
+app "catalog-readonly" version="0.1" {
+    resource "catalog" schema="schemas/catalog.schema.json" {
+        require "list"
+    }
+
+    state "query" value=""
+
+    page "main" title="Catalog" {
+        column gap="md" {
+            text-input label="Search" bind="state.query"
+            data-table resource="catalog" key="title" {
+                column field="title" label="Title"
+                column field="category" label="Category"
+                column field="description" label="Description"
+            }
+        }
+    }
+}
