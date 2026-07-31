@@ -236,3 +236,66 @@ process-local deterministic ID. The HTTP layer does not log records or
 request bodies. CORS is disabled by default and this increment does not add an
 auth layer. An attached `StaticBundle` serves its index and named assets for
 non-API GETs, with the index as the fallback for application routes.
+
+## Host/runtime adapters
+
+The host increment lives outside the Rust workspace in `packages/` and
+`python/`. It does not add a storage provider, CLI command, or authentication
+layer.
+
+### TypeScript/Deno browser runtime
+
+`packages/runtime/mod.ts` is the dependency-free TypeScript entrypoint. Its
+`ResourceProvider` is an asynchronous-friendly JSON version of the contract:
+
+```ts
+schema(): ResourceSchema
+list(query: ListQuery): ResourcePage
+get(id: string): item
+create(value: object): item
+update(id: string, mergePatch: object): item
+delete(id: string): void
+invoke(action: string, input: JSON): JSON
+```
+
+Methods may return a value or a promise so an embedded host can use either a
+local provider or an existing client. `ResourceClient` implements the HTTP
+provider facade. It accepts only a relative API root, validates encoded
+resource/item/action paths, uses `credentials: "same-origin"`, sends a safe
+`x-request-id`, and converts `{error:{code,message,fields,request_id}}` into a
+structured `ResourceError`. It does not accept an authorization-token option
+and never logs bodies, records, cookies, or credentials. `hasCapability` and
+`assertCapability` are available to injected providers and the HTTP facade;
+the facade checks the provider schema before each operation.
+
+`applyMergePatch` follows RFC 7396 and never mutates its inputs. Resource
+updates require an object patch; object members merge recursively, `null`
+removes a member, and arrays/scalars replace values.
+
+`parseApplication`, `renderApplication`, and `mountApplication` consume
+serialized Application Profile v0.1 JSON with this top-level shape:
+`{profile:{name,version:"0.1"},resources,states,pages,actions}`. The renderer
+has a closed component/attribute allowlist, creates nodes with
+`document.createElement`, writes user values with `textContent` or DOM
+properties, and attaches named callbacks. It does not accept HTML/script
+attributes, evaluate expressions, load remote assets, or use `innerHTML`.
+React and Vue adapters pass safe children/VNodes through host-provided
+`createElement`/`h` primitives and do not pull either framework into this
+repository.
+
+### Python host boundary
+
+`python/ikashita` contains a standard-library `Resource` protocol and
+`ResourceBase` convenience class. `ResourceASGIApp` dispatches the same schema,
+list, get, create, merge-patch update, delete, and invoke routes. It parses
+`q`, comma-separated `sort`, `offset`, and `limit` (default 50, zero becomes 1,
+maximum 500), preserves structured error codes/fields, validates JSON object
+create/update values, and propagates a safe `x-request-id`. Sync resources and
+awaitable method results are both accepted. Unexpected provider exceptions are
+returned as a generic `internal` error without logging request data.
+
+The core adapter does not know about auth. `ikashita.fastapi.create_fastapi_app`
+is an optional bridge that imports FastAPI only when called; deployment hosts
+may add their own middleware. Core Python tests require only the standard
+library. See `examples/python-fastapi`, `examples/js-embedded`, and
+`examples/ugoite-entries` for provider injection boundaries.

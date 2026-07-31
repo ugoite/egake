@@ -40,9 +40,29 @@ run = "cargo test --workspace"
 description = "Build every workspace target"
 run = "cargo build --workspace"
 
+[tasks."deno:fmt"]
+description = "Format TypeScript/Deno host packages and examples"
+run = "deno fmt packages examples/js-embedded examples/ugoite-entries"
+
+[tasks."deno:fmt:check"]
+description = "Check TypeScript/Deno formatting"
+run = "deno fmt --check packages examples/js-embedded examples/ugoite-entries"
+
+[tasks."deno:check"]
+description = "Type-check the TypeScript/Deno host packages and examples"
+run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod.ts examples/js-embedded/main.ts examples/ugoite-entries/adapter.ts"
+
+[tasks."deno:test"]
+description = "Run deterministic TypeScript/Deno host tests"
+run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests"
+
+[tasks."python:test"]
+description = "Run standard-library Python host adapter tests"
+run = "PYTHONPATH=python python3 -m unittest discover -s python/tests -t python"
+
 [tasks.ci]
 description = "Run the complete local validation suite"
-depends = ["fmt:check", "lint", "check", "test", "build"]
+depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test"]
 
 [tasks.install-hooks]
 description = "Configure the repository-local pre-commit hook"
