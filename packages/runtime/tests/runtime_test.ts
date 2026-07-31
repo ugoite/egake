@@ -165,10 +165,24 @@ Deno.test("request IDs and serialized app parsing are constrained", () => {
       }],
     }],
   });
-  assertEquals(application.resources[0].required_capabilities, ["schema", "list"]);
+  assertEquals(application.resources[0].required_capabilities, [
+    "schema",
+    "list",
+  ]);
   assertEquals(application.resources[0].fields?.[1].enum, ["active", "paused"]);
-  assertEquals(inputTypeForField(application.resources[0].fields?.[0]), "email");
-  assertEquals(inputTypeForField({ name: "when", field_type: "date", required: false, format: "date" }), "date");
+  assertEquals(
+    inputTypeForField(application.resources[0].fields?.[0]),
+    "email",
+  );
+  assertEquals(
+    inputTypeForField({
+      name: "when",
+      field_type: "date",
+      required: false,
+      format: "date",
+    }),
+    "date",
+  );
   assertEquals(
     application.pages[0].components[0].text,
     "<script>not executable</script>",

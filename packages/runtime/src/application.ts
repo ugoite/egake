@@ -151,8 +151,15 @@ function parseEvent(value: unknown): SerializedEvent {
 
 function parseField(value: unknown): FieldSchema {
   const source = object(value, "resource field");
-  const fieldType = string(source.field_type, "resource field type") as FieldSchema["field_type"];
-  if (!new Set(["text", "number", "integer", "boolean", "date", "json"]).has(fieldType)) {
+  const fieldType = string(
+    source.field_type,
+    "resource field type",
+  ) as FieldSchema["field_type"];
+  if (
+    !new Set(["text", "number", "integer", "boolean", "date", "json"]).has(
+      fieldType,
+    )
+  ) {
     throw new ResourceError({
       code: "validation_failed",
       message: `unknown resource field type: ${fieldType}`,
@@ -295,7 +302,9 @@ function fieldForComponent(
 ): FieldSchema | undefined {
   const field = attr(component, "field");
   if (!field) return undefined;
-  return application.resources[0]?.fields?.find((candidate) => candidate.name === field);
+  return application.resources[0]?.fields?.find((candidate) =>
+    candidate.name === field
+  );
 }
 
 function actionFor(component: SerializedComponent): string | undefined {
@@ -382,7 +391,9 @@ function renderComponent(
     const values = schemaField?.enum ?? component.attributes.options;
     if (Array.isArray(values)) {
       for (const value of values) {
-        if (!isJsonValue(value) || value === null || typeof value === "object") continue;
+        if (
+          !isJsonValue(value) || value === null || typeof value === "object"
+        ) continue;
         const option = document.createElement("option");
         option.value = String(value);
         option.textContent = String(value);
