@@ -14,6 +14,12 @@ This repository currently contains the standalone data/API increment:
 - `ikashita-server` provides the localhost HTTP router, provider registry, and
   static-bundle configuration.
 - `ikashita-cli` provides the versioned command-line entry point.
+- `packages/runtime` provides the dependency-free Deno/TypeScript browser
+  client, provider types, merge-patch helper, and safe JSON renderer.
+- `packages/react` and `packages/vue` provide framework-thin element/VNode
+  adapters without installing either framework.
+- `python/ikashita` provides the standard-library Resource protocol/base class,
+  ASGI adapter, and optional FastAPI bridge.
 
 The executable MVP decisions are recorded in [`docs/spec.md`](docs/spec.md).
 Ugoite integration will be an adapter boundary and is not a workspace
@@ -33,6 +39,10 @@ mise run check
 mise run test
 mise run ci
 ```
+
+Host-specific checks are also available as `mise run deno:check`,
+`mise run deno:test`, and `mise run python:test`. The Deno tasks use only
+built-ins; FastAPI is optional and is not needed by the Python tests.
 
 Without mise, the equivalent Rust checks are:
 

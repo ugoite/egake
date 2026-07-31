@@ -1,0 +1,21 @@
+{
+  "profile": { "name": "contacts-host", "version": "0.1" },
+  "resources": [],
+  "states": [],
+  "actions": [],
+  "pages": [
+    {
+      "name": "home",
+      "title": "Contacts",
+      "components": [
+        {
+          "kind": "text",
+          "text": "Host providers are injected by the page",
+          "attributes": {},
+          "children": [],
+          "events": []
+        }
+      ]
+    }
+  ]
+}
