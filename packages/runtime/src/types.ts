@@ -48,8 +48,18 @@ export interface StructuredError {
 /** One schema field. `field_type` follows the Rust/JSON provider spelling. */
 export interface FieldSchema {
   readonly name: string;
-  readonly field_type: "text" | "number" | "boolean" | "date" | "json";
+  readonly field_type:
+    | "text"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "date"
+    | "json";
   readonly required: boolean;
+  /** JSON Schema enum values, when the field is constrained to a set. */
+  readonly enum?: readonly JsonValue[];
+  /** Supported JSON Schema format metadata. */
+  readonly format?: "email" | "date" | "date-time" | (string & {});
 }
 
 /** Schema and capabilities advertised by a resource provider. */
@@ -131,6 +141,10 @@ export interface SerializedResource {
   readonly name: string;
   readonly schema: string;
   readonly required_capabilities: readonly Capability[];
+  /** Legacy CLI bundle spelling accepted during the additive transition. */
+  readonly capabilities?: readonly Capability[];
+  /** Schema metadata embedded by the CLI bundle, when available. */
+  readonly fields?: readonly FieldSchema[];
 }
 
 /** A named initial state value. */

@@ -1,6 +1,7 @@
 import {
   applyMergePatch,
   assertCapability,
+  inputTypeForField,
   isSafeRequestId,
   parseApplication,
   ResourceClient,
@@ -136,7 +137,20 @@ Deno.test("request IDs and serialized app parsing are constrained", () => {
   assert(!isSafeRequestId("contains spaces"), "unsafe request ID accepted");
   const application = parseApplication({
     profile: { name: "safe", version: "0.1" },
-    resources: [],
+    resources: [{
+      name: "contacts",
+      schema: "contacts.schema.json",
+      capabilities: ["schema", "list"],
+      fields: [
+        { name: "email", field_type: "text", required: true, format: "email" },
+        {
+          name: "status",
+          field_type: "text",
+          required: false,
+          enum: ["active", "paused"],
+        },
+      ],
+    }],
     states: [],
     actions: [],
     pages: [{
@@ -151,6 +165,10 @@ Deno.test("request IDs and serialized app parsing are constrained", () => {
       }],
     }],
   });
+  assertEquals(application.resources[0].required_capabilities, ["schema", "list"]);
+  assertEquals(application.resources[0].fields?.[1].enum, ["active", "paused"]);
+  assertEquals(inputTypeForField(application.resources[0].fields?.[0]), "email");
+  assertEquals(inputTypeForField({ name: "when", field_type: "date", required: false, format: "date" }), "date");
   assertEquals(
     application.pages[0].components[0].text,
     "<script>not executable</script>",

@@ -11,7 +11,9 @@ use std::{
 
 use clap::{Args, Parser, Subcommand};
 use ikashita_csv::{CsvResourceConfig, CsvResourceProvider};
-use ikashita_resource::{Capability, JsonResourceProvider, ListQuery, ResourceSchema};
+use ikashita_resource::{
+    Capability, FieldSchema, FieldType, JsonResourceProvider, ListQuery, ResourceSchema,
+};
 use ikashita_server::{ServerConfig, ServerState, StaticBundle};
 use ikashita_spec::{
     ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, Component, Diagnostic,
@@ -207,6 +209,7 @@ struct Project {
 struct ValidatedProject {
     project: Project,
     definition: ApplicationDefinition,
+    resource_schemas: BTreeMap<String, ResourceSchema>,
 }
 
 #[derive(Clone, Debug)]
@@ -220,6 +223,36 @@ struct PropertyInfo {
     type_name: Option<String>,
     enum_values: Option<Vec<Value>>,
     format: Option<String>,
+}
+
+impl SchemaInfo {
+    fn resource_schema(&self, name: &str) -> ResourceSchema {
+        let mut schema = ResourceSchema::new(name);
+        for (field, property) in &self.properties {
+            let field_type = match property.type_name.as_deref() {
+                Some("number") => FieldType::Number,
+                Some("integer") => FieldType::Integer,
+                Some("boolean") => FieldType::Boolean,
+                Some("object" | "array" | "null") => FieldType::Json,
+                _ if matches!(property.format.as_deref(), Some("date" | "date-time")) => {
+                    FieldType::Date
+                }
+                _ => FieldType::Text,
+            };
+            let mut declaration = FieldSchema::new(field, field_type);
+            if self.required.contains(field) {
+                declaration = declaration.required();
+            }
+            if let Some(enum_values) = &property.enum_values {
+                declaration = declaration.with_enum_values(enum_values.clone());
+            }
+            if let Some(format) = &property.format {
+                declaration = declaration.with_format(format.clone());
+            }
+            schema.push_field(declaration);
+        }
+        schema
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -345,7 +378,7 @@ fn command_validate(args: ProjectArgs) -> Result<(), CliError> {
 
 fn command_inspect(args: ProjectArgs) -> Result<(), CliError> {
     let validated = load_validated(args.directory(), args.json, true)?;
-    let value = definition_to_value(&validated.definition);
+    let value = definition_to_value(&validated.definition, Some(&validated.resource_schemas));
     if args.json {
         print_json(json!({ "ok": true, "project": validated.project.root, "application": value }));
     } else {
@@ -358,8 +391,8 @@ fn command_build(args: BuildArgs) -> Result<(), CliError> {
     let validated = load_validated(args.project.directory(), args.project.json, true)?;
     let output = safe_project_join(&validated.project.root, &args.output, "build output")
         .map_err(|error| error.with_json(args.project.json))?;
-    let bundle =
-        static_bundle(&validated.definition).map_err(|error| error.with_json(args.project.json))?;
+    let bundle = static_bundle(&validated.definition, &validated.resource_schemas)
+        .map_err(|error| error.with_json(args.project.json))?;
     let files =
         write_bundle(&output, &bundle).map_err(|error| error.with_json(args.project.json))?;
     if args.project.json {
@@ -385,7 +418,8 @@ fn command_test(args: ProjectArgs) -> Result<(), CliError> {
             .map(|resource| format!("resource:{}", resource.name)),
     );
     checks.push("static-bundle".to_owned());
-    let _ = static_bundle(&validated.definition).map_err(|error| error.with_json(args.json))?;
+    let _ = static_bundle(&validated.definition, &validated.resource_schemas)
+        .map_err(|error| error.with_json(args.json))?;
     if args.json {
         let tests: Vec<Value> =
             checks.iter().map(|name| json!({ "name": name, "status": "ok" })).collect();
@@ -417,11 +451,16 @@ fn command_list(args: ListArgs) -> Result<(), CliError> {
         ))
         .with_json(args.project.json)
     })?;
-    let provider =
-        open_csv_provider(&validated.project.root, &args.resource, config).map_err(|error| {
-            CliError::message(format!("resource '{}': {error}", args.resource))
-                .with_json(args.project.json)
-        })?;
+    let provider = open_csv_provider(
+        &validated.project.root,
+        &args.resource,
+        config,
+        validated.resource_schemas.get(&args.resource).cloned(),
+    )
+    .map_err(|error| {
+        CliError::message(format!("resource '{}': {error}", args.resource))
+            .with_json(args.project.json)
+    })?;
     let schema = provider.schema().map_err(|error| {
         CliError::message(format!("resource '{}': {error}", args.resource))
             .with_json(args.project.json)
@@ -464,7 +503,7 @@ fn command_list(args: ListArgs) -> Result<(), CliError> {
 
 fn command_serve(args: ServeArgs, dev: bool) -> Result<(), CliError> {
     let validated = load_validated(args.directory(), false, true)?;
-    let bundle = static_bundle(&validated.definition)?;
+    let bundle = static_bundle(&validated.definition, &validated.resource_schemas)?;
     let host = args
         .host
         .parse::<IpAddr>()
@@ -488,13 +527,11 @@ fn command_serve(args: ServeArgs, dev: bool) -> Result<(), CliError> {
                 resource.name
             ))
         })?;
-        let csv_path = safe_project_join(&validated.project.root, &config.path, "CSV resource")?;
-        let provider = CsvResourceProvider::open(
-            CsvResourceConfig::new(csv_path)
-                .with_name(resource.name.clone())
-                .with_key(config.key.clone())
-                .with_writable(config.writable)
-                .with_backup_count(config.backup_count),
+        let provider = open_csv_provider(
+            &validated.project.root,
+            &resource.name,
+            config,
+            validated.resource_schemas.get(&resource.name).cloned(),
         )
         .map_err(|error| CliError::message(format!("resource '{}': {error}", resource.name)))?;
         state
@@ -608,6 +645,7 @@ fn load_validated(
             .with_json(json_output)
     })?;
     let mut diagnostics = Vec::new();
+    let mut resource_schemas = BTreeMap::new();
     if let Some(configured_name) = &project.configured_app_name
         && configured_name != &definition.profile.name
     {
@@ -654,10 +692,18 @@ fn load_validated(
             .with_json(json_output)
         })?;
         let info = validate_schema(&resource.name, &resource.schema, &schema, &mut diagnostics);
+        if let Some(info) = &info {
+            resource_schemas.insert(resource.name.clone(), info.resource_schema(&resource.name));
+        }
         if let Some(config) = project.resources.get(&resource.name)
             && check_data
         {
-            match open_csv_provider(&project.root, &resource.name, config) {
+            match open_csv_provider(
+                &project.root,
+                &resource.name,
+                config,
+                info.as_ref().map(|info| info.resource_schema(&resource.name)),
+            ) {
                 Ok(provider) => {
                     check_capabilities(resource, &provider.schema(), &mut diagnostics);
                     if let Some(info) = &info {
@@ -681,13 +727,14 @@ fn load_validated(
     if !diagnostics.is_empty() {
         return Err(CliError::diagnostics(diagnostics).with_json(json_output));
     }
-    Ok(ValidatedProject { project, definition })
+    Ok(ValidatedProject { project, definition, resource_schemas })
 }
 
 fn open_csv_provider(
     root: &Path,
     name: &str,
     config: &ResourceConfig,
+    schema: Option<ResourceSchema>,
 ) -> Result<CsvResourceProvider, ikashita_resource::ResourceError> {
     let path = safe_project_join(root, &config.path, "CSV resource").map_err(|error| {
         ikashita_resource::ResourceError::new(
@@ -695,13 +742,15 @@ fn open_csv_provider(
             error.message.unwrap_or_default(),
         )
     })?;
-    CsvResourceProvider::open(
-        CsvResourceConfig::new(path)
-            .with_name(name)
-            .with_key(config.key.clone())
-            .with_writable(config.writable)
-            .with_backup_count(config.backup_count),
-    )
+    let mut csv_config = CsvResourceConfig::new(path)
+        .with_name(name)
+        .with_key(config.key.clone())
+        .with_writable(config.writable)
+        .with_backup_count(config.backup_count);
+    if let Some(schema) = schema {
+        csv_config = csv_config.with_schema(schema);
+    }
+    CsvResourceProvider::open(csv_config)
 }
 
 fn check_capabilities(
@@ -793,6 +842,9 @@ fn validate_record(
     }
     for (field, property) in &info.properties {
         let Some(value) = object.get(field) else { continue };
+        if value.as_str() == Some("") && !info.required.contains(field) {
+            continue;
+        }
         if let Some(type_name) = &property.type_name
             && !csv_type_matches(value, type_name)
         {
@@ -923,11 +975,27 @@ fn validate_schema(
                     }
                 },
             };
+            if enum_values.as_ref().is_some_and(Vec::is_empty) {
+                diagnostics.push(schema_diagnostic(
+                    schema_file,
+                    format!("resource '{resource}' property '{field}' enum must not be empty"),
+                ));
+            }
             let format = match raw_property.get("format") {
                 None => None,
                 Some(value) => {
                     match value.as_str() {
                         Some(value) if matches!(value, "email" | "date" | "date-time") => {
+                            if raw_property
+                                .get("type")
+                                .and_then(Value::as_str)
+                                .is_some_and(|type_name| type_name != "string")
+                            {
+                                diagnostics.push(schema_diagnostic(
+                                    schema_file,
+                                    format!("resource '{resource}' property '{field}' format requires type=string"),
+                                ));
+                            }
                             Some(value.to_owned())
                         }
                         Some(value) => {
@@ -999,18 +1067,79 @@ fn csv_format_matches(value: &Value, format: &str) -> bool {
                 && !domain.ends_with('.')
                 && !value.chars().any(char::is_whitespace)
         }
-        "date" => {
-            value.len() == 10
-                && value.as_bytes()[4] == b'-'
-                && value.as_bytes()[7] == b'-'
-                && value
-                    .chars()
-                    .enumerate()
-                    .all(|(index, char)| index == 4 || index == 7 || char.is_ascii_digit())
+        "date" => valid_date(value),
+        "date-time" => {
+            value.split_once('T').is_some_and(|(date, time)| valid_date(date) && valid_time(time))
         }
-        "date-time" => value.contains('T') && value.len() >= 12,
         _ => false,
     }
+}
+
+fn valid_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .enumerate()
+        .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit())
+    {
+        return false;
+    }
+    let year = value[0..4].parse::<u32>().ok();
+    let month = value[5..7].parse::<u32>().ok();
+    let day = value[8..10].parse::<u32>().ok();
+    let (Some(year), Some(month), Some(day)) = (year, month, day) else { return false };
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1..=days).contains(&day)
+}
+
+fn valid_time(value: &str) -> bool {
+    let (clock, timezone) = if let Some(clock) = value.strip_suffix('Z') {
+        (clock, None)
+    } else if let Some(position) = value.rfind(['+', '-']) {
+        (&value[..position], Some(&value[position..]))
+    } else {
+        (value, None)
+    };
+    let mut parts = clock.split(':');
+    let (Some(hour), Some(minute), Some(seconds), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let (seconds, fraction) = seconds.split_once('.').unwrap_or((seconds, ""));
+    let valid_digits =
+        |value: &str| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit());
+    if hour.len() != 2
+        || minute.len() != 2
+        || seconds.len() != 2
+        || !valid_digits(hour)
+        || !valid_digits(minute)
+        || !valid_digits(seconds)
+        || (!fraction.is_empty() && !valid_digits(fraction))
+    {
+        return false;
+    }
+    let valid_clock = hour.parse::<u32>().is_ok_and(|value| value <= 23)
+        && minute.parse::<u32>().is_ok_and(|value| value <= 59)
+        && seconds.parse::<u32>().is_ok_and(|value| value <= 59);
+    let valid_timezone = timezone.is_none_or(|zone| {
+        if zone.len() != 6 || zone.as_bytes()[3] != b':' {
+            return false;
+        }
+        (zone.starts_with('+') || zone.starts_with('-'))
+            && zone[1..3].parse::<u32>().is_ok_and(|value| value <= 23)
+            && zone[4..6].parse::<u32>().is_ok_and(|value| value <= 59)
+    });
+    valid_clock && valid_timezone
 }
 
 fn parse_resources_kdl(
@@ -1196,9 +1325,15 @@ fn resource_config_diagnostic(resource: &str, message: String) -> CliDiagnostic 
     )
 }
 
-fn static_bundle(definition: &ApplicationDefinition) -> Result<StaticBundle, CliError> {
-    let application = serde_json::to_vec_pretty(&definition_to_value(definition))
-        .map_err(|_| CliError::message("could not serialize the validated application bundle"))?;
+fn static_bundle(
+    definition: &ApplicationDefinition,
+    resource_schemas: &BTreeMap<String, ResourceSchema>,
+) -> Result<StaticBundle, CliError> {
+    let application =
+        serde_json::to_vec_pretty(&definition_to_value(definition, Some(resource_schemas)))
+            .map_err(|_| {
+                CliError::message("could not serialize the validated application bundle")
+            })?;
     let mut bundle = StaticBundle::new(INDEX_HTML);
     bundle.insert_asset("runtime.js", RUNTIME_JS.as_bytes().to_vec());
     bundle.insert_asset("runtime.css", RUNTIME_CSS.as_bytes().to_vec());
@@ -1227,7 +1362,10 @@ fn write_bundle(output: &Path, bundle: &StaticBundle) -> Result<Vec<String>, Cli
     Ok(std::iter::once("index.html".to_owned()).chain(bundle.assets().keys().cloned()).collect())
 }
 
-fn definition_to_value(definition: &ApplicationDefinition) -> Value {
+fn definition_to_value(
+    definition: &ApplicationDefinition,
+    resource_schemas: Option<&BTreeMap<String, ResourceSchema>>,
+) -> Value {
     let mut resources = definition.resources.clone();
     resources.sort_by(|left, right| left.name.cmp(&right.name));
     let mut states = definition.states.clone();
@@ -1241,11 +1379,22 @@ fn definition_to_value(definition: &ApplicationDefinition) -> Value {
             "name": definition.profile.name,
             "version": definition.profile.version.to_string(),
         },
-        "resources": resources.iter().map(|resource| json!({
-            "name": resource.name,
-            "schema": resource.schema,
-            "capabilities": resource.required_capabilities.iter().map(|capability| capability.to_string()).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>(),
+        "resources": resources.iter().map(|resource| {
+            let capabilities = resource.required_capabilities
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            let mut value = json!({
+                "name": resource.name,
+                "schema": resource.schema,
+                "capabilities": capabilities,
+                "required_capabilities": capabilities,
+            });
+            if let Some(schema) = resource_schemas.and_then(|schemas| schemas.get(&resource.name)) {
+                value["fields"] = serde_json::to_value(&schema.fields).expect("schema fields are JSON");
+            }
+            value
+        }).collect::<Vec<_>>(),
         "states": states.iter().map(|state| json!({ "name": state.name, "value": state.value })).collect::<Vec<_>>(),
         "pages": pages.iter().map(|page| json!({
             "name": page.name,
@@ -1417,7 +1566,8 @@ mod tests {
         let path = temp_project();
         scaffold_project(&path, "test-app").expect("scaffold");
         let validated = load_validated(&path, false, true).expect("validation");
-        let bundle = static_bundle(&validated.definition).expect("bundle");
+        let bundle =
+            static_bundle(&validated.definition, &validated.resource_schemas).expect("bundle");
         assert!(bundle.index_html().contains("Content-Security-Policy"));
         assert!(bundle.assets().contains_key("app.bundle.json"));
         let runtime = String::from_utf8_lossy(bundle.assets().get("runtime.js").expect("runtime"));
@@ -1443,6 +1593,102 @@ mod tests {
             error.diagnostics.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
         assert!(rendered.contains("format 'email'"));
         assert!(!rendered.contains("not-an-email"));
+        fs::remove_dir_all(path).expect("cleanup");
+    }
+
+    #[test]
+    fn schema_parser_preserves_field_metadata_and_skips_optional_empty_cells() {
+        let schema = json!({
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+                "id": { "type": "string" },
+                "status": { "type": "string", "enum": ["active", "paused"] },
+                "email": { "type": "string", "format": "email" },
+                "birthday": { "type": "string", "format": "date" },
+                "count": { "type": "integer" }
+            }
+        });
+        let mut diagnostics = Vec::new();
+        let info = validate_schema("contacts", "contacts.schema.json", &schema, &mut diagnostics)
+            .expect("schema info");
+        assert!(diagnostics.is_empty());
+        let resource_schema = info.resource_schema("contacts");
+        let status =
+            resource_schema.fields.iter().find(|field| field.name == "status").expect("status");
+        let email =
+            resource_schema.fields.iter().find(|field| field.name == "email").expect("email");
+        let birthday =
+            resource_schema.fields.iter().find(|field| field.name == "birthday").expect("birthday");
+        let count =
+            resource_schema.fields.iter().find(|field| field.name == "count").expect("count");
+        assert_eq!(status.enum_values.as_ref().expect("enum").len(), 2);
+        assert_eq!(email.format.as_deref(), Some("email"));
+        assert_eq!(birthday.field_type, FieldType::Date);
+        assert_eq!(count.field_type, FieldType::Integer);
+
+        let value = json!({"id":"1", "status":"active", "email":"", "birthday":""});
+        let mut data_diagnostics = Vec::new();
+        validate_record(
+            "contacts",
+            "contacts.schema.json",
+            1,
+            &value,
+            &info,
+            &mut data_diagnostics,
+        );
+        assert!(data_diagnostics.is_empty());
+
+        let invalid = json!({"id":"1", "status":"active", "email":"ada@example.com", "birthday":"2024-02-30"});
+        validate_record(
+            "contacts",
+            "contacts.schema.json",
+            2,
+            &invalid,
+            &info,
+            &mut data_diagnostics,
+        );
+        assert!(
+            data_diagnostics.iter().any(|diagnostic| diagnostic.message.contains("format 'date'"))
+        );
+    }
+
+    #[test]
+    fn bundle_contains_schema_metadata_and_keeps_legacy_capability_key() {
+        let path = temp_project();
+        scaffold_project(&path, "test-app").expect("scaffold");
+        fs::write(
+            path.join("schemas/contacts.schema.json"),
+            r#"{
+  "type": "object",
+  "required": ["id", "email"],
+  "properties": {
+    "id": { "type": "string" },
+    "email": { "type": "string", "format": "email" },
+    "status": { "type": "string", "enum": ["active", "paused"] }
+  }
+}"#,
+        )
+        .expect("schema");
+        fs::write(path.join("data/contacts.csv"), "id,email,status\n1,ada@example.com,active\n")
+            .expect("data");
+        let validated = load_validated(&path, false, true).expect("validation");
+        let bundle =
+            static_bundle(&validated.definition, &validated.resource_schemas).expect("bundle");
+        let application: Value =
+            serde_json::from_slice(bundle.assets()["app.bundle.json"].as_slice())
+                .expect("application JSON");
+        let resource = &application["resources"][0];
+        assert_eq!(resource["capabilities"][0], "list");
+        assert_eq!(resource["required_capabilities"][0], "list");
+        let fields = resource["fields"].as_array().expect("fields");
+        let email = fields.iter().find(|field| field["name"] == "email").expect("email");
+        let status = fields.iter().find(|field| field["name"] == "status").expect("status");
+        assert_eq!(email["format"], "email");
+        assert_eq!(status["enum"][1], "paused");
+        let runtime = String::from_utf8_lossy(bundle.assets()["runtime.js"].as_slice());
+        assert!(runtime.contains("datetime-local"));
+        assert!(runtime.contains("field.enum"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 

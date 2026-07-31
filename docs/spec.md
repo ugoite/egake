@@ -131,6 +131,29 @@ mutex-backed adapter is available when an existing generic provider uses
 mutable methods; providers with their own internal synchronization can
 implement the JSON boundary directly.
 
+#### Schema metadata decision
+
+`ResourceSchema.fields` keeps the existing `name`, `field_type`, and `required`
+members and may now include two additive members: `enum` (the JSON Schema enum
+values) and `format` (`email`, `date`, or `date-time`). JSON Schema `string`
+maps to `text`, `number` to `number`, `integer` to `integer`, `boolean` to
+`boolean`, and `object`/`array`/`null` to `json`; a date format uses the
+existing `date` field type while retaining the exact format. The members are
+omitted when absent, so existing provider responses and host adapters remain
+valid. The CLI derives this metadata once from the supported external schema,
+passes it into configured providers, and includes the same field declarations
+in `app.bundle.json` without embedding records or credentials. CSV columns not
+declared by the external schema remain backward-compatible text fields; a
+configured CSV must contain every schema-declared property so generated forms
+cannot advertise fields the fixed-column provider cannot persist.
+
+The browser uses the metadata only for declarative affordances and local
+feedback: enum values populate `select` options, formats choose native
+email/date/datetime inputs, and required/enum/format constraints produce
+field-aware validation errors. Providers remain authoritative and validate
+configured CSV writes as well; an absent optional CSV cell is treated as an
+absent JSON property rather than an invalid empty value.
+
 ### `update` uses merge-patch semantics
 
 `update(id, patch)` accepts an object-shaped merge patch. Object members are
@@ -233,8 +256,9 @@ resources {
 CSV paths, schema paths, definition paths, and build output paths are
 project-relative and reject absolute paths and `..` components. The CLI checks
 the MVP JSON Schema subset (`object`, required string names, property types,
-enum, and `email`/`date`/`date-time` formats), and checks configured CSV rows
-without printing record values. A resource must expose every capability named
+enum, and `email`/`date`/`date-time` formats), derives provider field metadata
+from it, and checks configured CSV rows without printing record values. A
+resource must expose every capability named
 by its application definition before `run`/`dev` starts.
 
 `run` and `dev` construct `CsvResourceProvider` instances, attach the generated
@@ -247,7 +271,8 @@ intentionally outside this increment.
 
 The generated browser runtime uses only local JavaScript/CSS and DOM APIs. It
 renders the validated component tree, searches and refreshes tables, opens
-create/edit forms, saves with POST/PATCH, deletes after `confirm`, invokes a
+create/edit forms, uses provider/bundle schema metadata for select and native
+date/email controls, saves with POST/PATCH, deletes after `confirm`, invokes a
 declared provider action with JSON input, and shows structured provider
 failures as field-aware errors/toasts. It uses
 `textContent`/DOM construction and does not use `eval`, arbitrary HTML
