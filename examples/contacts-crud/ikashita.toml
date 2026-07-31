@@ -1,0 +1,3 @@
+[app]
+name = "contacts-admin"
+definition = "app.ui.kdl"
