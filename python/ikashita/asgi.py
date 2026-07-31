@@ -253,6 +253,15 @@ class ResourceASGIApp:
 def _schema_json(schema: ResourceSchema) -> Dict[str, Any]:
     return {
         "name": schema.name,
-        "fields": [{"name": field.name, "field_type": field.field_type, "required": field.required} for field in schema.fields],
+        "fields": [
+            {
+                "name": field.name,
+                "field_type": field.field_type,
+                "required": field.required,
+                **({"enum": list(field.enum_values)} if field.enum_values is not None else {}),
+                **({"format": field.format} if field.format is not None else {}),
+            }
+            for field in schema.fields
+        ],
         "capabilities": list(schema.capabilities),
     }

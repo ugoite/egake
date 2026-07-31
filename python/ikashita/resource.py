@@ -31,6 +31,8 @@ class FieldSchema:
     name: str
     field_type: str
     required: bool = False
+    enum_values: Optional[Tuple[JsonValue, ...]] = None
+    format: Optional[str] = None
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 import { isJsonObject, isJsonValue } from "./merge-patch.ts";
 import {
   Capability,
+  FieldSchema,
   JsonObject,
   JsonValue,
   MaybePromise,
@@ -148,10 +149,40 @@ function parseEvent(value: unknown): SerializedEvent {
   };
 }
 
+function parseField(value: unknown): FieldSchema {
+  const source = object(value, "resource field");
+  const fieldType = string(source.field_type, "resource field type") as FieldSchema["field_type"];
+  if (!new Set(["text", "number", "integer", "boolean", "date", "json"]).has(fieldType)) {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: `unknown resource field type: ${fieldType}`,
+    });
+  }
+  if (typeof source.required !== "boolean") {
+    throw new ResourceError({
+      code: "validation_failed",
+      message: "resource field required must be a boolean",
+    });
+  }
+  const enumValues = source.enum === undefined
+    ? undefined
+    : array(source.enum, "resource field enum");
+  const format = source.format === undefined
+    ? undefined
+    : string(source.format, "resource field format");
+  return {
+    name: string(source.name, "resource field name"),
+    field_type: fieldType,
+    required: source.required,
+    ...(enumValues === undefined ? {} : { enum: enumValues as JsonValue[] }),
+    ...(format === undefined ? {} : { format }),
+  };
+}
+
 function parseResource(value: unknown): SerializedResource {
   const source = object(value, "resource declaration");
   const capabilities = array(
-    source.required_capabilities ?? [],
+    source.required_capabilities ?? source.capabilities ?? [],
     "required_capabilities",
   ).map((item) => {
     const capability = string(item, "resource capability") as Capability;
@@ -163,10 +194,14 @@ function parseResource(value: unknown): SerializedResource {
     }
     return capability;
   });
+  const fields = source.fields === undefined
+    ? undefined
+    : array(source.fields, "resource fields").map(parseField);
   return {
     name: string(source.name, "resource name"),
     schema: string(source.schema, "resource schema"),
     required_capabilities: capabilities,
+    ...(fields === undefined ? {} : { fields }),
   };
 }
 
@@ -242,6 +277,27 @@ function fixedClass(kind: SerializedComponent["kind"]): string {
   return `ikashita-${kind.replaceAll("-", "-")}`;
 }
 
+/** Maps schema metadata to the native HTML input type used by the renderer. */
+export function inputTypeForField(field: FieldSchema | undefined):
+  | "text"
+  | "email"
+  | "date"
+  | "datetime-local" {
+  if (field?.format === "email") return "email";
+  if (field?.format === "date") return "date";
+  if (field?.format === "date-time") return "datetime-local";
+  return "text";
+}
+
+function fieldForComponent(
+  application: SerializedApplication,
+  component: SerializedComponent,
+): FieldSchema | undefined {
+  const field = attr(component, "field");
+  if (!field) return undefined;
+  return application.resources[0]?.fields?.find((candidate) => candidate.name === field);
+}
+
 function actionFor(component: SerializedComponent): string | undefined {
   return attr(component, "action") ??
     component.events.find((event) => event.event === "click")?.action;
@@ -299,6 +355,13 @@ function renderComponent(
       element instanceof HTMLTextAreaElement ||
       element instanceof HTMLSelectElement)
   ) element.name = field;
+  const schemaField = fieldForComponent(application, component);
+  if (
+    schemaField?.required &&
+    (element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLSelectElement)
+  ) element.required = true;
 
   if (component.kind === "text") {
     element.textContent = component.text ?? label ?? "";
@@ -316,16 +379,19 @@ function renderComponent(
     }
   } else if (component.kind === "select") {
     const select = element as HTMLSelectElement;
-    const values = component.attributes.options;
+    const values = schemaField?.enum ?? component.attributes.options;
     if (Array.isArray(values)) {
       for (const value of values) {
-        if (typeof value !== "string") continue;
+        if (!isJsonValue(value) || value === null || typeof value === "object") continue;
         const option = document.createElement("option");
-        option.value = value;
-        option.textContent = value;
+        option.value = String(value);
+        option.textContent = String(value);
         select.append(option);
       }
     }
+  } else if (component.kind === "text-input") {
+    const input = element as HTMLInputElement;
+    input.type = inputTypeForField(schemaField);
   } else if (component.kind === "data-table") {
     const table = element as HTMLTableElement;
     const head = table.createTHead().insertRow();

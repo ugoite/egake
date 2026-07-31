@@ -21,7 +21,12 @@ class MemoryResource(ResourceBase):
     def schema(self):
         return ResourceSchema(
             "contacts",
-            (FieldSchema("id", "text", True), FieldSchema("name", "text")),
+            (
+                FieldSchema("id", "text", True),
+                FieldSchema("name", "text"),
+                FieldSchema("status", "text", False, ("active", "paused")),
+                FieldSchema("email", "text", False, None, "email"),
+            ),
             CAPABILITIES,
         )
 
@@ -83,6 +88,8 @@ class ResourceASGITest(unittest.TestCase):
         status, schema, _ = call(self.app, "GET", "/api/ikashita/v1/resources/contacts/schema")
         self.assertEqual(status, 200)
         self.assertEqual(schema["name"], "contacts")
+        self.assertEqual(schema["fields"][2]["enum"], ["active", "paused"])
+        self.assertEqual(schema["fields"][3]["format"], "email")
 
         status, page, _ = call(self.app, "GET", "/api/ikashita/v1/resources/contacts")
         self.assertEqual(status, 200)

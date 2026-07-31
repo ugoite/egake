@@ -6,6 +6,8 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+use ikashita_resource::ResourceSchema;
+
 /// The default primary-key column used by generated CSV resources.
 pub const DEFAULT_RESOURCE_KEY: &str = "id";
 
@@ -17,6 +19,7 @@ pub struct CsvResourceConfig {
     name: Option<String>,
     writable: bool,
     backup_count: u8,
+    schema: Option<ResourceSchema>,
 }
 
 impl CsvResourceConfig {
@@ -29,6 +32,7 @@ impl CsvResourceConfig {
             name: None,
             writable: false,
             backup_count: 0,
+            schema: None,
         }
     }
 
@@ -60,6 +64,13 @@ impl CsvResourceConfig {
         self
     }
 
+    /// Supplies field metadata derived from an external resource schema.
+    #[must_use]
+    pub fn with_schema(mut self, schema: ResourceSchema) -> Self {
+        self.schema = Some(schema);
+        self
+    }
+
     /// Returns the configured CSV path.
     #[must_use]
     pub fn path(&self) -> &Path {
@@ -88,6 +99,12 @@ impl CsvResourceConfig {
     #[must_use]
     pub const fn backup_count(&self) -> u8 {
         self.backup_count
+    }
+
+    /// Returns the optional external field metadata.
+    #[must_use]
+    pub fn schema(&self) -> Option<&ResourceSchema> {
+        self.schema.as_ref()
     }
 
     /// Validates settings that can be checked without touching the filesystem.

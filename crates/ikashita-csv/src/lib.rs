@@ -74,15 +74,31 @@ impl CsvResourceProvider {
         if let Some(key_index) = key_index {
             validate_unique_keys(&records, key_index, config.key())?;
         }
+        if let Some(configured_schema) = config.schema() {
+            for field in &configured_schema.fields {
+                if !headers.iter().any(|header| header == &field.name) {
+                    return Err(ResourceError::new(
+                        ResourceErrorKind::Validation,
+                        "CSV is missing a schema column",
+                    )
+                    .with_field(&field.name, "column does not exist"));
+                }
+            }
+        }
 
         let name = config
             .name()
             .map(str::to_owned)
             .or_else(|| path.file_stem().and_then(|stem| stem.to_str()).map(str::to_owned))
             .unwrap_or_else(|| "resource".to_owned());
+        let configured_schema = config.schema().cloned();
         let mut schema = ResourceSchema::new(name);
         for header in &headers {
-            let field = FieldSchema::new(header, FieldType::Text);
+            let field = configured_schema
+                .as_ref()
+                .and_then(|configured| configured.fields.iter().find(|field| field.name == *header))
+                .cloned()
+                .unwrap_or_else(|| FieldSchema::new(header, FieldType::Text));
             schema.push_field(if header == config.key() { field.required() } else { field });
         }
         schema.grant(Capability::Schema);
@@ -256,6 +272,7 @@ impl JsonResourceProvider for CsvResourceProvider {
             )
             .with_field(&self.key, "must be a string"));
         }
+        validate_schema_value(&self.schema, &normalized)?;
         values.push(normalized.clone());
         self.write_values_locked(&values)?;
         Ok(Value::Object(normalized))
@@ -299,6 +316,7 @@ impl JsonResourceProvider for CsvResourceProvider {
                 "resource key must be a string",
             ));
         }
+        validate_schema_value(&self.schema, &normalized)?;
         values[position] = normalized.clone();
         self.write_values_locked(&values)?;
         Ok(Value::Object(normalized))
@@ -466,6 +484,160 @@ fn validate_columns(headers: &[String], object: &Map<String, Value>) -> Resource
     Ok(())
 }
 
+fn validate_schema_value(
+    schema: &ResourceSchema,
+    object: &Map<String, Value>,
+) -> ResourceResult<()> {
+    for field in &schema.fields {
+        let value = object.get(&field.name).unwrap_or(&Value::Null);
+        if value.is_null() || value.as_str() == Some("") {
+            if field.required {
+                return Err(ResourceError::new(
+                    ResourceErrorKind::Validation,
+                    "resource field is required",
+                )
+                .with_field(&field.name, "must not be empty"));
+            }
+            continue;
+        }
+        let valid_type = match field.field_type {
+            FieldType::Text | FieldType::Date | FieldType::Json => value.is_string(),
+            FieldType::Number => value.as_str().is_some_and(|value| value.parse::<f64>().is_ok()),
+            FieldType::Integer => value.as_str().is_some_and(|value| value.parse::<i64>().is_ok()),
+            FieldType::Boolean => {
+                value.as_str().is_some_and(|value| matches!(value, "true" | "false"))
+            }
+        };
+        if !valid_type {
+            return Err(ResourceError::new(
+                ResourceErrorKind::Validation,
+                "resource field does not match its schema type",
+            )
+            .with_field(&field.name, "has an invalid type"));
+        }
+        if let Some(enum_values) = &field.enum_values
+            && !enum_values.iter().any(|expected| csv_enum_matches(value, expected))
+        {
+            return Err(ResourceError::new(
+                ResourceErrorKind::Validation,
+                "resource field is not in its schema enum",
+            )
+            .with_field(&field.name, "must be one of the declared values"));
+        }
+        if let Some(format) = &field.format
+            && !csv_format_matches(value, format)
+        {
+            return Err(ResourceError::new(
+                ResourceErrorKind::Validation,
+                "resource field does not match its schema format",
+            )
+            .with_field(&field.name, "has an invalid format"));
+        }
+    }
+    Ok(())
+}
+
+fn csv_enum_matches(value: &Value, expected: &Value) -> bool {
+    match expected {
+        Value::String(expected) => value.as_str() == Some(expected),
+        Value::Number(expected) => {
+            value.as_str().is_some_and(|value| value.parse::<f64>().ok() == expected.as_f64())
+        }
+        Value::Bool(expected) => {
+            value.as_str().and_then(|value| value.parse::<bool>().ok()) == Some(*expected)
+        }
+        Value::Null => value.is_null(),
+        _ => value == expected,
+    }
+}
+
+fn csv_format_matches(value: &Value, format: &str) -> bool {
+    let Some(value) = value.as_str() else { return false };
+    match format {
+        "email" => {
+            let Some((local, domain)) = value.split_once('@') else { return false };
+            !local.is_empty()
+                && domain.contains('.')
+                && !domain.starts_with('.')
+                && !domain.ends_with('.')
+                && !value.chars().any(char::is_whitespace)
+        }
+        "date" => valid_date(value),
+        "date-time" => {
+            let Some((date, time)) = value.split_once('T') else { return false };
+            valid_date(date) && valid_time(time)
+        }
+        _ => false,
+    }
+}
+
+fn valid_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return false;
+    }
+    if !bytes
+        .iter()
+        .enumerate()
+        .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit())
+    {
+        return false;
+    }
+    let year = value[0..4].parse::<u32>().ok();
+    let month = value[5..7].parse::<u32>().ok();
+    let day = value[8..10].parse::<u32>().ok();
+    let (Some(year), Some(month), Some(day)) = (year, month, day) else { return false };
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1..=days).contains(&day)
+}
+
+fn valid_time(value: &str) -> bool {
+    let (clock, timezone) = if let Some(clock) = value.strip_suffix('Z') {
+        (clock, None)
+    } else if let Some(position) = value.rfind(['+', '-']) {
+        (&value[..position], Some(&value[position..]))
+    } else {
+        (value, None)
+    };
+    let mut parts = clock.split(':');
+    let (Some(hour), Some(minute), Some(seconds), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let (seconds, fraction) = seconds.split_once('.').unwrap_or((seconds, ""));
+    let valid_digits =
+        |value: &str| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit());
+    if hour.len() != 2
+        || minute.len() != 2
+        || seconds.len() != 2
+        || !valid_digits(hour)
+        || !valid_digits(minute)
+        || !valid_digits(seconds)
+        || (!fraction.is_empty() && !valid_digits(fraction))
+    {
+        return false;
+    }
+    let valid_clock = hour.parse::<u32>().is_ok_and(|value| value <= 23)
+        && minute.parse::<u32>().is_ok_and(|value| value <= 59)
+        && seconds.parse::<u32>().is_ok_and(|value| value <= 59);
+    let valid_timezone = timezone.is_none_or(|zone| {
+        if zone.len() != 6 || zone.as_bytes()[3] != b':' {
+            return false;
+        }
+        (zone.starts_with('+') || zone.starts_with('-'))
+            && zone[1..3].parse::<u32>().is_ok_and(|value| value <= 23)
+            && zone[4..6].parse::<u32>().is_ok_and(|value| value <= 59)
+    });
+    valid_clock && valid_timezone
+}
+
 fn compare_values(left: &Value, right: &Value, sorts: &[ikashita_resource::Sort]) -> Ordering {
     sorts
         .iter()
@@ -620,5 +792,43 @@ mod tests {
 
         let config = CsvResourceConfig::new("../records.csv");
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn external_schema_metadata_reaches_json_boundary_and_validates_writes() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("contacts.csv");
+        fs::write(&path, "id,email,status\n1,ada@example.com,active\n").expect("CSV fixture");
+        let mut external = ResourceSchema::new("contacts");
+        external.push_field(FieldSchema::new("id", FieldType::Text).required());
+        external
+            .push_field(FieldSchema::new("email", FieldType::Text).with_format("email").required());
+        external.push_field(
+            FieldSchema::new("status", FieldType::Text)
+                .with_enum_values(vec![serde_json::json!("active"), serde_json::json!("paused")]),
+        );
+        let provider = CsvResourceProvider::new(
+            CsvResourceConfig::new(path).with_writable(true).with_schema(external),
+        )
+        .expect("provider");
+
+        let schema = JsonResourceProvider::schema(&provider).expect("schema");
+        let email = schema.fields.iter().find(|field| field.name == "email").expect("email");
+        assert_eq!(email.format.as_deref(), Some("email"));
+        assert_eq!(schema.fields[2].enum_values.as_ref().expect("enum").len(), 2);
+        let wire = serde_json::to_value(&schema).expect("schema JSON");
+        assert_eq!(wire["fields"][1]["format"], "email");
+        assert_eq!(wire["fields"][2]["enum"][0], "active");
+
+        let error = provider
+            .create(serde_json::json!({"id":"2", "email":"not-an-email", "status":"active"}))
+            .expect_err("invalid email");
+        assert_eq!(error.kind, ResourceErrorKind::Validation);
+        assert!(error.fields.contains_key("email"));
+        let error = provider
+            .create(serde_json::json!({"id":"2", "email":"grace@example.com", "status":"unknown"}))
+            .expect_err("invalid enum");
+        assert_eq!(error.kind, ResourceErrorKind::Validation);
+        assert!(error.fields.contains_key("status"));
     }
 }

@@ -3,7 +3,7 @@
   "use strict";
 
   var API = "/api/ikashita/v1";
-  var model = { app: null, state: {}, records: {}, selected: {}, errors: [], toast: null };
+  var model = { app: null, state: {}, records: {}, schemas: {}, selected: {}, errors: [], toast: null };
   var root = document.getElementById("ikashita-root");
 
   function el(tag, text) {
@@ -67,6 +67,29 @@
 
   function resourceName(component) {
     return componentAttr(component, "resource");
+  }
+
+  function schemaField(resource, fieldName) {
+    var schema = model.schemas[resource];
+    return schema && (schema.fields || []).find(function (field) { return field.name === fieldName; });
+  }
+
+  function formatMatches(value, format) {
+    if (typeof value !== "string") return false;
+    if (format === "email") {
+      var email = value.split("@");
+      return email.length === 2 && email[0].length > 0 && email[1].indexOf(".") > 0 && !/\s/.test(value);
+    }
+    if (format === "date") return /^\d{4}-\d{2}-\d{2}$/.test(value);
+    if (format === "date-time") return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(value);
+    return true;
+  }
+
+  function localValidationError(message, fields) {
+    var error = new Error(message);
+    error.code = "validation_failed";
+    error.fields = fields;
+    return error;
   }
 
   function formComponent() {
@@ -161,8 +184,19 @@
   function validateDraft(resource) {
     if (!model.state.draft || typeof model.state.draft !== "object") return Promise.reject(new Error("editor value must be an object"));
     return request("/resources/" + encodeURIComponent(resource) + "/schema").then(function (schema) {
-      var missing = (schema.fields || []).filter(function (field) { return field.required && !valueOf(model.state.draft[field.name]); });
-      if (missing.length) throw new Error("Required fields are missing: " + missing.map(function (field) { return field.name; }).join(", "));
+      model.schemas[resource] = schema;
+      var fields = {};
+      (schema.fields || []).forEach(function (field) {
+        var value = model.state.draft[field.name];
+        var empty = value === undefined || value === null || value === "";
+        if (field.required && empty) fields[field.name] = "is required";
+        if (empty) return;
+        if (Array.isArray(field.enum) && !field.enum.some(function (expected) { return valueOf(expected) === valueOf(value); })) {
+          fields[field.name] = "must be one of the declared values";
+        }
+        if (field.format && !formatMatches(valueOf(value), field.format)) fields[field.name] = "has an invalid format";
+      });
+      if (Object.keys(fields).length) throw localValidationError("Form values do not match the resource schema", fields);
     });
   }
 
@@ -242,14 +276,26 @@
     var label = componentAttr(component, "label") || field || "Value";
     var wrapper = el("div"); attr(wrapper, "class", "ikashita-field");
     wrapper.appendChild(el("label", label));
+    var metadata = field ? schemaField(formResource, field) : null;
     var input = component.kind === "textarea" ? el("textarea") : component.kind === "select" ? el("select") : el("input");
-    if (component.kind === "text-input") attr(input, "type", "text");
+    if (component.kind === "text-input") attr(input, "type", metadata && metadata.format === "email" ? "email" : metadata && metadata.format === "date" ? "date" : metadata && metadata.format === "date-time" ? "datetime-local" : "text");
+    if (metadata && metadata.required) attr(input, "required", "required");
     attr(input, "name", field);
     var stateName = binding && binding.indexOf("state.") === 0 ? binding.slice(6) : null;
     input.value = stateName ? valueOf(model.state[stateName]) : valueOf(model.state.draft && model.state.draft[field]);
     if (component.kind === "select") {
+      var values = metadata && Array.isArray(metadata.enum) ? metadata.enum : [];
       var current = input.value;
-      var option = el("option", current || "Select a value"); option.value = current; input.appendChild(option);
+      if (!values.length) {
+        var option = el("option", current || "Select a value"); option.value = current; input.appendChild(option);
+      } else {
+        var placeholder = el("option", "Select a value"); placeholder.value = ""; input.appendChild(placeholder);
+        if (current && !values.some(function (value) { return valueOf(value) === current; })) values = [current].concat(values);
+      }
+      values.forEach(function (value) {
+        var option = el("option", valueOf(value)); option.value = valueOf(value); input.appendChild(option);
+      });
+      input.value = current;
     }
     input.addEventListener("input", function () {
       if (stateName) {
@@ -337,8 +383,13 @@
       return response.json();
     }).then(function (app) {
       model.app = app; (app.states || []).forEach(function (state) { model.state[state.name] = state.value; });
+      (app.resources || []).forEach(function (resource) { model.schemas[resource.name] = { fields: resource.fields || [] }; });
       document.title = app.profile.name; render();
-      return Promise.all((app.resources || []).filter(function (resource) { return resource.capabilities.indexOf("list") >= 0; }).map(function (resource) { return refresh(resource.name); }));
+      return Promise.all((app.resources || []).filter(function (resource) { return (resource.capabilities || resource.required_capabilities || []).indexOf("list") >= 0; }).map(function (resource) {
+        return request("/resources/" + encodeURIComponent(resource.name) + "/schema").then(function (schema) {
+          model.schemas[resource.name] = schema; render();
+        }).then(function () { return refresh(resource.name); });
+      }));
     }).catch(function (error) { rememberError(error); });
   }
 
