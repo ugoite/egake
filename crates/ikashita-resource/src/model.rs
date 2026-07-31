@@ -2,8 +2,11 @@
 
 use std::collections::BTreeSet;
 
+use serde::{Deserialize, Serialize};
+
 /// An operation a provider may expose to the runtime.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Capability {
     /// Read the resource schema.
     Schema,
@@ -22,7 +25,8 @@ pub enum Capability {
 }
 
 /// The supported primitive field kinds in the foundation schema.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum FieldType {
     /// UTF-8 text.
     Text,
@@ -37,7 +41,7 @@ pub enum FieldType {
 }
 
 /// A field declaration used for validation and form generation.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct FieldSchema {
     /// Field name as used by the resource record.
     pub name: String,
@@ -63,7 +67,7 @@ impl FieldSchema {
 }
 
 /// The schema and capabilities advertised by one resource.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ResourceSchema {
     /// Stable resource name used by the application definition.
     pub name: String,

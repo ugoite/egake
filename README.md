@@ -4,13 +4,15 @@ ikashita is an MIT-licensed Rust/WASM-oriented low-code UI runtime. The
 project is being delivered incrementally around a transport-neutral Resource
 Contract and a KDL Application Profile.
 
-This repository currently contains the foundation workspace only:
+This repository currently contains the standalone data/API increment:
 
-- `ikashita-resource` defines the shared resource query, schema, page, and
-  structured-error types plus the provider trait.
+- `ikashita-resource` defines the shared resource query, schema, page,
+  structured-error types, generic provider trait, JSON provider boundary, and
+  merge-patch helper.
 - `ikashita-spec` owns the versioned Application Profile metadata.
-- `ikashita-csv` owns CSV provider configuration and validation primitives.
-- `ikashita-server` owns localhost defaults and static-bundle configuration.
+- `ikashita-csv` provides a locked, atomic-write local CSV Resource Provider.
+- `ikashita-server` provides the localhost HTTP router, provider registry, and
+  static-bundle configuration.
 - `ikashita-cli` provides the versioned command-line entry point.
 
 The executable MVP decisions are recorded in [`docs/spec.md`](docs/spec.md).

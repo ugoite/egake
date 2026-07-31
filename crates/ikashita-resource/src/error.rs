@@ -2,8 +2,12 @@
 
 use std::{collections::BTreeMap, error::Error, fmt};
 
+use serde::{Deserialize, Serialize, Serializer};
+use serde_json::{Value, json};
+
 /// The stable category of a resource failure.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ResourceErrorKind {
     /// The input failed provider-side validation.
     Validation,
@@ -73,6 +77,20 @@ impl ResourceError {
     pub const fn code(&self) -> &'static str {
         self.kind.code()
     }
+
+    /// Converts this error to the stable JSON error object used by adapters.
+    #[must_use]
+    pub fn to_json(&self) -> Value {
+        let mut error = json!({
+            "code": self.code(),
+            "message": self.message,
+            "fields": self.fields,
+        });
+        if let Some(request_id) = &self.request_id {
+            error["request_id"] = Value::String(request_id.clone());
+        }
+        error
+    }
 }
 
 impl fmt::Display for ResourceError {
@@ -82,6 +100,31 @@ impl fmt::Display for ResourceError {
 }
 
 impl Error for ResourceError {}
+
+impl Serialize for ResourceError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_json().serialize(serializer)
+    }
+}
+
+impl From<serde_json::Error> for ResourceError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::new(ResourceErrorKind::Validation, "request body is not valid JSON")
+            .with_field("json", json_error_category(error))
+    }
+}
+
+fn json_error_category(error: serde_json::Error) -> &'static str {
+    match error.classify() {
+        serde_json::error::Category::Io => "io",
+        serde_json::error::Category::Syntax => "syntax",
+        serde_json::error::Category::Data => "data",
+        serde_json::error::Category::Eof => "eof",
+    }
+}
 
 /// The result type used by Resource Contract operations.
 pub type ResourceResult<T> = Result<T, ResourceError>;
