@@ -9,6 +9,7 @@ from ikashita import (
     FieldSchema,
     ListQuery,
     ResourceBase,
+    ResourceASGIApp,
     ResourcePage,
     ResourceSchema,
     apply_merge_patch,
@@ -51,4 +52,24 @@ class Contacts(ResourceBase):
         return {"action": action, "input": value}
 
 
-app = create_fastapi_app({"contacts": Contacts()})
+def create_asgi_app() -> ResourceASGIApp:
+    """Build the dependency-free ASGI application used by the tests."""
+
+    return ResourceASGIApp({"contacts": Contacts()})
+
+
+def create_fastapi_application():
+    """Build the optional FastAPI application around the same provider."""
+
+    return create_fastapi_app({"contacts": Contacts()})
+
+
+try:
+    app = create_fastapi_application()
+except RuntimeError:
+    # The example remains importable and runnable with only the stdlib adapter.
+    app = create_asgi_app()
+
+
+if __name__ == "__main__":
+    print("ASGI app ready: use `uvicorn app:app --app-dir examples/python-fastapi` with an ASGI server")

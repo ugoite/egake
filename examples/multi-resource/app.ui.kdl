@@ -1,0 +1,24 @@
+/- kdl-version 2
+app "operations-dashboard" version="0.1" {
+    resource "contacts" schema="schemas/contacts.schema.json" {
+        require "list"
+    }
+    resource "teams" schema="schemas/teams.schema.json" {
+        require "list"
+    }
+
+    page "main" title="Operations" {
+        column gap="lg" {
+            text "Contacts"
+            data-table resource="contacts" key="name" {
+                column field="name" label="Name"
+                column field="team" label="Team"
+            }
+            text "Teams"
+            data-table resource="teams" key="name" {
+                column field="name" label="Name"
+                column field="owner" label="Owner"
+            }
+        }
+    }
+}

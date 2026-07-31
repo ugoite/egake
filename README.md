@@ -25,6 +25,8 @@ usable local CLI/runtime:
   inspection/build output, and the localhost browser runtime.
 
 The executable MVP decisions are recorded in [`docs/spec.md`](docs/spec.md).
+Runnable workflow coverage and the offline acceptance matrix are in
+[`docs/usage.md`](docs/usage.md).
 Ugoite integration will be an adapter boundary and is not a workspace
 dependency.
 
@@ -37,18 +39,20 @@ cargo run -p ikashita-cli -- new my-contacts
 cargo run -p ikashita-cli -- validate my-contacts
 cargo run -p ikashita-cli -- build my-contacts
 cargo run -p ikashita-cli -- run my-contacts
+cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada
 ```
 
-The commands are `new`, `validate`, `inspect`, `build`, `run`, `dev`, and
-`test`. `validate`, `inspect`, `build`, and `test` accept `--json`; project
+The commands are `new`, `validate`, `inspect`, `build`, `run`, `dev`, `test`,
+and `list`. `validate`, `inspect`, `build`, `test`, and `list` accept `--json`; project
 directories may be positional or passed with `--project`. `run` and `dev`
 listen on `127.0.0.1:8787` by default. A non-loopback `--host` requires the
 explicit `--allow-external` flag and prints a warning because this MVP has no
 authentication. CORS is disabled by default.
 
-Projects contain `ikashita.toml` and `app.ui.kdl`. Resource providers are
-declared in either `resources.kdl` or `[resources.<name>]` tables in the TOML
-file, but not both. The preferred KDL convention is:
+Projects contain `ikashita.toml` and `app.ui.kdl`. Resource providers use
+exactly one configuration source: `resources.kdl` when present, otherwise
+`[resources.<name>]` tables in TOML. Supplying both is an error; they are never
+merged or overridden. The preferred KDL convention is:
 
 ```kdl
 /- kdl-version 2
@@ -57,7 +61,9 @@ resources {
 }
 ```
 
-Paths are project-relative and may not contain `..`. `actions.rhai` is emitted
+Paths are project-relative and may not contain `..`. `dev` is a validated
+no-watch development server; restart it after editing source files.
+`actions.rhai` is emitted
 by `new` as a documentation placeholder only; this CLI does not execute Rhai,
 shell commands, or arbitrary JavaScript. `build` writes `dist/index.html`,
 `runtime.js`, `runtime.css`, and `app.bundle.json`. The bundle contains the
@@ -66,11 +72,13 @@ validated application definition, not provider data or credentials.
 ## Tooling
 
 Install [mise](https://mise.jdx.dev/) and run commands from the repository
-root. `mise.toml` pins Rust 1.94.0, Deno 2.8.3, and the shared target directory.
+root. `mise.toml` pins Rust 1.94.0, Deno 2.8.3, Python 3.13.5, and the shared
+target directory.
 The setup task only reports available tools and configures the local Git hook;
 it does not require Docker, a browser, or a download step.
 
 ```sh
+mise install
 mise run setup
 mise run fmt:check
 mise run check

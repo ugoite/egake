@@ -203,13 +203,17 @@ The Rust `ikashita` binary resolves a project directory from a positional
 directory, `--project DIR`, or `.`. It requires `ikashita.toml` with an
 `[app]` table. `app.definition` defaults to `app.ui.kdl`; `app.name`, when
 present, must match the KDL `app` name. The commands are `new`, `validate`,
-`inspect`, `build`, `run`, `dev`, and `test`. Validation diagnostics retain
+`inspect`, `build`, `run`, `dev`, `test`, and `list`. `list` opens one
+configured CSV provider directly and supports the contract's search, sort,
+offset, and limit values without starting a server. Validation diagnostics retain
 the spec diagnostic codes and are stable in text or `--json` form. Schema
 diagnostics use the CLI range `IK3002` and data/config diagnostics use
 `IK3000`–`IK3003`.
 
 The CLI loads resource provider configuration from one of these equivalent
-conventions (using both is an error):
+conventions. `resources.kdl`, when present, is the selected source; otherwise
+the TOML tables are used. Supplying both sources is a hard error, so there is
+no merge or per-field override precedence:
 
 ```toml
 [resources.contacts]
@@ -243,8 +247,9 @@ intentionally outside this increment.
 
 The generated browser runtime uses only local JavaScript/CSS and DOM APIs. It
 renders the validated component tree, searches and refreshes tables, opens
-create/edit forms, saves with POST/PATCH, deletes after `confirm`, and shows
-structured provider failures as field-aware errors/toasts. It uses
+create/edit forms, saves with POST/PATCH, deletes after `confirm`, invokes a
+declared provider action with JSON input, and shows structured provider
+failures as field-aware errors/toasts. It uses
 `textContent`/DOM construction and does not use `eval`, arbitrary HTML
 injection, CDN assets, remote URLs, or embedded resource records.
 

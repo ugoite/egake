@@ -1,8 +1,28 @@
 {
   "profile": { "name": "contacts-host", "version": "0.1" },
-  "resources": [],
+  "resources": [
+    {
+      "name": "status",
+      "schema": "host://status",
+      "required_capabilities": ["schema", "list", "invoke"]
+    }
+  ],
   "states": [],
-  "actions": [],
+  "actions": [
+    {
+      "name": "health-check",
+      "steps": [
+        {
+          "kind": "invoke",
+          "attributes": {
+            "resource": "status",
+            "action": "health",
+            "input": { "source": "embedded-example" }
+          }
+        }
+      ]
+    }
+  ],
   "pages": [
     {
       "name": "home",
@@ -12,6 +32,13 @@
           "kind": "text",
           "text": "Host providers are injected by the page",
           "attributes": {},
+          "children": [],
+          "events": []
+        },
+        {
+          "kind": "button",
+          "text": "Health check",
+          "attributes": { "action": "health-check" },
           "children": [],
           "events": []
         }

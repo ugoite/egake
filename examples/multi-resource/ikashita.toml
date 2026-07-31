@@ -1,0 +1,3 @@
+[app]
+name = "operations-dashboard"
+definition = "app.ui.kdl"

@@ -3,6 +3,7 @@ min_version = "2025.11.3"
 [tools]
 rust = "1.94.0"
 deno = "2.8.3"
+python = "3.13.5"
 
 [env]
 CARGO_TARGET_DIR = "target/rust"
@@ -50,15 +51,15 @@ run = "deno fmt --check packages examples/js-embedded examples/ugoite-entries"
 
 [tasks."deno:check"]
 description = "Type-check the TypeScript/Deno host packages and examples"
-run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod.ts examples/js-embedded/main.ts examples/ugoite-entries/adapter.ts"
+run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod.ts examples/js-embedded/main.ts examples/js-embedded/main_test.ts examples/ugoite-entries/adapter.ts examples/ugoite-entries/adapter_test.ts"
 
 [tasks."deno:test"]
 description = "Run deterministic TypeScript/Deno host tests"
-run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests"
+run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts"
 
 [tasks."python:test"]
 description = "Run standard-library Python host adapter tests"
-run = "PYTHONPATH=python python3 -m unittest discover -s python/tests -t python"
+run = "PYTHONPATH=python python -m unittest discover -s python/tests -t python"
 
 [tasks.ci]
 description = "Run the complete local validation suite"

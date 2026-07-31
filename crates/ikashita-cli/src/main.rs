@@ -68,6 +68,8 @@ enum Command {
     Dev(ServeArgs),
     /// Run deterministic project validation checks.
     Test(ProjectArgs),
+    /// List a configured CSV resource without starting a server.
+    List(ListArgs),
 }
 
 #[derive(Debug, Args)]
@@ -134,6 +136,27 @@ struct NewArgs {
     /// Emit a machine-readable result.
     #[arg(long)]
     json: bool,
+}
+
+#[derive(Debug, Args)]
+struct ListArgs {
+    #[command(flatten)]
+    project: ProjectArgs,
+    /// Declared resource name to list.
+    #[arg(short, long, value_name = "NAME")]
+    resource: String,
+    /// Case-insensitive substring search over CSV fields.
+    #[arg(long, alias = "q", value_name = "TEXT")]
+    query: Option<String>,
+    /// Comma-separated sort fields; prefix a field with '-' for descending.
+    #[arg(long, default_value = "", value_name = "FIELDS")]
+    sort: String,
+    /// Number of matching records to skip.
+    #[arg(long, default_value_t = 0)]
+    offset: u64,
+    /// Number of records to return (0 becomes 1 and values above 500 become 500).
+    #[arg(long, default_value_t = 50)]
+    limit: u64,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -277,6 +300,7 @@ fn execute(cli: Cli) -> Result<(), CliError> {
         Command::Run(args) => command_serve(args, false),
         Command::Dev(args) => command_serve(args, true),
         Command::Test(args) => command_test(args),
+        Command::List(args) => command_list(args),
     }
 }
 
@@ -371,6 +395,69 @@ fn command_test(args: ProjectArgs) -> Result<(), CliError> {
             println!("test {check} ... ok");
         }
         println!("{} project tests passed", checks.len());
+    }
+    Ok(())
+}
+
+fn command_list(args: ListArgs) -> Result<(), CliError> {
+    let validated = load_validated(args.project.directory(), args.project.json, true)?;
+    let definition_resource = validated
+        .definition
+        .resources
+        .iter()
+        .find(|resource| resource.name == args.resource)
+        .ok_or_else(|| {
+            CliError::message(format!("resource '{}' is not declared in app.ui.kdl", args.resource))
+                .with_json(args.project.json)
+        })?;
+    let config = validated.project.resources.get(&args.resource).ok_or_else(|| {
+        CliError::message(format!(
+            "resource '{}' has no resources.kdl/TOML configuration",
+            args.resource
+        ))
+        .with_json(args.project.json)
+    })?;
+    let provider =
+        open_csv_provider(&validated.project.root, &args.resource, config).map_err(|error| {
+            CliError::message(format!("resource '{}': {error}", args.resource))
+                .with_json(args.project.json)
+        })?;
+    let schema = provider.schema().map_err(|error| {
+        CliError::message(format!("resource '{}': {error}", args.resource))
+            .with_json(args.project.json)
+    })?;
+    if !schema.capabilities.contains(&Capability::List) {
+        return Err(CliError::message(format!(
+            "resource '{}' does not provide the list capability",
+            args.resource
+        ))
+        .with_json(args.project.json));
+    }
+    let mut query = ListQuery::new().with_pagination(args.offset, args.limit);
+    if let Some(search) = args.query.filter(|value| !value.is_empty()) {
+        query = query.with_search(search);
+    }
+    if !args.sort.is_empty() {
+        query.sort = ListQuery::from_query_string(&format!("sort={}", args.sort))
+            .map_err(|error| {
+                CliError::message(format!("invalid --sort: {error}")).with_json(args.project.json)
+            })?
+            .sort;
+    }
+    let page = provider.list(&query).map_err(|error| {
+        CliError::message(format!("resource '{}': {error}", args.resource))
+            .with_json(args.project.json)
+    })?;
+    if args.project.json {
+        print_json(serde_json::to_value(page).expect("resource pages are serializable"));
+    } else {
+        println!(
+            "resource={} total={} offset={} limit={}",
+            definition_resource.name, page.total, page.offset, page.limit
+        );
+        for item in page.items {
+            println!("{}", serde_json::to_string(&item).expect("resource values are serializable"));
+        }
     }
     Ok(())
 }
@@ -1312,11 +1399,17 @@ fn write_new_file(path: &Path, contents: &str) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::{
+        sync::atomic::{AtomicU64, Ordering},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn temp_project() -> PathBuf {
         let suffix = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
-        std::env::temp_dir().join(format!("ikashita-cli-test-{}-{suffix}", process::id()))
+        let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!("ikashita-cli-test-{}-{suffix}-{counter}", process::id()))
     }
 
     #[test]
@@ -1332,6 +1425,8 @@ mod tests {
         assert!(!runtime.contains("innerHTML"));
         assert!(runtime.contains("/api/ikashita/v1"));
         assert!(runtime.contains("method: \"PATCH\""));
+        assert!(runtime.contains("invokeProviderAction"));
+        assert!(runtime.contains("/actions/"));
         assert!(runtime.contains("window.confirm"));
         assert!(runtime.contains("request_id"));
         fs::remove_dir_all(path).expect("cleanup");
@@ -1369,6 +1464,31 @@ mod tests {
         .expect("resources");
         let error = parse_resources_kdl(&path, Path::new("resources.kdl")).expect_err("traversal");
         assert!(error.message.expect("message").contains(".."));
+        fs::remove_dir_all(path).expect("cleanup");
+    }
+
+    #[test]
+    fn resource_configuration_sources_are_not_merged() {
+        let path = temp_project();
+        fs::create_dir_all(&path).expect("project");
+        fs::write(path.join("ikashita.toml"), "[app]\nname=\"app\"\n").expect("config");
+        fs::write(
+            path.join("app.ui.kdl"),
+            "/- kdl-version 2\napp \"app\" version=\"0.1\" { page \"home\" title=\"Home\" {} }\n",
+        )
+        .expect("definition");
+        fs::write(
+            path.join("resources.kdl"),
+            "/- kdl-version 2\nresources { csv \"items\" path=\"items.csv\" }\n",
+        )
+        .expect("KDL resources");
+        fs::write(
+            path.join("ikashita.toml"),
+            "[app]\nname=\"app\"\n\n[resources.items]\npath=\"items.csv\"\n",
+        )
+        .expect("TOML resources");
+        let error = load_project(&path).expect_err("mixed resource sources");
+        assert!(error.message.expect("message").contains("either resources.kdl"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 }

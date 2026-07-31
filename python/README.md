@@ -10,5 +10,5 @@ ASGI router. FastAPI support is optional and loaded only through
 Core tests run with:
 
 ```sh
-PYTHONPATH=python python3 -m unittest discover -s python/tests -t python
+mise run python:test
 ```

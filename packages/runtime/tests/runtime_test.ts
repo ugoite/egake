@@ -84,6 +84,36 @@ Deno.test("client uses relative same-origin requests, capabilities, and request 
   );
 });
 
+Deno.test("client delegates provider-defined actions as JSON", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = new ResourceClient({
+    fetch: async (input, init) => {
+      calls.push({ input, init });
+      if (String(input).endsWith("/schema")) {
+        return new Response(
+          JSON.stringify({
+            name: "status",
+            fields: [],
+            capabilities: ["schema", "invoke"],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    },
+  });
+  const result = await client.resource("status").invoke("health", {
+    source: "test",
+  });
+  assertEquals(result, { ok: true });
+  assertEquals(
+    String(calls[1].input),
+    "/api/ikashita/v1/resources/status/actions/health",
+  );
+  assertEquals(calls[1].init?.method, "POST");
+  assertEquals(calls[1].init?.body, JSON.stringify({ source: "test" }));
+});
+
 async function assertRejectsCode(
   operation: () => Promise<unknown>,
   code: string,
