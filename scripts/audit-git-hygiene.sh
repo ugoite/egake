@@ -65,6 +65,8 @@ Explicit audit patterns:
                    .AppleDouble, .LSOverride, *.iml, *.swp, *.swo, *~
   package-manager-log npm-debug.log*, yarn-debug.log*, yarn-error.log*,
                       pnpm-debug.log*
+  credential-content PEM private-key markers, provider token prefixes,
+                     and key-like assignments with 24+ characters
 EOF
 }
 
@@ -104,6 +106,83 @@ history_matches=$(collect_history_matches)
 print_matches 'Currently tracked matches (git ls-files):' "$current_matches"
 print_matches 'Matches in reachable history (git rev-list --objects --all):' "$history_matches"
 
+credential_patterns=(
+    '-----BEGIN[[:space:]]+(RSA[[:space:]]+|EC[[:space:]]+|OPENSSH[[:space:]]+|DSA[[:space:]]+|PGP[[:space:]]+)?PRIVATE[[:space:]]+KEY-----'
+    '(^|[^[:alnum:]_])gh[pousr]_[A-Za-z0-9_]{20,}([^[:alnum:]_]|$)'
+    '(^|[^[:alnum:]_])github_pat_[A-Za-z0-9_]{20,}([^[:alnum:]_]|$)'
+    '(^|[^[:alnum:]_])(AKIA|ASIA)[0-9A-Z]{16}([^[:alnum:]_]|$)'
+    '(^|[^[:alnum:]_])sk-[A-Za-z0-9_-]{20,}([^[:alnum:]_]|$)'
+    '(^|[^[:alnum:]_])xox[baprs]-[A-Za-z0-9-]{20,}([^[:alnum:]_]|$)'
+    '(^|[^[:alnum:]_])npm_[A-Za-z0-9]{20,}([^[:alnum:]_]|$)'
+    '(^|[^[:alnum:]_])AIza[A-Za-z0-9_-]{30,}([^[:alnum:]_]|$)'
+    "(^|[^[:alnum:]_])(api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|private[_-]?key|password|secret|token)[[:space:]]*[:=][[:space:]]*[\"']?[A-Za-z0-9+/=_-]{24,}"
+)
+
+credential_labels=(
+    pem-private-key
+    github-token
+    github-pat
+    aws-access-key
+    provider-token
+    slack-token
+    npm-token
+    google-api-key
+    key-like-assignment
+)
+
+scan_for_credentials() {
+    local scope=$1
+    local pattern label matches status
+    local scan_status=0
+    local git_scope=()
+
+    if [ "$scope" = index ]; then
+        git_scope=(--cached)
+    else
+        git_scope=("$scope")
+    fi
+
+    for index in "${!credential_patterns[@]}"; do
+        pattern=${credential_patterns[$index]}
+        label=${credential_labels[$index]}
+        if matches=$(git grep -I -n -E -e "$pattern" "${git_scope[@]}" -- \
+            ':(exclude)scripts/audit-git-hygiene.sh'); then
+            while IFS= read -r match; do
+                printf '%s\t%s\n' "$label" "$match"
+            done <<<"$matches"
+        else
+            status=$?
+            if [ "$status" -ne 1 ]; then
+                printf 'ERROR: credential scan failed for %s (git grep status %s).\n' \
+                    "$scope" "$status" >&2
+                scan_status=1
+            fi
+        fi
+    done
+
+    return "$scan_status"
+}
+
+current_credential_file=$(mktemp)
+history_credential_file=$(mktemp)
+trap 'rm -f "$current_credential_file" "$history_credential_file"' EXIT
+
+credential_scan_failure=0
+if ! scan_for_credentials index >"$current_credential_file"; then
+    credential_scan_failure=1
+fi
+while IFS= read -r revision; do
+    if ! scan_for_credentials "$revision" >>"$history_credential_file"; then
+        credential_scan_failure=1
+    fi
+done < <(git rev-list --all)
+
+current_credential_matches=$(sort -u "$current_credential_file")
+history_credential_matches=$(sort -u "$history_credential_file")
+
+print_matches 'Currently tracked credential/pattern matches (git grep):' "$current_credential_matches"
+print_matches 'Matches in reachable history (git grep over git rev-list --all):' "$history_credential_matches"
+
 failure=0
 
 if [ -n "$current_matches" ]; then
@@ -114,6 +193,21 @@ fi
 if [ -n "$history_matches" ]; then
     printf '\nERROR: reachable history contains paths covered by the explicit audit patterns.\n' >&2
     printf '%s\n' 'Do not rewrite history in this worktree; have the integration orchestrator verify the exact target before purging.' >&2
+    failure=1
+fi
+
+if [ -n "$current_credential_matches" ]; then
+    printf '\nERROR: tracked credential, private-key, or token patterns were found.\n' >&2
+    failure=1
+fi
+
+if [ -n "$history_credential_matches" ]; then
+    printf '\nERROR: reachable history contains credential, private-key, or token patterns.\n' >&2
+    printf '%s\n' 'Do not rewrite history in this worktree; have the integration orchestrator verify the exact target before purging.' >&2
+    failure=1
+fi
+
+if [ "$credential_scan_failure" -ne 0 ]; then
     failure=1
 fi
 
