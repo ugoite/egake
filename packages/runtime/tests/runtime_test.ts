@@ -46,22 +46,26 @@ Deno.test("client uses relative same-origin requests, capabilities, and request 
   const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
   const client = new ResourceClient({
     requestId: "host-request-1",
-    fetch: async (input, init) => {
+    fetch: (input, init) => {
       calls.push({ input, init });
       const url = String(input);
       if (url.endsWith("/schema")) {
-        return new Response(
-          JSON.stringify({
-            name: "contacts",
-            fields: [],
-            capabilities: ["schema", "list"],
-          }),
-          { status: 200, headers: { "x-request-id": "host-request-1" } },
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: "contacts",
+              fields: [],
+              capabilities: ["schema", "list"],
+            }),
+            { status: 200, headers: { "x-request-id": "host-request-1" } },
+          ),
         );
       }
-      return new Response(
-        JSON.stringify({ items: [], total: 0, offset: 0, limit: 50 }),
-        { status: 200 },
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ items: [], total: 0, offset: 0, limit: 50 }),
+          { status: 200 },
+        ),
       );
     },
   });
@@ -88,19 +92,23 @@ Deno.test("client uses relative same-origin requests, capabilities, and request 
 Deno.test("client delegates provider-defined actions as JSON", async () => {
   const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
   const client = new ResourceClient({
-    fetch: async (input, init) => {
+    fetch: (input, init) => {
       calls.push({ input, init });
       if (String(input).endsWith("/schema")) {
-        return new Response(
-          JSON.stringify({
-            name: "status",
-            fields: [],
-            capabilities: ["schema", "invoke"],
-          }),
-          { status: 200 },
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: "status",
+              fields: [],
+              capabilities: ["schema", "invoke"],
+            }),
+            { status: 200 },
+          ),
         );
       }
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
     },
   });
   const result = await client.resource("status").invoke("health", {
@@ -117,27 +125,29 @@ Deno.test("client delegates provider-defined actions as JSON", async () => {
 
 Deno.test("client accepts integer fields and preserves schema metadata", async () => {
   const client = new ResourceClient({
-    fetch: async () =>
-      new Response(
-        JSON.stringify({
-          name: "metrics",
-          fields: [
-            {
-              name: "count",
-              field_type: "integer",
-              required: true,
-              enum: [0, 1, 2],
-            },
-            {
-              name: "updated_at",
-              field_type: "date",
-              required: false,
-              format: "date-time",
-            },
-          ],
-          capabilities: ["schema"],
-        }),
-        { status: 200 },
+    fetch: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            name: "metrics",
+            fields: [
+              {
+                name: "count",
+                field_type: "integer",
+                required: true,
+                enum: [0, 1, 2],
+              },
+              {
+                name: "updated_at",
+                field_type: "date",
+                required: false,
+                format: "date-time",
+              },
+            ],
+            capabilities: ["schema"],
+          }),
+          { status: 200 },
+        ),
       ),
   });
 
@@ -166,14 +176,16 @@ Deno.test("client rejects malformed schema metadata", async () => {
     ]
   ) {
     const client = new ResourceClient({
-      fetch: async () =>
-        new Response(
-          JSON.stringify({
-            name: "contacts",
-            fields: [field],
-            capabilities: ["schema"],
-          }),
-          { status: 200 },
+      fetch: () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: "contacts",
+              fields: [field],
+              capabilities: ["schema"],
+            }),
+            { status: 200 },
+          ),
         ),
     });
     try {
@@ -307,26 +319,30 @@ Deno.test("capability checks preserve structured errors", () => {
 Deno.test("client rejects traversal, malformed schemas, oversized queries, and unsafe response IDs", async () => {
   let schemaCalls = 0;
   const client = new ResourceClient({
-    fetch: async (_input, init) => {
+    fetch: (_input, init) => {
       schemaCalls += 1;
       if (String(_input).endsWith("/schema")) {
-        return new Response(
-          JSON.stringify({
-            name: "contacts",
-            fields: [],
-            capabilities: ["schema", "list", "get"],
-          }),
-          { status: 200 },
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: "contacts",
+              fields: [],
+              capabilities: ["schema", "list", "get"],
+            }),
+            { status: 200 },
+          ),
         );
       }
       assert(
         (init?.headers as Headers).get("x-request-id") !== undefined,
         "request ID missing",
       );
-      return new Response("not json", {
-        status: 400,
-        headers: { "x-request-id": "unsafe request id" },
-      });
+      return Promise.resolve(
+        new Response("not json", {
+          status: 400,
+          headers: { "x-request-id": "unsafe request id" },
+        }),
+      );
     },
   });
   const provider = client.resource("contacts");
@@ -391,18 +407,20 @@ Deno.test("client rejects traversal, malformed schemas, oversized queries, and u
 
 Deno.test("client validates remote schema and maps unstructured HTTP errors", async () => {
   const client = new ResourceClient({
-    fetch: async (input) => {
+    fetch: (input) => {
       if (String(input).endsWith("/schema")) {
-        return new Response(
-          JSON.stringify({
-            name: "different-resource",
-            fields: [],
-            capabilities: ["schema"],
-          }),
-          { status: 200 },
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: "different-resource",
+              fields: [],
+              capabilities: ["schema"],
+            }),
+            { status: 200 },
+          ),
         );
       }
-      return new Response("not json", { status: 400 });
+      return Promise.resolve(new Response("not json", { status: 400 }));
     },
   });
   try {
@@ -416,7 +434,7 @@ Deno.test("client validates remote schema and maps unstructured HTTP errors", as
   }
 
   const rawClient = new ResourceClient({
-    fetch: async () => new Response("not json", { status: 400 }),
+    fetch: () => Promise.resolve(new Response("not json", { status: 400 })),
   });
   try {
     await rawClient.request("/resources/contacts");

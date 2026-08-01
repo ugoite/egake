@@ -44,17 +44,20 @@ from this checkout.
 
 Install [mise](https://mise.jdx.dev/) and run commands from the repository
 root. `mise.toml` pins Rust 1.94.0, Deno 2.8.3, Python 3.13.5, Node 22.14.0,
-and the shared target directory. The docsite uses npm with the committed
+Ruff 0.16.1, uv 0.11.7, and the shared target directory. ty 0.0.65 is pinned
+in `pyproject.toml` and `uv.lock`. The docsite uses npm with the committed
 `docsite/package-lock.json`.
-The setup task only reports available tools and configures the local Git hook;
-it does not require Docker, a browser, or a download step.
+The setup task installs the locked Python quality environment and configures
+the local Git hook; it does not require Docker or a browser.
 
 ```sh
 mise install
 mise run setup
 mise run fmt:check
+mise run lint
 mise run check
 mise run test
+mise run docs:check
 mise run ci
 
 # Documentation site only
@@ -64,8 +67,10 @@ mise run docs:build
 ```
 
 Host-specific checks are also available as `mise run deno:check`,
-`mise run deno:test`, and `mise run python:test`. The Deno tasks use only
-built-ins; FastAPI is optional and is not needed by the Python tests.
+`mise run deno:test`, `mise run python:lint`, `mise run python:typecheck`, and
+`mise run python:test`. The Deno tasks use only built-ins; FastAPI is optional
+and is not needed by the Python tests. The same `mise run ci` task is executed
+by GitHub Actions.
 
 Without mise, the equivalent Rust checks are:
 

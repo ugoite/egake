@@ -1,0 +1,25 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+        with:
+          version: 2025.11.3
+      - name: Trust repository mise configuration
+        run: mise trust --yes mise.toml
+      - name: Install pinned toolchain
+        run: mise install
+      - name: Run all quality gates
+        run: mise run ci

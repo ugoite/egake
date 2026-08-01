@@ -4,9 +4,16 @@ set -eu
 repository_root=$(git rev-parse --show-toplevel)
 cd "$repository_root"
 
-echo "pre-commit: checking Rust formatting"
-cargo fmt --all --check
+echo "pre-commit: checking formatting"
+mise run fmt:check
 
-echo "pre-commit: running offline workspace checks"
-CARGO_NET_OFFLINE=true cargo check --workspace --all-targets
-CARGO_NET_OFFLINE=true cargo test --workspace
+echo "pre-commit: checking Rust types"
+mise run rust:check
+
+echo "pre-commit: checking Deno lint and types"
+mise run deno:lint
+mise run deno:check
+
+echo "pre-commit: checking Python lint and types"
+mise run python:lint
+mise run python:typecheck

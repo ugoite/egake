@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import inspect
 import json
+import math
 import os
 import re
 import threading
-from typing import Any, Awaitable, Callable, Dict, Mapping, MutableMapping, Tuple
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping
+from typing import Any
 from urllib.parse import parse_qsl, unquote
 
 from .resource import (
@@ -39,7 +41,7 @@ def make_request_id() -> str:
     global _request_counter
     with _request_lock:
         _request_counter += 1
-        return "req-{0}-{1}".format(os.getpid(), _request_counter)
+        return f"req-{os.getpid()}-{_request_counter}"
 
 
 def parse_list_query(query_string: str) -> ListQuery:
@@ -65,7 +67,7 @@ def parse_list_query(query_string: str) -> ListQuery:
             "invalid list query",
             {"query": "invalid encoding or query pair"},
         ) from exc
-    values: Dict[str, str] = {}
+    values: dict[str, str] = {}
     for key, value in pairs:
         if key in {"q", "sort", "offset", "limit"}:
             values[key] = value
@@ -122,7 +124,9 @@ def _json_value(raw: bytes) -> JsonValue:
     try:
         value = json.loads(raw.decode("utf-8"), parse_constant=reject_constant)
     except (UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
-        raise ResourceError("validation_failed", "request body is not valid JSON", {"json": "expected one JSON value"}) from exc
+        raise ResourceError(
+            "validation_failed", "request body is not valid JSON", {"json": "expected one JSON value"}
+        ) from exc
     if not _is_json_value(value):
         raise ResourceError("validation_failed", "request body is not valid JSON")
     return value
@@ -130,7 +134,7 @@ def _json_value(raw: bytes) -> JsonValue:
 
 def _is_json_value(value: Any) -> bool:
     if value is None or isinstance(value, (str, bool, int, float)):
-        return not isinstance(value, float) or value == value and value not in (float("inf"), float("-inf"))
+        return not isinstance(value, float) or math.isfinite(value)
     if isinstance(value, list):
         return all(_is_json_value(item) for item in value)
     if isinstance(value, dict):
@@ -156,9 +160,16 @@ class ResourceASGIApp:
         self.resources = dict(resources)
         self.max_body_bytes = max_body_bytes
 
-    async def __call__(self, scope: MutableMapping[str, Any], receive: Callable[[], Awaitable[MutableMapping[str, Any]]], send: Callable[[MutableMapping[str, Any]], Awaitable[None]]) -> None:
+    async def __call__(
+        self,
+        scope: MutableMapping[str, Any],
+        receive: Callable[[], Awaitable[MutableMapping[str, Any]]],
+        send: Callable[[MutableMapping[str, Any]], Awaitable[None]],
+    ) -> None:
         if scope.get("type") != "http":
-            await self._send(send, 404, {"code": "not_found", "message": "route was not found", "fields": {}}, make_request_id())
+            await self._send(
+                send, 404, {"code": "not_found", "message": "route was not found", "fields": {}}, make_request_id()
+            )
             return
         request_id = self._request_id(scope)
         try:
@@ -167,18 +178,20 @@ class ResourceASGIApp:
         except ResourceError as error:
             safe_error = _safe_error(error, request_id)
             await self._send(send, _status(safe_error), safe_error.as_dict(), request_id)
-        except Exception:
+        except Exception:  # noqa: BLE001 - the ASGI boundary must sanitize provider failures.
             error = ResourceError("internal", "resource operation failed", request_id=request_id)
             await self._send(send, 500, error.as_dict(), request_id)
 
-    async def _dispatch(self, scope: Mapping[str, Any], receive: Callable[[], Awaitable[MutableMapping[str, Any]]]) -> Tuple[Any, int]:
+    async def _dispatch(
+        self, scope: Mapping[str, Any], receive: Callable[[], Awaitable[MutableMapping[str, Any]]]
+    ) -> tuple[Any, int]:
         method = str(scope.get("method", "GET")).upper()
         path = scope.get("path", "")
         if not isinstance(path, str):
             raise ResourceError("not_found", "API route was not found")
         if not path.startswith(API_PREFIX):
             raise ResourceError("not_found", "API route was not found")
-        tail = path[len(API_PREFIX):].strip("/")
+        tail = path[len(API_PREFIX) :].strip("/")
         segments = _decode_route_segments(tail)
         if len(segments) < 2 or segments[0] != "resources":
             raise ResourceError("not_found", "API route was not found")
@@ -261,7 +274,7 @@ class ResourceASGIApp:
 
     def _require(self, schema: ResourceSchema, capability: str) -> None:
         if capability not in CAPABILITIES or not schema.has_capability(capability):
-            raise ResourceError("capability_denied", "resource does not expose the {0} capability".format(capability))
+            raise ResourceError("capability_denied", f"resource does not expose the {capability} capability")
 
     @staticmethod
     def _method_error() -> ResourceError:
@@ -282,7 +295,9 @@ class ResourceASGIApp:
         return make_request_id()
 
     @staticmethod
-    async def _send_json(send: Callable[[MutableMapping[str, Any]], Awaitable[None]], status: int, value: Any, request_id: str) -> None:
+    async def _send_json(
+        send: Callable[[MutableMapping[str, Any]], Awaitable[None]], status: int, value: Any, request_id: str
+    ) -> None:
         try:
             body = json.dumps(
                 value,
@@ -290,19 +305,30 @@ class ResourceASGIApp:
                 separators=(",", ":"),
                 allow_nan=False,
             ).encode("utf-8")
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError):
             error = ResourceError("internal", "could not encode JSON response", request_id=request_id)
             await ResourceASGIApp._send(send, 500, error.as_dict(), request_id)
             return
-        await send({"type": "http.response.start", "status": status, "headers": [(b"content-type", b"application/json"), (b"x-request-id", request_id.encode("ascii"))]})
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [(b"content-type", b"application/json"), (b"x-request-id", request_id.encode("ascii"))],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
 
     @staticmethod
-    async def _send(send: Callable[[MutableMapping[str, Any]], Awaitable[None]], status: int, error: Mapping[str, Any], request_id: str) -> None:
+    async def _send(
+        send: Callable[[MutableMapping[str, Any]], Awaitable[None]],
+        status: int,
+        error: Mapping[str, Any],
+        request_id: str,
+    ) -> None:
         await ResourceASGIApp._send_json(send, status, {"error": dict(error)}, request_id)
 
 
-def _schema_json(schema: ResourceSchema) -> Dict[str, Any]:
+def _schema_json(schema: ResourceSchema) -> dict[str, Any]:
     return {
         "name": schema.name,
         "fields": [
@@ -323,8 +349,12 @@ _INVALID_PERCENT = re.compile(r"%(?![0-9A-Fa-f]{2})")
 
 
 def _is_safe_route_name(value: str) -> bool:
-    return isinstance(value, str) and bool(value) and value.strip() == value and value not in {".", ".."} and not any(
-        character in "/\\" or ord(character) < 0x20 for character in value
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and value.strip() == value
+        and value not in {".", ".."}
+        and not any(character in "/\\" or ord(character) < 0x20 for character in value)
     )
 
 
@@ -375,14 +405,13 @@ def _validate_schema(name: str, schema: Any) -> None:
         ):
             raise ResourceError("internal", "resource returned an invalid schema")
         field_names.add(field.name)
-    if (
-        any(capability not in CAPABILITIES for capability in schema.capabilities)
-        or len(set(schema.capabilities)) != len(schema.capabilities)
-    ):
+    if any(capability not in CAPABILITIES for capability in schema.capabilities) or len(
+        set(schema.capabilities)
+    ) != len(schema.capabilities):
         raise ResourceError("internal", "resource returned an invalid schema")
 
 
-def _object_result(value: Any, operation: str) -> Dict[str, Any]:
+def _object_result(value: Any, operation: str) -> dict[str, Any]:
     if not isinstance(value, dict) or not _is_json_value(value):
-        raise ResourceError("internal", "resource returned an invalid {0} result".format(operation))
+        raise ResourceError("internal", f"resource returned an invalid {operation} result")
     return value

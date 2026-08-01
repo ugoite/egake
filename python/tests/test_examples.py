@@ -2,19 +2,22 @@ import importlib.util
 import json
 import pathlib
 import unittest
+from types import ModuleType
+from typing import Any
 from urllib.parse import urlsplit
 
 
-def load_example():
+def load_example() -> ModuleType:
     path = pathlib.Path(__file__).parents[2] / "examples" / "python-fastapi" / "app.py"
     spec = importlib.util.spec_from_file_location("ikashita_python_fastapi_example", path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"could not load example module from {path}")
     module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
 
 
-def call(app, method, path, body=b""):
+def call(app: Any, method: str, path: str, body: bytes = b"") -> tuple[int, Any]:
     import asyncio
 
     messages = []

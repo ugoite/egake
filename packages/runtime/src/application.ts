@@ -4,7 +4,6 @@ import {
   FieldSchema,
   JsonObject,
   JsonValue,
-  MaybePromise,
   RenderOptions,
   ResourceError,
   ResourceProvider,
@@ -80,16 +79,6 @@ function array(value: unknown, label: string): readonly unknown[] {
     });
   }
   return value;
-}
-
-function stringAttribute(
-  attributes: Readonly<Record<string, JsonValue>>,
-  name: string,
-): string | undefined {
-  const value = attributes[name];
-  return value === undefined
-    ? undefined
-    : string(value, `component attribute ${name}`);
 }
 
 function parseComponent(value: unknown): SerializedComponent {

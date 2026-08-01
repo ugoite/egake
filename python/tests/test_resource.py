@@ -1,8 +1,10 @@
 import unittest
+from typing import cast
 
 from ikashita import (
-    ResourcePage,
+    JsonObject,
     ResourceError,
+    ResourcePage,
     apply_merge_patch,
     parse_list_query,
     require_object_patch,
@@ -11,13 +13,14 @@ from ikashita import (
 
 class ResourceHelpersTest(unittest.TestCase):
     def test_merge_patch_recurses_and_removes_null(self):
-        value = {"name": "Ada", "profile": {"active": True, "team": "math"}, "tags": ["old"]}
-        patch = {"profile": {"team": "science", "active": None}, "tags": ["new"]}
+        value = cast(JsonObject, {"name": "Ada", "profile": {"active": True, "team": "math"}, "tags": ["old"]})
+        patch = cast(JsonObject, {"profile": {"team": "science", "active": None}, "tags": ["new"]})
         self.assertEqual(
             apply_merge_patch(value, patch),
             {"name": "Ada", "profile": {"team": "science"}, "tags": ["new"]},
         )
-        self.assertEqual(value["profile"]["team"], "math")
+        profile = cast(JsonObject, value["profile"])
+        self.assertEqual(profile["team"], "math")
 
     def test_update_patch_must_be_object(self):
         with self.assertRaises(ResourceError) as caught:
