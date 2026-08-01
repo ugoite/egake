@@ -49,6 +49,19 @@ The top-level tasks have these responsibilities:
   `mise run docs:build` produces the static site from the canonical `docs/`.
 - `mise run ci`: all of the above plus the Rust workspace build.
 
+## GitHub automation
+
+The `CI` and `Quality` workflows run the pinned repository checks on pushes and
+pull requests. `Public safety` audits tracked and reachable history for
+generated/local-only paths and high-confidence credential, private-key, and
+token patterns. The `Deploy documentation to GitHub Pages` workflow runs for
+each push to `main` (and on manual dispatch), builds `docs/` through
+`mise run docs:build`, and publishes the site at
+<https://ugoite.github.io/ikashita/>.
+
+This repository intentionally has no release workflow. Releases, tags, and
+package publication remain explicit, separately reviewed operations.
+
 Python uses Ruff `0.16.1` from mise and ty `0.0.65` from the locked uv
 development environment. Run `mise run python:install` after intentional
 changes to `pyproject.toml`; commit the resulting `uv.lock` update. The
