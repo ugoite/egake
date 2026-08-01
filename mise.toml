@@ -61,9 +61,13 @@ run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests 
 description = "Run standard-library Python host adapter tests"
 run = "PYTHONPATH=python python -m unittest discover -s python/tests -t python"
 
+[tasks."git:hygiene"]
+description = "Audit tracked and reachable generated, secret, and cache paths"
+run = "bash scripts/audit-git-hygiene.sh"
+
 [tasks.ci]
 description = "Run the complete local validation suite"
-depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test"]
+depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test", "git:hygiene"]
 
 [tasks.install-hooks]
 description = "Configure the repository-local pre-commit hook"
