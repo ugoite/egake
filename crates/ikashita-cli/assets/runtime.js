@@ -4,7 +4,7 @@
 
   var API = "/api/ikashita/v1";
   var requestCounter = 0;
-  var model = { app: null, state: {}, records: {}, schemas: {}, selected: {}, errors: [], toast: null };
+  var model = { app: null, state: {}, records: {}, schemas: {}, selected: {}, loading: {}, errors: [], toast: null };
   var root = document.getElementById("ikashita-root");
 
   function el(tag, text) {
@@ -268,6 +268,8 @@
 
   function refresh(resource) {
     if (!resource) return Promise.resolve();
+    model.loading[resource] = true;
+    render();
     var query = valueOf(model.state.query);
     var sort = componentTableSort(resource);
     var params = new URLSearchParams();
@@ -275,8 +277,12 @@
     if (sort) params.set("sort", sort);
     params.set("limit", "500");
     return request("/resources/" + encodeURIComponent(resource) + "?" + params.toString()).then(function (page) {
+      model.loading[resource] = false;
       model.records[resource] = page.items || []; render(); return page;
-    }).catch(function (error) { rememberError(error); toast(error.message, "error"); throw error; });
+    }).catch(function (error) {
+      model.loading[resource] = false;
+      rememberError(error); toast(error.message, "error"); throw error;
+    });
   }
 
   function componentTableSort(resource) {
@@ -294,12 +300,29 @@
     return result || "";
   }
 
-  function renderText(component) { return el("p", component.text || componentAttr(component, "label") || ""); }
+  function safeId(value) {
+    return valueOf(value).toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "value";
+  }
+
+  function closeEditor() {
+    model.state.editorOpen = false;
+    model.state.editorId = null;
+    render();
+  }
+
+  function renderText(component) {
+    var text = el("p", component.text || componentAttr(component, "label") || "");
+    attr(text, "class", "ikashita-text");
+    return text;
+  }
 
   function renderButton(component) {
     var button = el("button", component.text || componentAttr(component, "label") || "Action");
+    attr(button, "class", "ikashita-button");
+    attr(button, "type", "button");
     var variant = componentAttr(component, "variant");
     if (variant) attr(button, "data-variant", variant);
+    if (component.id) attr(button, "id", component.id);
     button.addEventListener("click", function () {
       runAction(componentAttr(component, "action"), {}).catch(function () {});
     });
@@ -311,12 +334,24 @@
     var binding = componentAttr(component, "bind");
     var label = componentAttr(component, "label") || field || "Value";
     var wrapper = el("div"); attr(wrapper, "class", "ikashita-field");
-    wrapper.appendChild(el("label", label));
+    var inputId = component.id || "ikashita-field-" + safeId(field || label);
+    var labelNode = el("label");
+    labelNode.textContent = label;
+    attr(labelNode, "for", inputId);
+    wrapper.appendChild(labelNode);
     var metadata = field ? schemaField(formResource, field) : null;
     var input = component.kind === "textarea" ? el("textarea") : component.kind === "select" ? el("select") : el("input");
+    attr(input, "class", "ikashita-control");
+    attr(input, "id", inputId);
     if (component.kind === "text-input") attr(input, "type", metadata && metadata.format === "email" ? "email" : metadata && metadata.format === "date" ? "date" : metadata && metadata.format === "date-time" ? "datetime-local" : "text");
     if (metadata && metadata.required) attr(input, "required", "required");
-    attr(input, "name", field);
+    if (field) attr(input, "name", field);
+    if (metadata && metadata.required) {
+      var required = el("span", "*");
+      attr(required, "class", "ikashita-required");
+      required.setAttribute("aria-hidden", "true");
+      labelNode.appendChild(required);
+    }
     var stateName = binding && binding.indexOf("state.") === 0 ? binding.slice(6) : null;
     input.value = stateName ? valueOf(model.state[stateName]) : valueOf(model.state.draft && model.state.draft[field]);
     if (component.kind === "select") {
@@ -351,28 +386,57 @@
 
   function renderTable(component) {
     var resource = resourceName(component), tableWrap = el("div"); attr(tableWrap, "class", "ikashita-table-wrap");
+    var tableLabel = el("span", resource || "Records");
+    attr(tableLabel, "class", "ikashita-table-toolbar-label");
+    var toolbar = el("div"); attr(toolbar, "class", "ikashita-table-toolbar");
+    toolbar.appendChild(tableLabel);
     var refreshButton = el("button", "Refresh");
+    attr(refreshButton, "class", "ikashita-button");
     attr(refreshButton, "type", "button");
     refreshButton.addEventListener("click", function () { refresh(resource).catch(function () {}); });
-    tableWrap.appendChild(refreshButton);
+    toolbar.appendChild(refreshButton);
+    tableWrap.appendChild(toolbar);
     var table = el("table"), head = el("thead"), headRow = el("tr");
+    attr(table, "class", "ikashita-table");
+    attr(table, "aria-label", resource ? resource + " records" : "Records");
+    attr(table, "aria-busy", model.loading[resource] ? "true" : "false");
     (component.children || []).forEach(function (column) { headRow.appendChild(el("th", componentAttr(column, "label") || componentAttr(column, "field"))); });
     head.appendChild(headRow); table.appendChild(head);
     var body = el("tbody");
     (model.records[resource] || []).forEach(function (record) {
-      var row = el("tr"); attr(row, "data-selectable", "true");
+      var row = el("tr"); attr(row, "data-selectable", "true"); attr(row, "tabindex", "0");
       var key = componentAttr(component, "key") || "id";
-      if (model.state.editorId && valueOf(record[key]) === valueOf(model.state.editorId)) attr(row, "data-selected", "true");
+      var selected = model.state.editorId && valueOf(record[key]) === valueOf(model.state.editorId);
+      if (selected) {
+        attr(row, "data-selected", "true");
+        attr(row, "aria-selected", "true");
+      }
       (component.children || []).forEach(function (column) { row.appendChild(el("td", valueOf(record[componentAttr(column, "field")]))); });
-      row.addEventListener("click", function () {
+      function selectRow() {
         model.selected[resource] = record;
         var event = (component.events || []).find(function (binding) { return binding.event === "select"; });
         var recordId = record[key];
         if (event) runAction(event.action, { resource: resource, record: record, id: recordId }).catch(function () {});
         else { setDraftFromRecord(record); model.state.editorOpen = true; model.state.editorId = recordId; render(); }
+      }
+      row.addEventListener("click", selectRow);
+      row.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectRow();
+        }
       });
       body.appendChild(row);
     });
+    if (model.loading[resource] || !(model.records[resource] || []).length) {
+      var emptyRow = el("tr"), emptyCell = el("td", model.loading[resource] ? "Loading records…" : "No records yet.");
+      attr(emptyRow, "class", "ikashita-table-empty-row");
+      attr(emptyCell, "class", "ikashita-table-empty");
+      if (model.loading[resource]) attr(emptyCell, "data-state", "loading");
+      attr(emptyCell, "colspan", Math.max((component.children || []).length, 1));
+      emptyRow.appendChild(emptyCell);
+      body.appendChild(emptyRow);
+    }
     table.appendChild(body); tableWrap.appendChild(table);
     return tableWrap;
   }
@@ -388,8 +452,28 @@
     else if (component.kind === "form") {
       node = el("section"); attr(node, "class", "ikashita-form"); attr(node, "data-mode", componentAttr(component, "mode") || "inline");
       if (!model.state.editorOpen) node.hidden = true;
+      if (component.id) attr(node, "id", component.id);
+      if (["drawer", "dialog"].indexOf(componentAttr(component, "mode")) >= 0) {
+        attr(node, "role", "dialog");
+        attr(node, "aria-modal", "true");
+        var formTitle = el("h2", model.state.editorId === null || model.state.editorId === undefined ? "New record" : "Edit record");
+        attr(formTitle, "class", "ikashita-form-title");
+        var formHeading = el("div"); attr(formHeading, "class", "ikashita-form-head");
+        formHeading.appendChild(formTitle);
+        var close = el("button", "×");
+        attr(close, "class", "ikashita-form-close");
+        attr(close, "type", "button");
+        attr(close, "aria-label", "Close editor");
+        close.addEventListener("click", closeEditor);
+        formHeading.appendChild(close);
+        node.appendChild(formHeading);
+      }
       var formResourceName = firstResource();
-      (component.children || []).forEach(function (child) { node.appendChild(renderComponent(child, formResourceName)); });
+      (component.children || []).forEach(function (child) {
+        var childNode = renderComponent(child, formResourceName);
+        if (child.kind === "row") attr(childNode, "class", "ikashita-row ikashita-form-actions");
+        node.appendChild(childNode);
+      });
       return node;
     } else node = el("div");
     (component.children || []).forEach(function (child) { node.appendChild(renderComponent(child, formResource)); });
@@ -403,13 +487,40 @@
     while (root.firstChild) root.removeChild(root.firstChild);
     var page = model.app.pages[0];
     var shell = el("main"); attr(shell, "class", "ikashita-shell");
-    shell.appendChild(el("h1", page ? page.title : model.app.profile.name));
+    var topbar = el("header"); attr(topbar, "class", "ikashita-topbar");
+    var brand = el("div"); attr(brand, "class", "ikashita-brand");
+    var brandMark = el("span", "i"); attr(brandMark, "class", "ikashita-brand-mark"); brandMark.setAttribute("aria-hidden", "true");
+    brand.appendChild(brandMark); brand.appendChild(el("span", "ikashita"));
+    topbar.appendChild(brand);
+    var topbarTitle = el("span", page ? page.title : model.app.profile.name); attr(topbarTitle, "class", "ikashita-topbar-title");
+    topbar.appendChild(topbarTitle);
+    shell.appendChild(topbar);
+    var main = el("div"); attr(main, "class", "ikashita-shell-main");
+    var pageHeader = el("header"); attr(pageHeader, "class", "ikashita-page-header");
+    var pageHeading = el("div"); attr(pageHeading, "class", "ikashita-page-heading");
+    var eyebrow = el("span", "Workspace"); attr(eyebrow, "class", "ikashita-eyebrow");
+    pageHeading.appendChild(eyebrow);
+    var title = el("h1", page ? page.title : model.app.profile.name); attr(title, "class", "ikashita-page-title");
+    pageHeading.appendChild(title); pageHeader.appendChild(pageHeading); main.appendChild(pageHeader);
+    var content = el("div"); attr(content, "class", "ikashita-content");
     if (model.errors.length) {
-      var errors = el("div"); attr(errors, "class", "ikashita-error"); errors.appendChild(el("strong", "Runtime errors"));
-      model.errors.forEach(function (message) { errors.appendChild(el("div", message)); }); shell.appendChild(errors);
+      var errors = el("div"); attr(errors, "class", "ikashita-error"); attr(errors, "role", "alert"); errors.appendChild(el("strong", "Runtime errors"));
+      var errorList = el("div"); attr(errorList, "class", "ikashita-error-list");
+      model.errors.forEach(function (message) { errorList.appendChild(el("div", message)); });
+      errors.appendChild(errorList); content.appendChild(errors);
     }
-    (page ? page.components : []).forEach(function (component) { shell.appendChild(renderComponent(component, firstResource())); });
-    if (model.toast) { var toastNode = el("div", model.toast.message); attr(toastNode, "class", "ikashita-toast"); attr(toastNode, "data-kind", model.toast.kind); shell.appendChild(toastNode); }
+    (page ? page.components : []).forEach(function (component) { content.appendChild(renderComponent(component, firstResource())); });
+    var form = formComponent();
+    if (model.state.editorOpen && form && ["drawer", "dialog"].indexOf(componentAttr(form, "mode")) >= 0) {
+      var backdrop = el("button");
+      attr(backdrop, "class", "ikashita-backdrop");
+      attr(backdrop, "type", "button");
+      attr(backdrop, "aria-label", "Close editor");
+      backdrop.addEventListener("click", closeEditor);
+      content.appendChild(backdrop);
+    }
+    main.appendChild(content); shell.appendChild(main);
+    if (model.toast) { var toastNode = el("div", model.toast.message); attr(toastNode, "class", "ikashita-toast"); attr(toastNode, "data-kind", model.toast.kind); attr(toastNode, "role", "status"); attr(toastNode, "aria-live", "polite"); shell.appendChild(toastNode); }
     root.appendChild(shell);
   }
 

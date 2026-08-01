@@ -1,0 +1,471 @@
+@import "tailwindcss" source(none);
+
+@source "./runtime.js";
+@source "../../../packages/runtime/src/application.ts";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --color-canvas: #f7f7f4;
+  --color-panel: #ffffff;
+  --color-panel-soft: #fbfaf7;
+  --color-ink: #151515;
+  --color-muted: #74706a;
+  --color-line: #e4e1da;
+  --color-line-strong: #d3cfc5;
+  --color-focus: #5657e8;
+  --color-danger: #b3261e;
+  --color-success: #226b3a;
+  --radius-control: 0.7rem;
+  --radius-panel: 1rem;
+  --shadow-panel: 0 18px 56px rgba(0, 0, 0, 0.07);
+}
+
+:root {
+  color-scheme: light;
+  --ik-bg: #f7f7f4;
+  --ik-panel: #ffffff;
+  --ik-panel-soft: #fbfaf7;
+  --ik-ink: #151515;
+  --ik-muted: #74706a;
+  --ik-line: #e4e1da;
+  --ik-line-strong: #d3cfc5;
+  --ik-soft: #f0efea;
+  --ik-focus: #5657e8;
+  --ik-danger: #b3261e;
+  --ik-success: #226b3a;
+  --ik-shadow: 0 18px 56px rgba(0, 0, 0, 0.07);
+}
+
+:root[data-color-mode="dark"] {
+  color-scheme: dark;
+  --ik-bg: #101114;
+  --ik-panel: #1b1d22;
+  --ik-panel-soft: #22252b;
+  --ik-ink: #f0f1f5;
+  --ik-muted: #b8bbc4;
+  --ik-line: #3a3d46;
+  --ik-line-strong: #50545f;
+  --ik-soft: #292c33;
+  --ik-focus: #9bb6ff;
+  --ik-danger: #ffaaa4;
+  --ik-success: #a6e0b6;
+  --ik-shadow: 0 18px 56px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-color-mode="light"]) {
+    color-scheme: dark;
+    --ik-bg: #101114;
+    --ik-panel: #1b1d22;
+    --ik-panel-soft: #22252b;
+    --ik-ink: #f0f1f5;
+    --ik-muted: #b8bbc4;
+    --ik-line: #3a3d46;
+    --ik-line-strong: #50545f;
+    --ik-soft: #292c33;
+    --ik-focus: #9bb6ff;
+    --ik-danger: #ffaaa4;
+    --ik-success: #a6e0b6;
+    --ik-shadow: 0 18px 56px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  body {
+    @apply m-0 min-w-80 font-sans text-sm antialiased;
+    background: var(--ik-bg);
+    color: var(--ik-ink);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    @apply cursor-pointer;
+  }
+
+  button:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--ik-focus);
+    outline-offset: 3px;
+  }
+
+  table {
+    @apply w-full border-collapse;
+  }
+}
+
+@layer components {
+  #ikashita-root {
+    @apply min-h-screen;
+  }
+
+  .ikashita-shell {
+    @apply min-h-screen;
+    background: var(--ik-bg);
+    color: var(--ik-ink);
+  }
+
+  .ikashita-topbar {
+    @apply sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b px-5 sm:px-8;
+    border-color: color-mix(in srgb, var(--ik-line) 88%, transparent);
+    background: color-mix(in srgb, var(--ik-bg) 88%, transparent);
+    backdrop-filter: blur(16px);
+  }
+
+  .ikashita-brand {
+    @apply inline-flex items-center gap-2.5 font-semibold tracking-tight;
+  }
+
+  .ikashita-brand-mark {
+    @apply grid size-8 place-items-center rounded-xl text-sm font-black;
+    background: var(--ik-ink);
+    color: var(--ik-panel);
+  }
+
+  .ikashita-topbar-title {
+    @apply max-w-[min(55vw,34rem)] truncate text-xs font-medium;
+    color: var(--ik-muted);
+  }
+
+  .ikashita-shell-main {
+    @apply mx-auto w-full max-w-7xl px-4 pb-24 pt-8 sm:px-8 sm:pt-10;
+  }
+
+  .ikashita-page-header {
+    @apply mb-6 flex flex-wrap items-start justify-between gap-4;
+  }
+
+  .ikashita-page-heading {
+    @apply grid gap-1;
+  }
+
+  .ikashita-eyebrow {
+    @apply text-[0.7rem] font-bold uppercase tracking-[0.12em];
+    color: var(--ik-muted);
+  }
+
+  .ikashita-page-title {
+    @apply m-0 text-3xl font-extrabold leading-tight tracking-[-0.045em] sm:text-4xl;
+  }
+
+  .ikashita-page-subtitle {
+    @apply m-0 max-w-2xl text-sm;
+    color: var(--ik-muted);
+  }
+
+  .ikashita-content,
+  .ikashita-column {
+    @apply flex flex-col gap-4;
+  }
+
+  .ikashita-row {
+    @apply flex flex-wrap items-end gap-3;
+  }
+
+  .ikashita-row[data-align="center"] {
+    @apply items-center;
+  }
+
+  .ikashita-row[data-align="start"] {
+    @apply items-start;
+  }
+
+  .ikashita-row[data-align="stretch"] {
+    @apply items-stretch;
+  }
+
+  .ikashita-text,
+  .ikashita-muted {
+    @apply m-0;
+    color: var(--ik-muted);
+  }
+
+  .ikashita-button {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm font-semibold shadow-sm transition;
+    border-color: var(--ik-line);
+    background: var(--ik-panel);
+    color: var(--ik-ink);
+  }
+
+  .ikashita-button:hover {
+    border-color: var(--ik-line-strong);
+    background: var(--ik-panel-soft);
+  }
+
+  .ikashita-button[data-variant="primary"] {
+    border-color: var(--ik-ink);
+    background: var(--ik-ink);
+    color: var(--ik-panel);
+  }
+
+  .ikashita-button[data-variant="primary"]:hover {
+    background: color-mix(in srgb, var(--ik-ink) 86%, var(--ik-focus));
+  }
+
+  .ikashita-button[data-variant="danger"] {
+    border-color: color-mix(in srgb, var(--ik-danger) 28%, var(--ik-line));
+    background: color-mix(in srgb, var(--ik-danger) 7%, var(--ik-panel));
+    color: var(--ik-danger);
+  }
+
+  .ikashita-button[data-variant="ghost"] {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .ikashita-button[data-variant="ghost"]:hover {
+    background: var(--ik-soft);
+  }
+
+  .ikashita-field {
+    @apply grid min-w-0 flex-1 gap-1.5;
+    flex-basis: 14rem;
+  }
+
+  .ikashita-field label {
+    @apply text-xs font-bold;
+    color: var(--ik-ink);
+  }
+
+  .ikashita-required {
+    @apply ml-1 text-[0.7rem] font-bold;
+    color: var(--ik-danger);
+  }
+
+  .ikashita-control {
+    @apply min-h-10 w-full rounded-xl border px-3 py-2 text-sm shadow-sm outline-none transition;
+    border-color: var(--ik-line);
+    background: var(--ik-panel);
+    color: var(--ik-ink);
+  }
+
+  .ikashita-control:hover {
+    border-color: var(--ik-line-strong);
+  }
+
+  .ikashita-control:focus {
+    border-color: var(--ik-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ik-focus) 14%, transparent);
+  }
+
+  textarea.ikashita-control {
+    @apply min-h-32 resize-y;
+  }
+
+  .ikashita-table-wrap {
+    @apply overflow-hidden rounded-2xl border shadow-sm;
+    border-color: var(--ik-line);
+    background: var(--ik-panel);
+  }
+
+  .ikashita-table-toolbar {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3;
+    border-color: var(--ik-line);
+    background: var(--ik-panel-soft);
+  }
+
+  .ikashita-table-toolbar-label {
+    @apply text-xs font-bold uppercase tracking-[0.1em];
+    color: var(--ik-muted);
+  }
+
+  .ikashita-table {
+    @apply min-w-full;
+  }
+
+  .ikashita-table th,
+  .ikashita-table td {
+    @apply border-b px-4 py-3 text-left align-middle;
+    border-color: var(--ik-line);
+    white-space: nowrap;
+  }
+
+  .ikashita-table th {
+    @apply text-[0.7rem] font-bold uppercase tracking-[0.1em];
+    background: var(--ik-panel-soft);
+    color: var(--ik-muted);
+  }
+
+  .ikashita-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .ikashita-table tbody tr[data-selectable="true"] {
+    @apply cursor-pointer transition-colors;
+  }
+
+  .ikashita-table tbody tr[data-selectable="true"]:hover,
+  .ikashita-table tbody tr[data-selected="true"] {
+    background: color-mix(in srgb, var(--ik-focus) 7%, var(--ik-panel));
+  }
+
+  .ikashita-table-empty {
+    @apply px-4 py-12 text-center text-sm;
+    color: var(--ik-muted);
+  }
+
+  .ikashita-form {
+    @apply relative flex flex-col gap-4 rounded-2xl border p-5 shadow-sm;
+    border-color: var(--ik-line);
+    background: var(--ik-panel);
+  }
+
+  .ikashita-form[data-mode="drawer"] {
+    @apply fixed inset-y-0 right-0 z-50 max-h-screen overflow-y-auto rounded-none rounded-l-2xl border-y-0 border-r-0 sm:w-[min(34rem,calc(100vw-1rem))];
+    width: min(100vw - 1rem, 34rem);
+    box-shadow: var(--ik-shadow);
+  }
+
+  .ikashita-form[data-mode="dialog"] {
+    @apply fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto;
+    box-shadow: var(--ik-shadow);
+  }
+
+  .ikashita-form-head {
+    @apply flex items-start justify-between gap-4 border-b pb-4;
+    border-color: var(--ik-line);
+  }
+
+  .ikashita-form-title {
+    @apply m-0 text-lg font-extrabold tracking-tight;
+  }
+
+  .ikashita-form-close {
+    @apply inline-flex size-9 shrink-0 items-center justify-center rounded-xl border text-lg leading-none transition;
+    border-color: var(--ik-line);
+    background: transparent;
+    color: var(--ik-muted);
+  }
+
+  .ikashita-form-close:hover {
+    background: var(--ik-soft);
+    color: var(--ik-ink);
+  }
+
+  .ikashita-form-actions {
+    @apply justify-end border-t pt-4;
+    border-color: var(--ik-line);
+  }
+
+  .ikashita-backdrop {
+    @apply fixed inset-0 z-40 border-0;
+    background: rgba(21, 21, 21, 0.32);
+    backdrop-filter: blur(3px);
+  }
+
+  .ikashita-error {
+    @apply rounded-xl border p-4;
+    border-color: color-mix(in srgb, var(--ik-danger) 30%, var(--ik-line));
+    background: color-mix(in srgb, var(--ik-danger) 7%, var(--ik-panel));
+    color: var(--ik-danger);
+  }
+
+  .ikashita-error strong {
+    @apply block text-sm font-extrabold;
+  }
+
+  .ikashita-error-list {
+    @apply mt-2 grid gap-1 text-sm;
+  }
+
+  .ikashita-toast {
+    @apply fixed bottom-5 right-5 z-[70] max-w-[min(28rem,calc(100vw-2rem))] rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg;
+    border-color: var(--ik-line-strong);
+    background: var(--ik-ink);
+    color: var(--ik-panel);
+  }
+
+  .ikashita-toast[data-kind="error"] {
+    border-color: var(--ik-danger);
+    background: var(--ik-danger);
+    color: #fff;
+  }
+
+  .ikashita-page.ikashita-shell {
+    @apply min-h-screen;
+  }
+
+  .ikashita-page > .ikashita-page-header {
+    @apply mx-auto w-full max-w-7xl px-4 pt-8 sm:px-8 sm:pt-10;
+  }
+
+  .ikashita-page > .ikashita-content {
+    @apply mx-auto w-full max-w-7xl px-4 pb-24 sm:px-8;
+  }
+}
+
+@media (max-width: 640px) {
+  .ikashita-topbar {
+    @apply px-4;
+  }
+
+  .ikashita-topbar-title {
+    @apply max-w-[42vw];
+  }
+
+  .ikashita-shell-main {
+    @apply px-3 pt-6;
+  }
+
+  .ikashita-page-title {
+    @apply text-2xl;
+  }
+
+  .ikashita-table-wrap {
+    @apply rounded-xl;
+  }
+
+  .ikashita-table {
+    min-width: 42rem;
+  }
+
+  .ikashita-form {
+    @apply rounded-xl p-4;
+  }
+
+  .ikashita-form[data-mode="drawer"] {
+    width: calc(100vw - 0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    @apply scroll-auto;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

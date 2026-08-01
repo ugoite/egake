@@ -21,6 +21,7 @@ jobs:
           cache: true
       - run: mise run docs:ci
       - run: mise run fmt:check
+      - run: mise run ui:check
       - run: mise run check
       - run: mise run test
       - run: mise run deno:fmt:check

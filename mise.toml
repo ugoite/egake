@@ -24,6 +24,22 @@ run = [
     "uv run --locked ty --version",
 ]
 
+[tasks."ui:build"]
+description = "Build the checked-in Tailwind v4 browser runtime stylesheet"
+sources = [
+    "crates/ikashita-cli/assets/runtime.css.src",
+    "crates/ikashita-cli/assets/runtime.js",
+    "packages/runtime/src/application.ts",
+    "package.json",
+    "deno.lock",
+]
+outputs = ["crates/ikashita-cli/assets/runtime.css"]
+run = "deno run --frozen --node-modules-dir=auto -A npm:@tailwindcss/cli@4.3.0 --input crates/ikashita-cli/assets/runtime.css.src --output crates/ikashita-cli/assets/runtime.css --minify"
+
+[tasks."ui:check"]
+description = "Check that the checked-in Tailwind runtime stylesheet is reproducible"
+run = "bash scripts/check-runtime-ui.sh"
+
 [tasks.fmt]
 description = "Format Rust, Deno, and Python sources"
 depends = ["rust:fmt", "deno:fmt", "python:fmt"]
@@ -54,18 +70,22 @@ run = "cargo fmt --all --check"
 
 [tasks."rust:lint"]
 description = "Run Clippy with warnings treated as errors"
+depends = ["ui:check"]
 run = "cargo clippy --workspace --all-targets --all-features -- -D warnings"
 
 [tasks."rust:check"]
 description = "Type-check every Rust workspace target"
+depends = ["ui:check"]
 run = "cargo check --workspace --all-targets"
 
 [tasks."rust:test"]
 description = "Run all Rust workspace tests"
+depends = ["ui:check"]
 run = "cargo test --workspace"
 
 [tasks.build]
 description = "Build every workspace target"
+depends = ["ui:check"]
 run = "cargo build --workspace"
 
 [tasks."deno:fmt"]

@@ -7,6 +7,9 @@ cd "$repository_root"
 echo "pre-commit: checking formatting"
 mise run fmt:check
 
+echo "pre-commit: checking Tailwind runtime CSS"
+mise run ui:check
+
 echo "pre-commit: checking Rust types"
 mise run rust:check
 
