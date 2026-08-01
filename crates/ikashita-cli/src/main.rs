@@ -1858,6 +1858,16 @@ mod tests {
         assert!(runtime.contains("/actions/"));
         assert!(runtime.contains("window.confirm"));
         assert!(runtime.contains("request_id"));
+        assert!(runtime.contains("ikashita-backdrop"));
+        assert!(runtime.contains("aria-modal"));
+        assert!(runtime.contains("Loading records"));
+        let stylesheet =
+            String::from_utf8_lossy(bundle.assets().get("runtime.css").expect("style"));
+        assert!(stylesheet.contains("tailwindcss v4.3.0"));
+        assert!(stylesheet.contains("--ik-bg"));
+        assert!(stylesheet.contains("ikashita-form[data-mode=drawer]"));
+        assert!(stylesheet.contains("prefers-color-scheme:dark"));
+        assert!(stylesheet.contains("ikashita-table-empty"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 

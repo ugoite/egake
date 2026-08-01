@@ -273,6 +273,13 @@ function fixedClass(kind: SerializedComponent["kind"]): string {
   return `ikashita-${kind.replaceAll("-", "-")}`;
 }
 
+function safeDomId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(
+    /^-+|-+$/g,
+    "",
+  ) || "value";
+}
+
 /** Maps schema metadata to the native HTML input type used by the renderer. */
 export function inputTypeForField(field: FieldSchema | undefined):
   | "text"
@@ -342,23 +349,27 @@ function renderComponent(
       ? "textarea"
       : "div",
   );
-  element.className = fixedClass(component.kind);
+  const isNativeControl = element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement;
+  element.className = `${fixedClass(component.kind)}${
+    isNativeControl ? " ikashita-control" : ""
+  }`;
   if (component.id) element.id = component.id;
   const label = attr(component, "label");
   const field = attr(component, "field");
   if (label) element.setAttribute("aria-label", label);
+  if (isNativeControl && !element.id && field) {
+    element.id = `ikashita-field-${safeDomId(field)}`;
+  }
   if (
     field &&
-    (element instanceof HTMLInputElement ||
-      element instanceof HTMLTextAreaElement ||
-      element instanceof HTMLSelectElement)
+    isNativeControl
   ) element.name = field;
   const schemaField = fieldForComponent(application, component);
   if (
     schemaField?.required &&
-    (element instanceof HTMLInputElement ||
-      element instanceof HTMLTextAreaElement ||
-      element instanceof HTMLSelectElement)
+    isNativeControl
   ) element.required = true;
 
   if (component.kind === "text") {
@@ -394,6 +405,12 @@ function renderComponent(
     input.type = inputTypeForField(schemaField);
   } else if (component.kind === "data-table") {
     const table = element as HTMLTableElement;
+    table.classList.add("ikashita-table");
+    table.setAttribute("aria-busy", "true");
+    table.setAttribute(
+      "aria-label",
+      attr(component, "resource") ?? "Resource records",
+    );
     const head = table.createTHead().insertRow();
     const body = table.createTBody();
     const columns = component.children.filter((child) =>
@@ -411,8 +428,63 @@ function renderComponent(
       ? options.providers?.[providerName]
       : undefined;
     if (provider && columns.length) void hydrateTable(body, columns, provider);
+    else {
+      table.setAttribute("aria-busy", "false");
+      const row = body.insertRow();
+      const cell = row.insertCell();
+      cell.className = "ikashita-table-empty";
+      cell.colSpan = Math.max(columns.length, 1);
+      cell.textContent = "No records yet.";
+    }
+  } else if (component.kind === "form") {
+    const form = element as HTMLDivElement;
+    form.classList.add("ikashita-form");
+    const mode = attr(component, "mode") ?? "inline";
+    form.dataset.mode = mode;
+    if (mode === "drawer" || mode === "dialog") {
+      form.setAttribute("role", "dialog");
+      form.setAttribute("aria-modal", "true");
+      const header = document.createElement("div");
+      header.className = "ikashita-form-head";
+      const title = document.createElement("h2");
+      title.className = "ikashita-form-title";
+      title.textContent = label ?? "Editor";
+      header.append(title);
+      form.append(header);
+    }
+    for (const child of component.children) {
+      const childNode = renderComponent(child, document, options, application);
+      if (child.kind === "row") {
+        childNode.classList.add("ikashita-form-actions");
+      }
+      form.append(childNode);
+    }
   } else {
     appendChildren(element, component.children, document, options, application);
+  }
+
+  if (isNativeControl && label) {
+    const fieldWrapper = document.createElement("div");
+    fieldWrapper.className = "ikashita-field";
+    const labelElement = document.createElement("label");
+    labelElement.textContent = label;
+    if (element.id) labelElement.htmlFor = element.id;
+    if (schemaField?.required) {
+      const required = document.createElement("span");
+      required.className = "ikashita-required";
+      required.setAttribute("aria-hidden", "true");
+      required.textContent = "*";
+      labelElement.append(required);
+    }
+    fieldWrapper.append(labelElement, element);
+    return fieldWrapper;
+  }
+
+  if (component.kind === "data-table") {
+    const tableWrapper = document.createElement("div");
+    tableWrapper.className = "ikashita-table-wrap";
+    tableWrapper.append(element);
+    return tableWrapper;
   }
   return element;
 }
@@ -422,8 +494,24 @@ async function hydrateTable(
   columns: readonly SerializedComponent[],
   provider: ResourceProvider,
 ): Promise<void> {
+  body.replaceChildren();
+  const loadingRow = body.insertRow();
+  const loadingCell = loadingRow.insertCell();
+  loadingCell.className = "ikashita-table-empty";
+  loadingCell.dataset.state = "loading";
+  loadingCell.colSpan = Math.max(columns.length, 1);
+  loadingCell.textContent = "Loading records…";
   try {
     const page = await provider.list({ sort: [], offset: 0, limit: 50 });
+    body.replaceChildren();
+    body.parentElement?.setAttribute("aria-busy", "false");
+    if (!page.items.length) {
+      const row = body.insertRow();
+      const cell = row.insertCell();
+      cell.className = "ikashita-table-empty";
+      cell.colSpan = Math.max(columns.length, 1);
+      cell.textContent = "No records yet.";
+    }
     for (const item of page.items) {
       const row = body.insertRow();
       for (const column of columns) {
@@ -433,7 +521,13 @@ async function hydrateTable(
       }
     }
   } catch {
-    // Provider details stay in the provider boundary; the renderer exposes no logs or raw errors.
+    body.replaceChildren();
+    body.parentElement?.setAttribute("aria-busy", "false");
+    const row = body.insertRow();
+    const cell = row.insertCell();
+    cell.className = "ikashita-table-empty";
+    cell.colSpan = Math.max(columns.length, 1);
+    cell.textContent = "Records could not be loaded.";
   }
 }
 
@@ -447,12 +541,44 @@ export function renderApplication(
   const fragment = document.createDocumentFragment();
   for (const page of application.pages) {
     const section = document.createElement("section");
-    section.className = "ikashita-page";
+    section.className = "ikashita-page ikashita-shell";
     section.setAttribute("aria-label", page.title);
+    const topbar = document.createElement("header");
+    topbar.className = "ikashita-topbar";
+    const brand = document.createElement("div");
+    brand.className = "ikashita-brand";
+    const brandMark = document.createElement("span");
+    brandMark.className = "ikashita-brand-mark";
+    brandMark.setAttribute("aria-hidden", "true");
+    brandMark.textContent = "i";
+    brand.append(brandMark, document.createTextNode("ikashita"));
+    topbar.append(brand);
+    const topbarTitle = document.createElement("span");
+    topbarTitle.className = "ikashita-topbar-title";
+    topbarTitle.textContent = page.title;
+    topbar.append(topbarTitle);
+    section.append(topbar);
+    const main = document.createElement("div");
+    main.className = "ikashita-shell-main";
+    const pageHeader = document.createElement("header");
+    pageHeader.className = "ikashita-page-header";
+    const pageHeading = document.createElement("div");
+    pageHeading.className = "ikashita-page-heading";
+    const eyebrow = document.createElement("span");
+    eyebrow.className = "ikashita-eyebrow";
+    eyebrow.textContent = "Workspace";
+    pageHeading.append(eyebrow);
     const heading = document.createElement("h1");
+    heading.className = "ikashita-page-title";
     heading.textContent = page.title;
-    section.append(heading);
-    appendChildren(section, page.components, document, options, application);
+    pageHeading.append(heading);
+    pageHeader.append(pageHeading);
+    main.append(pageHeader);
+    const content = document.createElement("div");
+    content.className = "ikashita-content";
+    appendChildren(content, page.components, document, options, application);
+    main.append(content);
+    section.append(main);
     fragment.append(section);
   }
   return fragment;
