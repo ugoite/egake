@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any
 
 from ikashita import (
     CAPABILITIES,
     FieldSchema,
+    JsonObject,
+    JsonValue,
     ListQuery,
-    ResourceBase,
     ResourceASGIApp,
+    ResourceBase,
     ResourcePage,
     ResourceSchema,
     apply_merge_patch,
@@ -19,7 +21,7 @@ from ikashita.fastapi import create_fastapi_app
 
 class Contacts(ResourceBase):
     def __init__(self) -> None:
-        self.items: Dict[str, dict] = {"1": {"id": "1", "name": "Ada"}}
+        self.items: dict[str, JsonObject] = {"1": {"id": "1", "name": "Ada"}}
 
     def schema(self) -> ResourceSchema:
         return ResourceSchema(
@@ -30,26 +32,40 @@ class Contacts(ResourceBase):
 
     def list(self, query: ListQuery) -> ResourcePage:
         values = list(self.items.values())
-        if query.q:
-            values = [item for item in values if query.q.lower() in item["name"].lower()]
-        return ResourcePage(tuple(values[query.offset:query.offset + query.limit]), len(values), query.offset, query.limit)
+        search = query.q
+        if search is not None:
+            values = [item for item in values if _matches_name(item, search)]
+        return ResourcePage(
+            tuple(values[query.offset : query.offset + query.limit]), len(values), query.offset, query.limit
+        )
 
-    def get(self, resource_id: str):
+    def get(self, resource_id: str) -> JsonObject | None:
         return self.items.get(resource_id)
 
-    def create(self, value):
-        self.items[value["id"]] = value
+    def create(self, value: JsonObject) -> JsonObject:
+        resource_id = value.get("id")
+        if not isinstance(resource_id, str):
+            raise ValueError("contacts require a string id")
+        self.items[resource_id] = value
         return value
 
-    def update(self, resource_id: str, merge_patch):
-        self.items[resource_id] = apply_merge_patch(self.items[resource_id], merge_patch)
+    def update(self, resource_id: str, merge_patch: JsonObject) -> JsonObject:
+        updated = apply_merge_patch(self.items[resource_id], merge_patch)
+        if not isinstance(updated, dict):
+            raise TypeError("resource update must return a JSON object")
+        self.items[resource_id] = updated
         return self.items[resource_id]
 
     def delete(self, resource_id: str) -> None:
         del self.items[resource_id]
 
-    def invoke(self, action, value):
+    def invoke(self, action: str, value: JsonValue) -> JsonValue:
         return {"action": action, "input": value}
+
+
+def _matches_name(item: JsonObject, search: str) -> bool:
+    name = item.get("name")
+    return isinstance(name, str) and search.lower() in name.lower()
 
 
 def create_asgi_app() -> ResourceASGIApp:
@@ -58,7 +74,7 @@ def create_asgi_app() -> ResourceASGIApp:
     return ResourceASGIApp({"contacts": Contacts()})
 
 
-def create_fastapi_application():
+def create_fastapi_application() -> Any:
     """Build the optional FastAPI application around the same provider."""
 
     return create_fastapi_app({"contacts": Contacts()})

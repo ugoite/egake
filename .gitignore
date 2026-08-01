@@ -9,6 +9,7 @@
 
 # Local tooling and environment files
 /.mise/
+/.venv/
 /.direnv/
 .env
 .env.*

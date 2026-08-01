@@ -6,7 +6,9 @@ when ``create_fastapi_app`` is called in an environment that installed it.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+import importlib
+from collections.abc import Mapping
+from typing import Any, cast
 
 from .asgi import ResourceASGIApp
 from .resource import Resource
@@ -20,10 +22,13 @@ def create_fastapi_app(resources: Mapping[str, Resource], title: str = "ikashita
     """
 
     try:
-        from fastapi import FastAPI, Request, Response
+        fastapi_module = cast(Any, importlib.import_module("fastapi"))
     except ImportError as exc:  # pragma: no cover - depends on optional host setup
         raise RuntimeError("FastAPI integration requires the optional fastapi package") from exc
 
+    FastAPI = fastapi_module.FastAPI
+    Request = fastapi_module.Request
+    Response = fastapi_module.Response
     adapter = ResourceASGIApp(resources)
     app = FastAPI(title=title)
 

@@ -4,37 +4,63 @@ min_version = "2025.11.3"
 rust = "1.94.0"
 deno = "2.8.3"
 python = "3.13.5"
+ruff = "0.16.1"
+uv = "0.11.7"
 
 [env]
 CARGO_TARGET_DIR = "target/rust"
 
 [tasks.setup]
-description = "Show the pinned toolchain and install the local Git hooks"
-depends = ["install-hooks"]
+description = "Install the Python quality environment and show the pinned toolchain"
+depends = ["install-hooks", "python:install"]
 run = [
     "rustc --version",
     "cargo --version",
-    "if command -v deno >/dev/null 2>&1; then deno --version; else echo 'Deno is not installed; no Deno task is required by the Rust foundation'; fi",
+    "deno --version",
+    "python --version",
+    "ruff --version",
+    "uv --version",
+    "uv run --locked ty --version",
 ]
 
 [tasks.fmt]
+description = "Format Rust, Deno, and Python sources"
+depends = ["rust:fmt", "deno:fmt", "python:fmt"]
+
+[tasks."fmt:check"]
+description = "Check formatting for Rust, Deno, and Python"
+depends = ["rust:fmt:check", "deno:fmt:check", "python:fmt:check"]
+
+[tasks.lint]
+description = "Run lint checks for Rust, Deno, and Python"
+depends = ["rust:lint", "deno:lint", "python:lint"]
+
+[tasks.check]
+description = "Type-check Rust, Deno, and Python"
+depends = ["rust:check", "deno:check", "python:typecheck"]
+
+[tasks.test]
+description = "Run Rust, Deno, and Python tests"
+depends = ["rust:test", "deno:test", "python:test"]
+
+[tasks."rust:fmt"]
 description = "Format all Rust sources"
 run = "cargo fmt --all"
 
-[tasks."fmt:check"]
+[tasks."rust:fmt:check"]
 description = "Check Rust formatting without changing files"
 run = "cargo fmt --all --check"
 
-[tasks.lint]
+[tasks."rust:lint"]
 description = "Run Clippy with warnings treated as errors"
 run = "cargo clippy --workspace --all-targets --all-features -- -D warnings"
 
-[tasks.check]
-description = "Type-check every workspace target"
+[tasks."rust:check"]
+description = "Type-check every Rust workspace target"
 run = "cargo check --workspace --all-targets"
 
-[tasks.test]
-description = "Run all workspace tests"
+[tasks."rust:test"]
+description = "Run all Rust workspace tests"
 run = "cargo test --workspace"
 
 [tasks.build]
@@ -49,6 +75,10 @@ run = "deno fmt packages examples/js-embedded examples/ugoite-entries"
 description = "Check TypeScript/Deno formatting"
 run = "deno fmt --check packages examples/js-embedded examples/ugoite-entries"
 
+[tasks."deno:lint"]
+description = "Lint TypeScript/Deno host packages and examples"
+run = "deno lint packages examples/js-embedded examples/ugoite-entries"
+
 [tasks."deno:check"]
 description = "Type-check the TypeScript/Deno host packages and examples"
 run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod.ts examples/js-embedded/main.ts examples/js-embedded/main_test.ts examples/ugoite-entries/adapter.ts examples/ugoite-entries/adapter_test.ts"
@@ -57,13 +87,43 @@ run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod
 description = "Run deterministic TypeScript/Deno host tests"
 run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts"
 
+[tasks."python:install"]
+description = "Install the locked Python type-checking environment"
+run = "uv sync --locked --python 3.13"
+
+[tasks."python:fmt"]
+description = "Format Python sources and examples"
+run = "ruff format python examples scripts"
+
+[tasks."python:fmt:check"]
+description = "Check Python formatting without changing files"
+run = "ruff format --check python examples scripts"
+
+[tasks."python:lint"]
+description = "Run Ruff lint on Python sources, examples, and quality scripts"
+run = "ruff check python examples scripts"
+
+[tasks."python:typecheck"]
+description = "Run the locked ty type checker on Python sources and examples"
+depends = ["python:install"]
+run = "uv run --locked ty check python examples scripts"
+
 [tasks."python:test"]
 description = "Run standard-library Python host adapter tests"
 run = "PYTHONPATH=python python -m unittest discover -s python/tests -t python"
 
+[tasks."docsite:check"]
+description = "Run the future docsite's own mise check when its worktree is present"
+run = "if test -d docsite; then test -f docsite/mise.toml; mise -C docsite run check; fi"
+
+[tasks."docs:check"]
+description = "Check repository documentation and the future docsite when present"
+depends = ["docsite:check"]
+run = "python scripts/check_docs.py"
+
 [tasks.ci]
 description = "Run the complete local validation suite"
-depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test"]
+depends = ["fmt:check", "lint", "check", "test", "build", "docs:check"]
 
 [tasks.install-hooks]
 description = "Configure the repository-local pre-commit hook"

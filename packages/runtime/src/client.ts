@@ -439,8 +439,7 @@ export class ResourceClient {
   resource<T extends JsonObject = JsonObject>(
     name: string,
   ): ResourceProvider<T> {
-    const client = this;
-    return new RemoteResourceProvider<T>(client, name);
+    return new RemoteResourceProvider<T>(this, name);
   }
 
   /** Performs one same-origin JSON request. This is public for embedded adapters. */

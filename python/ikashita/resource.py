@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import copy
+import math
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Protocol, Tuple, Union
+from typing import Any, Protocol
 
-JsonValue = Union[None, bool, int, float, str, List["JsonValue"], Dict[str, "JsonValue"]]
-JsonObject = Dict[str, JsonValue]
+type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+type JsonObject = dict[str, JsonValue]
 
-CAPABILITIES: Tuple[str, ...] = ("schema", "list", "get", "create", "update", "delete", "invoke")
-ERROR_CODES: Tuple[str, ...] = (
+CAPABILITIES: tuple[str, ...] = ("schema", "list", "get", "create", "update", "delete", "invoke")
+ERROR_CODES: tuple[str, ...] = (
     "validation_failed",
     "not_found",
     "conflict",
@@ -31,8 +33,8 @@ class FieldSchema:
     name: str
     field_type: str
     required: bool = False
-    enum_values: Optional[Tuple[JsonValue, ...]] = None
-    format: Optional[str] = None
+    enum_values: tuple[JsonValue, ...] | None = None
+    format: str | None = None
 
 
 @dataclass(frozen=True)
@@ -40,8 +42,8 @@ class ResourceSchema:
     """The fields and capabilities advertised by one resource."""
 
     name: str
-    fields: Tuple[FieldSchema, ...] = ()
-    capabilities: Tuple[str, ...] = ()
+    fields: tuple[FieldSchema, ...] = ()
+    capabilities: tuple[str, ...] = ()
 
     def has_capability(self, capability: str) -> bool:
         return capability in self.capabilities
@@ -59,8 +61,8 @@ class Sort:
 class ListQuery:
     """Normalized list query using q/sort/offset/limit semantics."""
 
-    q: Optional[str] = None
-    sort: Tuple[Sort, ...] = ()
+    q: str | None = None
+    sort: tuple[Sort, ...] = ()
     offset: int = 0
     limit: int = DEFAULT_PAGE_LIMIT
 
@@ -69,7 +71,7 @@ class ListQuery:
 class ResourcePage:
     """A page of JSON object records."""
 
-    items: Tuple[JsonObject, ...]
+    items: tuple[JsonObject, ...]
     total: int
     offset: int
     limit: int
@@ -85,7 +87,7 @@ class ResourcePage:
             raise ResourceError("internal", "resource returned an invalid page")
         object.__setattr__(self, "limit", normalize_limit(self.limit))
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {"items": list(self.items), "total": self.total, "offset": self.offset, "limit": self.limit}
 
 
@@ -95,19 +97,19 @@ class ResourceError(Exception):
 
     code: str
     message: str
-    fields: Dict[str, str] = field(default_factory=dict)
-    request_id: Optional[str] = None
+    fields: dict[str, str] = field(default_factory=dict)
+    request_id: str | None = None
 
     def __post_init__(self) -> None:
         Exception.__init__(self, self.message)
 
-    def as_dict(self) -> Dict[str, Any]:
-        value: Dict[str, Any] = {"code": self.code, "message": self.message, "fields": dict(self.fields)}
+    def as_dict(self) -> dict[str, Any]:
+        value: dict[str, Any] = {"code": self.code, "message": self.message, "fields": dict(self.fields)}
         if self.request_id is not None:
             value["request_id"] = self.request_id
         return value
 
-    def with_request_id(self, request_id: str) -> "ResourceError":
+    def with_request_id(self, request_id: str) -> ResourceError:
         return ResourceError(self.code, self.message, dict(self.fields), request_id)
 
 
@@ -119,26 +121,19 @@ class Resource(Protocol):
     value contract.
     """
 
-    def schema(self) -> ResourceSchema:
-        ...
+    def schema(self) -> ResourceSchema: ...
 
-    def list(self, query: ListQuery) -> ResourcePage:
-        ...
+    def list(self, query: ListQuery) -> ResourcePage: ...
 
-    def get(self, resource_id: str) -> Optional[JsonObject]:
-        ...
+    def get(self, resource_id: str) -> JsonObject | None: ...
 
-    def create(self, value: JsonObject) -> JsonObject:
-        ...
+    def create(self, value: JsonObject) -> JsonObject: ...
 
-    def update(self, resource_id: str, merge_patch: JsonObject) -> JsonObject:
-        ...
+    def update(self, resource_id: str, merge_patch: JsonObject) -> JsonObject: ...
 
-    def delete(self, resource_id: str) -> None:
-        ...
+    def delete(self, resource_id: str) -> None: ...
 
-    def invoke(self, action: str, value: JsonValue) -> JsonValue:
-        ...
+    def invoke(self, action: str, value: JsonValue) -> JsonValue: ...
 
 
 class ResourceBase(ABC):
@@ -153,7 +148,7 @@ class ResourceBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, resource_id: str) -> Optional[JsonObject]:
+    def get(self, resource_id: str) -> JsonObject | None:
         raise NotImplementedError
 
     @abstractmethod
@@ -174,7 +169,7 @@ class ResourceBase(ABC):
 
 def _is_json_value(value: Any) -> bool:
     if value is None or isinstance(value, (str, bool, int, float)):
-        return not isinstance(value, float) or value == value and value not in (float("inf"), float("-inf"))
+        return not isinstance(value, float) or math.isfinite(value)
     if isinstance(value, list):
         return all(_is_json_value(item) for item in value)
     if isinstance(value, dict):
@@ -202,13 +197,17 @@ def require_object_patch(value: JsonValue) -> JsonObject:
     """Require the object-shaped patch mandated for resource updates."""
 
     if not isinstance(value, dict):
-        raise ResourceError("validation_failed", "resource update patch must be a JSON object", {"patch": "expected a JSON object"})
+        raise ResourceError(
+            "validation_failed", "resource update patch must be a JSON object", {"patch": "expected a JSON object"}
+        )
     return value
 
 
 def normalize_limit(limit: int) -> int:
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
-        raise ResourceError("validation_failed", "limit must be a non-negative integer", {"limit": "must be a non-negative integer"})
+        raise ResourceError(
+            "validation_failed", "limit must be a non-negative integer", {"limit": "must be a non-negative integer"}
+        )
     return 1 if limit == 0 else min(limit, MAX_PAGE_LIMIT)
 
 
@@ -216,7 +215,9 @@ def normalize_page(items: Iterable[JsonObject], total: int, offset: int, limit: 
     """Construct a page with the contract's limit bounds."""
 
     if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
-        raise ResourceError("validation_failed", "offset must be a non-negative integer", {"offset": "must be a non-negative integer"})
+        raise ResourceError(
+            "validation_failed", "offset must be a non-negative integer", {"offset": "must be a non-negative integer"}
+        )
     return ResourcePage(tuple(items), total, offset, normalize_limit(limit))
 
 

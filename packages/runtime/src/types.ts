@@ -35,7 +35,7 @@ export type ResourceErrorCode =
   | "capability_denied"
   | "unavailable"
   | "internal"
-  | (string & {});
+  | (string & Record<never, never>);
 
 /** A structured provider error in its JSON wire representation. */
 export interface StructuredError {
@@ -59,7 +59,11 @@ export interface FieldSchema {
   /** JSON Schema enum values, when the field is constrained to a set. */
   readonly enum?: readonly JsonValue[];
   /** Supported JSON Schema format metadata. */
-  readonly format?: "email" | "date" | "date-time" | (string & {});
+  readonly format?:
+    | "email"
+    | "date"
+    | "date-time"
+    | (string & Record<never, never>);
 }
 
 /** Schema and capabilities advertised by a resource provider. */

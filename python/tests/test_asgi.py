@@ -1,10 +1,13 @@
 import asyncio
 import json
 import unittest
+from typing import Any, cast
 
 from ikashita import (
     CAPABILITIES,
     FieldSchema,
+    JsonObject,
+    JsonValue,
     ListQuery,
     ResourceASGIApp,
     ResourceBase,
@@ -16,10 +19,10 @@ from ikashita import (
 
 
 class MemoryResource(ResourceBase):
-    def __init__(self):
-        self.items = {"1": {"id": "1", "name": "Ada", "profile": {"team": "math"}}}
+    def __init__(self) -> None:
+        self.items: dict[str, JsonObject] = {"1": {"id": "1", "name": "Ada", "profile": {"team": "math"}}}
 
-    def schema(self):
+    def schema(self) -> ResourceSchema:
         return ResourceSchema(
             "contacts",
             (
@@ -36,27 +39,42 @@ class MemoryResource(ResourceBase):
         values = list(self.items.values())
         if query.q:
             values = [item for item in values if query.q.lower() in json.dumps(item).lower()]
-        return ResourcePage(tuple(values[query.offset:query.offset + query.limit]), len(values), query.offset, query.limit)
+        return ResourcePage(
+            tuple(values[query.offset : query.offset + query.limit]), len(values), query.offset, query.limit
+        )
 
-    def get(self, resource_id):
+    def get(self, resource_id: str) -> JsonObject | None:
         return self.items.get(resource_id)
 
-    def create(self, value):
-        self.items[value["id"]] = value
+    def create(self, value: JsonObject) -> JsonObject:
+        resource_id = value.get("id")
+        if not isinstance(resource_id, str):
+            raise ValueError("contacts require a string id")
+        self.items[resource_id] = value
         return value
 
-    def update(self, resource_id, merge_patch):
-        self.items[resource_id] = apply_merge_patch(self.items[resource_id], merge_patch)
+    def update(self, resource_id: str, merge_patch: JsonObject) -> JsonObject:
+        updated = apply_merge_patch(self.items[resource_id], merge_patch)
+        if not isinstance(updated, dict):
+            raise TypeError("resource update must return a JSON object")
+        self.items[resource_id] = updated
         return self.items[resource_id]
 
-    def delete(self, resource_id):
+    def delete(self, resource_id: str) -> None:
         del self.items[resource_id]
 
-    def invoke(self, action, value):
+    def invoke(self, action: str, value: JsonValue) -> JsonValue:
         return {"action": action, "input": value}
 
 
-def call(app, method, path, body=b"", headers=(), query_string=b""):
+def call(
+    app: ResourceASGIApp,
+    method: str,
+    path: str,
+    body: bytes = b"",
+    headers: tuple[tuple[bytes, bytes], ...] = (),
+    query_string: bytes = b"",
+) -> tuple[int, Any, dict[bytes, bytes]]:
     messages = []
     request_sent = False
 
@@ -92,12 +110,15 @@ class ResourceASGITest(unittest.TestCase):
         self.assertEqual(schema["name"], "contacts")
         self.assertEqual(schema["fields"][2]["enum"], ["active", "paused"])
         self.assertEqual(schema["fields"][3]["format"], "email")
-        self.assertEqual(schema["fields"][4], {
-            "name": "count",
-            "field_type": "integer",
-            "required": False,
-            "enum": [0, 1, 2],
-        })
+        self.assertEqual(
+            schema["fields"][4],
+            {
+                "name": "count",
+                "field_type": "integer",
+                "required": False,
+                "enum": [0, 1, 2],
+            },
+        )
 
         status, page, _ = call(self.app, "GET", "/api/ikashita/v1/resources/contacts")
         self.assertEqual(status, 200)
@@ -106,7 +127,9 @@ class ResourceASGITest(unittest.TestCase):
         status, created, _ = call(self.app, "POST", "/api/ikashita/v1/resources/contacts", b'{"id":"2","name":"Grace"}')
         self.assertEqual((status, created["id"]), (201, "2"))
 
-        status, updated, _ = call(self.app, "PATCH", "/api/ikashita/v1/resources/contacts/items/2", b'{"name":"Grace Hopper"}')
+        status, updated, _ = call(
+            self.app, "PATCH", "/api/ikashita/v1/resources/contacts/items/2", b'{"name":"Grace Hopper"}'
+        )
         self.assertEqual((status, updated["name"]), (200, "Grace Hopper"))
 
         status, result, _ = call(self.app, "POST", "/api/ikashita/v1/resources/contacts/actions/echo", b'{"ok":true}')
@@ -192,12 +215,13 @@ class ResourceASGITest(unittest.TestCase):
 
     def test_invalid_schema_metadata_is_rejected(self):
         for field in (
-            FieldSchema("status", "text", False, "active"),  # type: ignore[arg-type]
-            FieldSchema("status", "text", False, ("active",), 42),  # type: ignore[arg-type]
+            FieldSchema("status", "text", False, cast(Any, "active")),
+            FieldSchema("status", "text", False, ("active",), cast(Any, 42)),
         ):
+
             class InvalidResource(MemoryResource):
-                def schema(self):
-                    return ResourceSchema("contacts", (field,), CAPABILITIES)
+                def schema(self, invalid_field: FieldSchema = field) -> ResourceSchema:
+                    return ResourceSchema("contacts", (invalid_field,), CAPABILITIES)
 
             status, error, _ = call(
                 ResourceASGIApp({"contacts": InvalidResource()}),
