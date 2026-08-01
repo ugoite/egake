@@ -19,6 +19,8 @@ jobs:
       - uses: jdx/mise-action@v2
         with:
           cache: true
+      - name: Install Rust quality components
+        run: mise run rust:ci-setup
       - run: mise run docs:ci
       - run: mise run fmt:check
       - run: mise run ui:check
