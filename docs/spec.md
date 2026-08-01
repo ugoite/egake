@@ -509,13 +509,12 @@ The host adapter surface currently shipped in this checkout is:
 | Host | Shipped entry point | Contract |
 | --- | --- | --- |
 | Browser / JavaScript | `packages/runtime/mod.ts` | `ResourceProvider`, `ResourceClient`, `mountApplication` |
+| Solid | `packages/solid/mod.ts` | `createSolidRenderer`, `createSolidResourceProvider` |
+| Svelte | `packages/svelte/mod.ts` | `createSvelteRenderer`, `createSvelteResourceProvider` |
 | React | `packages/react/mod.ts` | `createReactRenderer`, `createReactResourceProvider` |
 | Vue | `packages/vue/mod.ts` | `createVueRenderer`, `createVueResourceProvider` |
 | Python ASGI | `python/ikashita` | `ResourceASGIApp`, `ResourceBase` |
 | Ugoite | `examples/ugoite-entries/adapter.ts` | example adapter around a host-owned client |
 
-There are no `packages/solid` or `packages/svelte` directories in this
-increment. Solid and Svelte hosts should use the generic browser runtime at
-their own DOM lifecycle boundary or contribute a thin adapter that follows
-the same serialized-application and `ResourceProvider` contracts. The guide
-does not publish imaginary package names or commands for those frameworks.
+Solid and Svelte adapters follow the same serialized-application and
+`ResourceProvider` contracts as the other framework packages.
