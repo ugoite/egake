@@ -68,6 +68,15 @@ run = "cargo fmt --all"
 description = "Check Rust formatting without changing files"
 run = "cargo fmt --all --check"
 
+[tasks."rust:ci-setup"]
+description = "Install Rust formatter and Clippy for the active CI toolchain"
+# mise 2025.11.3 pins Rust but cannot declare rustup components in mise.toml.
+run = '''
+rust_toolchain="$(rustup show active-toolchain | awk 'NR == 1 { print $1 }')"
+test -n "$rust_toolchain"
+rustup component add rustfmt clippy --toolchain "$rust_toolchain"
+'''
+
 [tasks."rust:lint"]
 description = "Run Clippy with warnings treated as errors"
 depends = ["ui:check"]
