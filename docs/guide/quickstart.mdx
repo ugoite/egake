@@ -1,0 +1,68 @@
+---
+title: 最短クイックスタート
+description: チェックアウト済みcsv-readonly exampleを使ってikashitaを初めて動かす。
+sidebar:
+  label: 最短クイックスタート
+---
+
+import { Aside, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+この手順はリポジトリルートで実行します。`examples/csv-readonly`は既にcheckout済みで、外部サービス・認証・Node packageを必要としません。
+
+<Steps>
+1. ツールチェーンを有効にします。
+
+   ```sh
+   mise install
+   mise run setup
+   ```
+
+2. exampleが正しいか検証します。
+
+   ```sh
+   cargo run -p ikashita-cli -- validate examples/csv-readonly
+   ```
+
+   `app.ui.kdl`、schema JSON、`resources.kdl`、CSVの整合性を確認します。
+
+3. CSVを検索して一覧します。`ada`はタイトルのAda Lovelaceに一致します。
+
+   ```sh
+   cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
+   ```
+
+4. プロジェクトテストと静的bundleを確認します。
+
+   ```sh
+   cargo run -p ikashita-cli -- test examples/csv-readonly
+   cargo run -p ikashita-cli -- build examples/csv-readonly
+   ```
+
+   buildは`examples/csv-readonly/dist/`に`index.html`、runtime assets、`app.bundle.json`を書き出します。この生成物はcommitしません。
+</Steps>
+
+## 何が起きたか
+
+<Tabs>
+  <TabItem label="定義">
+
+  `app.ui.kdl`は`catalog` resourceの`list`だけを要求し、`data-table`に`title`、`category`、`description`を表示します。
+
+  </TabItem>
+  <TabItem label="データ">
+
+  `resources.kdl`は`data/catalog.csv`をread-only providerとして開きます。`id`列がないので、書き込み機能は広告されません。
+
+  </TabItem>
+  <TabItem label="出力">
+
+  `app.bundle.json`は検証済みのApplication Profileとschema metadataだけを持ち、CSVレコードは持ちません。
+
+  </TabItem>
+</Tabs>
+
+<Aside type="note" title="編集したら再実行">
+  `dev`はこのMVPではno-watchです。ファイルを編集した場合は停止して、`cargo run -p ikashita-cli -- dev examples/csv-readonly`を再起動してください。
+</Aside>
+
+次は[ジャンル別の使い方](usage/index.mdx)から、自分のhost環境に近い章へ進めます。

@@ -1,0 +1,48 @@
+:root {
+  --sl-color-accent-low: #dcecf3;
+  --sl-color-accent: #087ea4;
+  --sl-color-accent-high: #06445b;
+  --sl-font: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --sl-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+:root[data-theme="dark"] {
+  --sl-color-accent-low: #123947;
+  --sl-color-accent: #66c7e8;
+  --sl-color-accent-high: #c0f0ff;
+}
+
+.ikashita-diagram {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.75rem;
+  background: var(--sl-color-gray-7);
+}
+
+.ikashita-diagram > div {
+  padding: 0.8rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--sl-color-bg);
+  box-shadow: inset 0 0 0 1px var(--sl-color-gray-6);
+  text-align: center;
+}
+
+.ikashita-diagram .arrow {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--sl-color-accent-high);
+  font-weight: 700;
+}
+
+.sl-markdown-content pre {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sl-markdown-content code {
+  overflow-wrap: anywhere;
+}

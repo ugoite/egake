@@ -1,4 +1,12 @@
-# Usage and acceptance coverage
+---
+title: 受け入れマトリクスと共通コマンド
+description: チェックアウト済みexampleを使った、ikashitaのオフライン検証手順。
+sidebar:
+  label: 受け入れマトリクス
+---
+
+This page is the repository's executable usage and acceptance reference. For
+the beginner path, start with [最短クイックスタート](guide/quickstart.mdx).
 
 This page is the executable follow-up to the original draft plan. The plan's
 user-facing workflows are constrained by the decisions in
