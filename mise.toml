@@ -4,6 +4,7 @@ min_version = "2025.11.3"
 rust = "1.94.0"
 deno = "2.8.3"
 python = "3.13.5"
+node = "22.14.0"
 
 [env]
 CARGO_TARGET_DIR = "target/rust"
@@ -61,9 +62,32 @@ run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests 
 description = "Run standard-library Python host adapter tests"
 run = "PYTHONPATH=python python -m unittest discover -s python/tests -t python"
 
+[tasks."docs:install"]
+description = "Install the locked Astro Starlight docsite dependencies"
+run = "npm --prefix docsite ci"
+
+[tasks."docs:check"]
+description = "Check the docsite and verify that docs/ remains its single source of truth"
+depends = ["docs:fmt:check"]
+run = "npm --prefix docsite run check"
+
+[tasks."docs:fmt:check"]
+description = "Check docsite configuration formatting"
+depends = ["docs:install"]
+run = "npm --prefix docsite run format:check"
+
+[tasks."docs:build"]
+description = "Build the Astro Starlight docsite from repository docs/"
+depends = ["docs:check"]
+run = "npm --prefix docsite run build"
+
+[tasks."docs:ci"]
+description = "Run the reproducible docsite install, checks, and production build"
+depends = ["docs:build"]
+
 [tasks.ci]
 description = "Run the complete local validation suite"
-depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test"]
+depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test", "docs:ci"]
 
 [tasks.install-hooks]
 description = "Configure the repository-local pre-commit hook"

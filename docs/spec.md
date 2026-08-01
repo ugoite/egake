@@ -1,4 +1,13 @@
-# Executable MVP decisions
+---
+title: 実行可能なMVP仕様
+description: ikashitaのResource Contract、KDL Application Profile、CLI、ホスト境界の正本。
+sidebar:
+  label: 実行可能なMVP仕様
+---
+
+This page is the executable contract. Beginner-oriented explanations live in
+the guide pages; when an explanation and this page disagree, this page and the
+implementation take precedence.
 
 This document turns the draft plan into the decisions that foundation and
 future implementation work can rely on. It is intentionally narrower than a
@@ -412,3 +421,29 @@ is an optional bridge that imports FastAPI only when called; deployment hosts
 may add their own middleware. Core Python tests require only the standard
 library. See `examples/python-fastapi`, `examples/js-embedded`, and
 `examples/ugoite-entries` for provider injection boundaries.
+
+## Documentation and adapter availability
+
+The repository-level `docs/` directory is the single source of truth for
+published documentation. `docsite/src/content/docs` is a symlink to that
+directory, and `docsite/src/content.config.ts` loads it with Starlight's
+`docsLoader()`. `astro.config.mjs` also marks the canonical directory as
+processed Markdown. The check task verifies the symlink target and rejects a
+copied content tree, keeping the GitHub-rendered Markdown, editor view, and
+built site on the same files.
+
+The host adapter surface currently shipped in this checkout is:
+
+| Host | Shipped entry point | Contract |
+| --- | --- | --- |
+| Browser / JavaScript | `packages/runtime/mod.ts` | `ResourceProvider`, `ResourceClient`, `mountApplication` |
+| React | `packages/react/mod.ts` | `createReactRenderer`, `createReactResourceProvider` |
+| Vue | `packages/vue/mod.ts` | `createVueRenderer`, `createVueResourceProvider` |
+| Python ASGI | `python/ikashita` | `ResourceASGIApp`, `ResourceBase` |
+| Ugoite | `examples/ugoite-entries/adapter.ts` | example adapter around a host-owned client |
+
+There are no `packages/solid` or `packages/svelte` directories in this
+increment. Solid and Svelte hosts should use the generic browser runtime at
+their own DOM lifecycle boundary or contribute a thin adapter that follows
+the same serialized-application and `ResourceProvider` contracts. The guide
+does not publish imaginary package names or commands for those frameworks.

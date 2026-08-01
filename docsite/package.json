@@ -1,0 +1,22 @@
+{
+  "name": "ikashita-docsite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1 --strictPort --port 4321",
+    "build": "astro build",
+    "check": "node scripts/check-ssot.mjs && astro check",
+    "format": "prettier --write astro.config.mjs src scripts package.json tsconfig.json",
+    "format:check": "prettier --check astro.config.mjs src/content.config.ts src/docs-ssot.mjs src/env.d.ts src/styles/custom.css scripts/check-ssot.mjs package.json tsconfig.json"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "7.0.5",
+    "@astrojs/starlight": "0.41.6",
+    "astro": "7.1.6"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3"
+  }
+}

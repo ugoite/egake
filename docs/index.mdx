@@ -1,0 +1,54 @@
+---
+title: ikashita ドキュメント
+description: データとUIの境界を小さく保つ、ikashitaの初心者向けガイド。
+template: splash
+hero:
+  title: ikashitaを、まず動かす
+  tagline: KDLでUIの形を定義し、Resource Contractでデータの境界をつなぐ、段階的なlow-code runtime。
+  actions:
+    - text: 最短クイックスタート
+      link: /docs/guide/quickstart/
+      icon: right-arrow
+    - text: ikashitaとは何か
+      link: /docs/guide/what-is-ikashita/
+      variant: minimal
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+`ikashita`（いかした）は、画面の定義とデータの提供元を分けて、小さく安全に組み立てるためのランタイムです。このサイトは、初めて触る人が「何を定義し、どこにデータを置き、どう実行するか」を順番に理解できるように構成しています。
+
+<CardGrid>
+  <Card title="まず概念をつかむ" icon="open-book">
+    ikashitaの役割、Resource Contract、KDL Application Profileを図と短い例で説明します。
+  </Card>
+  <Card title="チェックアウト済みexampleで試す" icon="rocket">
+    `examples/csv-readonly`を使うため、ネットワークや認証情報なしでコマンドを再現できます。
+  </Card>
+  <Card title="自分のホストにつなぐ" icon="setting">
+    JavaScript、Python ASGI、Ugoite、React/Vueの境界を、実装済みの識別子に沿って案内します。
+  </Card>
+</CardGrid>
+
+## 読む順番
+
+<CardGrid>
+  <LinkCard title="ikashitaとは何か" description="画面・契約・データ提供元の3つに分けて理解する。" href="/docs/guide/what-is-ikashita/" />
+  <LinkCard title="メンタルモデル" description="KDL、bundle、provider、HTTP/hostの関係を一枚で見る。" href="/docs/guide/mental-model/" />
+  <LinkCard title="最短クイックスタート" description="validate → list → test → buildを実際に実行する。" href="/docs/guide/quickstart/" />
+  <LinkCard title="ジャンル別の使い方" description="CSV、JS、Python、Ugoite、framework adapterを選ぶ。" href="/docs/guide/usage/" />
+</CardGrid>
+
+## 正本と検証
+
+仕様の正本は[`docs/spec.md`](spec.md)、exampleを横断する受け入れ手順は[`docs/usage.md`](usage.md)です。サイトは`docs/`へのシンボリックリンクをStarlightの`docsLoader()`で読むだけで、本文ファイルをコピーしません。サイト自体は次のコマンドで検証できます。
+
+```sh
+mise run docs:install
+mise run docs:check
+mise run docs:build
+```
+
+<Aside type="tip" title="このサイトで約束すること">
+  説明に登場するCLI、ファイル名、関数名はこのcheckoutに存在するものだけです。まだ提供していないSolid/Svelte専用パッケージは、汎用runtimeとの境界として正直に扱います。
+</Aside>

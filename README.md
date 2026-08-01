@@ -1,8 +1,8 @@
 # ikashita
 
-ikashita is an MIT-licensed Rust/WASM-oriented low-code UI runtime. The
-project is being delivered incrementally around a transport-neutral Resource
-Contract and a KDL Application Profile.
+ikashita is an MIT-licensed Rust/WASM-oriented low-code UI runtime. It is
+delivered incrementally around a transport-neutral Resource Contract and a KDL
+Application Profile.
 
 This repository currently contains the standalone data/API increment and a
 usable local CLI/runtime:
@@ -24,56 +24,28 @@ usable local CLI/runtime:
 - `ikashita-cli` provides project scaffolding, deterministic validation,
   inspection/build output, and the localhost browser runtime.
 
-The executable MVP decisions are recorded in [`docs/spec.md`](docs/spec.md).
-Runnable workflow coverage and the offline acceptance matrix are in
-[`docs/usage.md`](docs/usage.md).
-Ugoite integration will be an adapter boundary and is not a workspace
+The beginner-oriented documentation starts at [`docs/index.mdx`](docs/index.mdx)
+and is rendered by the Astro Starlight site in [`docsite/`](docsite/). The
+repository-level `docs/` directory is the single source of truth: the site
+loads it directly and does not contain a copied content tree.
+
+For the executable contract, see [`docs/spec.md`](docs/spec.md). For the
+offline acceptance matrix and repository workflows, see
+[`docs/usage.md`](docs/usage.md). The CLI and host adapters remain dependency
+free at runtime; Ugoite integration is an adapter boundary, not a workspace
 dependency.
 
-## CLI quick start
-
-From the repository root, scaffold or use the checked-in example:
-
-```sh
-cargo run -p ikashita-cli -- new my-contacts
-cargo run -p ikashita-cli -- validate my-contacts
-cargo run -p ikashita-cli -- build my-contacts
-cargo run -p ikashita-cli -- run my-contacts
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada
-```
-
-The commands are `new`, `validate`, `inspect`, `build`, `run`, `dev`, `test`,
-and `list`. `validate`, `inspect`, `build`, `test`, and `list` accept `--json`; project
-directories may be positional or passed with `--project`. `run` and `dev`
-listen on `127.0.0.1:8787` by default. A non-loopback `--host` requires the
-explicit `--allow-external` flag and prints a warning because this MVP has no
-authentication. CORS is disabled by default.
-
-Projects contain `ikashita.toml` and `app.ui.kdl`. Resource providers use
-exactly one configuration source: `resources.kdl` when present, otherwise
-`[resources.<name>]` tables in TOML. Supplying both is an error; they are never
-merged or overridden. The preferred KDL convention is:
-
-```kdl
-/- kdl-version 2
-resources {
-    csv "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
-}
-```
-
-Paths are project-relative and may not contain `..`. `dev` is a validated
-no-watch development server; restart it after editing source files.
-`actions.rhai` is emitted
-by `new` as a documentation placeholder only; this CLI does not execute Rhai,
-shell commands, or arbitrary JavaScript. `build` writes `dist/index.html`,
-`runtime.js`, `runtime.css`, and `app.bundle.json`. The bundle contains the
-validated application definition, not provider data or credentials.
+The shortest path for a new user is the site's
+[quick start](docs/guide/quickstart.mdx). It uses the checked-in
+`examples/csv-readonly` fixture, so every command in that path is runnable
+from this checkout.
 
 ## Tooling
 
 Install [mise](https://mise.jdx.dev/) and run commands from the repository
-root. `mise.toml` pins Rust 1.94.0, Deno 2.8.3, Python 3.13.5, and the shared
-target directory.
+root. `mise.toml` pins Rust 1.94.0, Deno 2.8.3, Python 3.13.5, Node 22.14.0,
+and the shared target directory. The docsite uses npm with the committed
+`docsite/package-lock.json`.
 The setup task only reports available tools and configures the local Git hook;
 it does not require Docker, a browser, or a download step.
 
@@ -84,6 +56,11 @@ mise run fmt:check
 mise run check
 mise run test
 mise run ci
+
+# Documentation site only
+mise run docs:install
+mise run docs:check
+mise run docs:build
 ```
 
 Host-specific checks are also available as `mise run deno:check`,

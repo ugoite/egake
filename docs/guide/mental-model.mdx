@@ -1,0 +1,56 @@
+---
+title: メンタルモデル
+description: ikashitaの定義、検証、bundle、providerの流れを理解する。
+sidebar:
+  label: メンタルモデル
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+ikashitaを覚えるときは、「KDLがデータを持っている」と考えないことが大切です。KDLは画面とデータ要求の**設計図**で、データはproviderが所有します。
+
+## 1つのリクエストの流れ
+
+```text
+app.ui.kdl + schema JSON + resources.kdl
+                │
+                ▼
+        validate / inspect
+                │ 参照・schema・CSVを検証
+                ▼
+             build
+                │ データを含まない
+                ▼
+     app.bundle.json + runtime.js/css
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+  local CSV            host provider
+  ikashita run         JS / Python / Ugoite
+      │                   │
+      └──── Resource Contract ────┘
+```
+
+`run`と`dev`はbundleをメモリ上で配信し、`/api/ikashita/v1`のHTTP routeにCSV providerを接続します。埋め込みJavaScriptでは、hostが`ResourceProvider`のmapを作って`mountApplication`に渡します。どちらも画面側が保存先の詳細を直接知る必要はありません。
+
+## 契約は操作の集合
+
+Resourceは、必要な操作だけを`capabilities`で広告します。
+
+<CardGrid>
+  <Card title="schema" icon="document">フィールド型、required、enum、formatを返す。</Card>
+  <Card title="list / get" icon="magnifiers">検索、sort、offset/limit、個別取得を行う。</Card>
+  <Card title="create / update / delete" icon="pencil">書き込みはproviderが検証し、`update`はmerge-patch。</Card>
+  <Card title="invoke" icon="command">providerが明示的に公開したactionだけを呼ぶ。</Card>
+</CardGrid>
+
+`data-table`が`list`を要求するのにproviderが`list`を広告していなければ、アプリは起動前に失敗します。これは「できるかもしれない操作」を画面が勝手に試さないための境界です。
+
+## 迷ったときの判断
+
+1. UIの形やボタンを変える → `app.ui.kdl`。
+2. フィールド型・必須・enumを変える → schema JSONとデータの両方を確認。
+3. 検索・保存・認証・外部APIを変える → provider / host側。
+4. 実装済みか確信がない → `docs/spec.md`と該当example、テストを先に見る。
+
+このモデルを実際のファイルで確かめるなら、[CSVの使い方](usage/csv.md)が最小です。

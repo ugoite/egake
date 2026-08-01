@@ -1,0 +1,43 @@
+---
+title: Ugoite adapter
+description: 既存のUgoite clientをikashitaのResourceProviderへ包む。
+sidebar:
+  label: Ugoite
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Ugoite連携はikashita本体の依存ではありません。既存のUgoite client、認証、URL、cookie、data typeをhost側に残し、薄いadapterでResource Contractへ写像します。
+
+## exampleを実行する
+
+```sh
+deno check examples/ugoite-entries/adapter.ts
+deno test examples/ugoite-entries/adapter_test.ts
+```
+
+`examples/ugoite-entries/adapter.ts`が要求するclientの形は、実装済みの`UgoiteEntriesClient`です。
+
+```ts
+export interface UgoiteEntriesClient {
+  schema(): Promise<ResourceSchema>;
+  list(query: ListQuery): Promise<ResourcePage>;
+  get(id: string): Promise<JsonObject>;
+  create(value: JsonObject): Promise<JsonObject>;
+  update(id: string, mergePatch: JsonObject): Promise<JsonObject>;
+  delete(id: string): Promise<void>;
+  invoke(action: string, input: JsonValue): Promise<JsonValue>;
+}
+```
+
+adapter本体は既存clientの各methodを同名のprovider methodへ委譲します。
+
+```ts
+const provider = createUgoiteEntriesProvider(existingUgoiteClient);
+```
+
+このcheckoutのtestは`FakeUgoiteClient`を使うため、Ugoite本体、network、credentialなしでdelegationを検証できます。実際のclientをつなぐ場合も、authやretryの所有者をadapterの外に保ってください。
+
+<Aside type="caution" title="Ugoiteをcore dependencyにしない">
+  `Cargo.toml`や`packages/`にUgoiteのURLやcredential処理を追加する手順ではありません。ikashitaのcoreがUgoite checkoutなしでbuildできることが境界の一部です。
+</Aside>

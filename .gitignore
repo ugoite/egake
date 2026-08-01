@@ -2,8 +2,14 @@
 /target/
 /target/rust/
 
+# Astro/Starlight dependencies and generated site output
+/docsite/node_modules/
+/docsite/dist/
+/docsite/.astro/
+
 # Generated application output
 /dist/
+**/dist/
 /coverage/
 *.profraw
 
