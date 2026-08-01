@@ -224,12 +224,34 @@ error details.
 
 ## Build output
 
-`ikashita build` emits a self-contained static bundle. The output contains the
-HTML entry point, the runtime assets, and the validated application bundle
-needed by the runtime. It does not load runtime code from a CDN or require the
-source KDL file at runtime. A host may inject Resource Providers at the
-documented adapter boundary; provider data and credentials are not embedded in
-the static output.
+`ikashita build` emits a self-contained static bundle by default. The output
+contains `index.html`, `runtime.js`, `runtime.css`, and `app.bundle.json`; it
+does not load runtime code from a CDN or require the source KDL file at
+runtime. A host may inject Resource Providers at the documented adapter
+boundary; provider data and credentials are not embedded in the static output.
+
+`ikashita build --format single-html` (also `--single-html`) selects the
+standalone artifact format. `--output dist` writes one file at
+`dist/index.html`; an output path ending in `.html`, such as
+`--output dist/app.html`, is written directly. The document contains exactly
+one generated HTML artifact: the runtime CSS is in a `<style>` block, the
+runtime JavaScript is in one executable `<script>` block, and the validated
+application metadata is in a `<script type="application/json">` block. The
+metadata block is read with `textContent` and `JSON.parse`; it is not executable.
+
+The standalone document's CSP uses `default-src 'none'`, same-origin API
+`connect-src`, and SHA-256 hashes for the exact inline runtime/style contents.
+The JSON serializer replaces `<`, `>`, `&`, U+2028, and U+2029 with JSON
+unicode escapes, so `</script>`-like application strings cannot break out of
+the data block. The browser runtime first consumes that block and falls back
+to the directory build's same-origin application asset only when the block is
+absent. The normal `run`/`dev` server continues to attach and serve the
+directory-style `StaticBundle`; `StaticBundle` also exposes whether a host-held
+bundle has no assets and is therefore a single document.
+
+When the single-html target shares a directory with a previous directory build,
+the CLI removes only the four known generated asset names before writing the
+document. It refuses to replace a symlink or other non-file at those names.
 
 ## CLI project and runtime increment
 
@@ -295,6 +317,56 @@ injection, CDN assets, remote URLs, or embedded resource records.
 `app.ui.kdl`, `resources.kdl`, a JSON schema, `data/contacts.csv`, and an
 `actions.rhai` documentation placeholder. The placeholder is never executed;
 the CLI does not provide an OS command or Rhai execution boundary.
+
+## Framework host adapters
+
+The framework packages are deliberately thin. They import only the shared
+runtime types and accept host primitives, so a project owns its Solid/Svelte/
+React/Vue version and dependency graph. All adapters parse the Application
+Profile before rendering and pass strings as text/children or ordinary
+attributes; none uses `innerHTML`, template HTML, or script injection.
+
+For Solid, import `createSolidRenderer` and pass `createElement`,
+`createComponent`, `insert`, plus host callbacks for attributes and events:
+
+```ts
+import { createElement, createComponent, insert } from "solid-js/web";
+import { createSolidRenderer } from "./packages/solid/mod.ts";
+
+const renderer = createSolidRenderer({
+  createElement,
+  createComponent,
+  insert,
+  setAttribute: (node, name, value) => node.setAttribute(name, value),
+  listen: (node, event, listener) => node.addEventListener(event, listener),
+});
+const applicationTree = renderer(applicationJson);
+```
+
+For Svelte, import `createSvelteRenderer`, implement the small element/text/
+append/clear/listener boundary, and mount it from an action or wrapper:
+
+```ts
+import { createSvelteRenderer } from "./packages/svelte/mod.ts";
+
+const renderer = createSvelteRenderer({
+  createElement: (type) => document.createElement(type),
+  createText: (value) => document.createTextNode(value),
+  append: (parent, child) => parent.appendChild(child),
+  clear: (parent) => parent.replaceChildren(),
+  setAttribute: (node, name, value) => node.setAttribute(name, value),
+  listen: (node, event, listener) => {
+    node.addEventListener(event, listener);
+    return () => node.removeEventListener(event, listener);
+  },
+});
+const mounted = renderer(document.querySelector("#app"), applicationJson);
+```
+
+Use `createSolidResourceProvider` or `createSvelteResourceProvider` with a
+runtime `ResourceClient` when an action needs a host provider. The Svelte mount
+has `update` and `destroy`; the Solid result is handed to the host's normal
+`render` lifecycle.
 
 ## Ugoite integration boundary
 

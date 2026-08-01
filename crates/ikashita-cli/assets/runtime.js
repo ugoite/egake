@@ -414,10 +414,17 @@
   }
 
   function load() {
-    return window.fetch("app.bundle.json", { headers: { "Accept": "application/json" } }).then(function (response) {
-      if (!response.ok) throw new Error("Application bundle could not be loaded");
-      return response.json();
-    }).then(function (app) {
+    var inline = document.getElementById("ikashita-application");
+    var application = inline
+      ? Promise.resolve().then(function () {
+        try { return JSON.parse(inline.textContent || ""); }
+        catch (_) { throw new Error("Inline application bundle was not valid JSON"); }
+      })
+      : window.fetch(["app", "bundle", "json"].join("."), { headers: { "Accept": "application/json" } }).then(function (response) {
+        if (!response.ok) throw new Error("Application bundle could not be loaded");
+        return response.json();
+      });
+    return application.then(function (app) {
       model.app = app; (app.states || []).forEach(function (state) { model.state[state.name] = state.value; });
       (app.resources || []).forEach(function (resource) { model.schemas[resource.name] = { fields: resource.fields || [] }; });
       document.title = app.profile.name; render();

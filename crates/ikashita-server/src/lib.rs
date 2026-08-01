@@ -871,6 +871,14 @@ mod tests {
         let state = Arc::new(ServerState::new().with_bundle(StaticBundle::new("<html>app</html>")));
         state.register_provider("contacts", MemoryProvider::new()).expect("register");
         let app = router(state);
+        let (status, index) = raw_request(
+            app.clone(),
+            Request::builder().uri("/").body(Body::empty()).expect("request"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(index, "<html>app</html>");
+
         let oversized_query = "q=".to_owned() + &"x".repeat(MAX_QUERY_BYTES);
         let response = app
             .clone()

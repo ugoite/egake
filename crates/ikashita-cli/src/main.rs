@@ -9,7 +9,8 @@ use std::{
     sync::Arc,
 };
 
-use clap::{Args, Parser, Subcommand};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use ikashita_csv::{CsvResourceConfig, CsvResourceProvider};
 use ikashita_resource::{
     Capability, FieldSchema, FieldType, JsonResourceProvider, ListQuery, ResourceSchema,
@@ -22,6 +23,7 @@ use ikashita_spec::{
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
 const INDEX_HTML: &str = r##"<!doctype html>
 <html lang="en">
@@ -41,6 +43,14 @@ const INDEX_HTML: &str = r##"<!doctype html>
 
 const RUNTIME_JS: &str = include_str!("../assets/runtime.js");
 const RUNTIME_CSS: &str = include_str!("../assets/runtime.css");
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum BuildFormat {
+    /// Emit an index and separate runtime/application assets.
+    Directory,
+    /// Emit one HTML document with all browser assets and application metadata inline.
+    SingleHtml,
+}
 
 const PROJECT_ERROR_CODE: &str = "IK3000";
 const RESOURCE_CONFIG_ERROR_CODE: &str = "IK3001";
@@ -100,6 +110,12 @@ struct BuildArgs {
     /// Output directory relative to the project directory.
     #[arg(short, long, default_value = "dist", value_name = "DIR")]
     output: PathBuf,
+    /// Select the build artifact layout. `single-html` writes one HTML file.
+    #[arg(long, value_enum, default_value_t = BuildFormat::Directory)]
+    format: BuildFormat,
+    /// Shorthand for `--format single-html`.
+    #[arg(long)]
+    single_html: bool,
 }
 
 #[derive(Debug, Args)]
@@ -389,14 +405,35 @@ fn command_inspect(args: ProjectArgs) -> Result<(), CliError> {
 
 fn command_build(args: BuildArgs) -> Result<(), CliError> {
     let validated = load_validated(args.project.directory(), args.project.json, true)?;
-    let output = safe_project_join(&validated.project.root, &args.output, "build output")
-        .map_err(|error| error.with_json(args.project.json))?;
-    let bundle = static_bundle(&validated.definition, &validated.resource_schemas)
-        .map_err(|error| error.with_json(args.project.json))?;
-    let files =
-        write_bundle(&output, &bundle).map_err(|error| error.with_json(args.project.json))?;
+    let format = if args.single_html { BuildFormat::SingleHtml } else { args.format };
+    let (output, files) = match format {
+        BuildFormat::Directory => {
+            let output = safe_project_join(&validated.project.root, &args.output, "build output")
+                .map_err(|error| error.with_json(args.project.json))?;
+            let bundle = static_bundle(&validated.definition, &validated.resource_schemas)
+                .map_err(|error| error.with_json(args.project.json))?;
+            let files = write_bundle(&output, &bundle)
+                .map_err(|error| error.with_json(args.project.json))?;
+            (output, files)
+        }
+        BuildFormat::SingleHtml => {
+            let output = single_html_output_path(&validated.project.root, &args.output)
+                .map_err(|error| error.with_json(args.project.json))?;
+            let application =
+                application_bundle(&validated.definition, &validated.resource_schemas)
+                    .map_err(|error| error.with_json(args.project.json))?;
+            let html =
+                single_html(&application).map_err(|error| error.with_json(args.project.json))?;
+            write_single_html(&output, &html)
+                .map_err(|error| error.with_json(args.project.json))?;
+            let file = output_file_name(&output);
+            (output, vec![file])
+        }
+    };
     if args.project.json {
-        print_json(json!({ "ok": true, "output": output, "files": files }));
+        print_json(
+            json!({ "ok": true, "format": format_name(format), "output": output, "files": files }),
+        );
     } else {
         println!("built {}", output.display());
         for file in files {
@@ -404,6 +441,13 @@ fn command_build(args: BuildArgs) -> Result<(), CliError> {
         }
     }
     Ok(())
+}
+
+fn format_name(format: BuildFormat) -> &'static str {
+    match format {
+        BuildFormat::Directory => "directory",
+        BuildFormat::SingleHtml => "single-html",
+    }
 }
 
 fn command_test(args: ProjectArgs) -> Result<(), CliError> {
@@ -420,6 +464,10 @@ fn command_test(args: ProjectArgs) -> Result<(), CliError> {
     checks.push("static-bundle".to_owned());
     let _ = static_bundle(&validated.definition, &validated.resource_schemas)
         .map_err(|error| error.with_json(args.json))?;
+    checks.push("single-html".to_owned());
+    let application = application_bundle(&validated.definition, &validated.resource_schemas)
+        .map_err(|error| error.with_json(args.json))?;
+    let _ = single_html(&application).map_err(|error| error.with_json(args.json))?;
     if args.json {
         let tests: Vec<Value> =
             checks.iter().map(|name| json!({ "name": name, "status": "ok" })).collect();
@@ -1456,16 +1504,110 @@ fn static_bundle(
     definition: &ApplicationDefinition,
     resource_schemas: &BTreeMap<String, ResourceSchema>,
 ) -> Result<StaticBundle, CliError> {
-    let application =
-        serde_json::to_vec_pretty(&definition_to_value(definition, Some(resource_schemas)))
-            .map_err(|_| {
-                CliError::message("could not serialize the validated application bundle")
-            })?;
+    let application = application_bundle(definition, resource_schemas)?;
     let mut bundle = StaticBundle::new(INDEX_HTML);
     bundle.insert_asset("runtime.js", RUNTIME_JS.as_bytes().to_vec());
     bundle.insert_asset("runtime.css", RUNTIME_CSS.as_bytes().to_vec());
     bundle.insert_asset("app.bundle.json", application);
     Ok(bundle)
+}
+
+fn application_bundle(
+    definition: &ApplicationDefinition,
+    resource_schemas: &BTreeMap<String, ResourceSchema>,
+) -> Result<Vec<u8>, CliError> {
+    serde_json::to_vec_pretty(&definition_to_value(definition, Some(resource_schemas)))
+        .map_err(|_| CliError::message("could not serialize the validated application bundle"))
+}
+
+fn single_html_output_path(root: &Path, output: &Path) -> Result<PathBuf, CliError> {
+    let target = if output.extension().is_some_and(|extension| extension != "html") {
+        return Err(CliError::message("single-html --output must be a directory or a .html file"));
+    } else if output.extension().is_some() {
+        output.to_path_buf()
+    } else {
+        output.join("index.html")
+    };
+    safe_project_join(root, &target, "single-html output")
+}
+
+fn output_file_name(path: &Path) -> String {
+    path.file_name().and_then(|name| name.to_str()).unwrap_or("index.html").to_owned()
+}
+
+fn write_single_html(output: &Path, html: &str) -> Result<(), CliError> {
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            CliError::message(format!("could not create single-html output directory: {error}"))
+        })?;
+        remove_directory_bundle_assets(parent, output)?;
+    }
+    fs::write(output, html).map_err(|error| {
+        CliError::message(format!("could not write {}: {error}", output.display()))
+    })
+}
+
+fn remove_directory_bundle_assets(directory: &Path, output: &Path) -> Result<(), CliError> {
+    for name in ["index.html", "runtime.js", "runtime.css", "app.bundle.json"] {
+        let candidate = directory.join(name);
+        if candidate == output {
+            continue;
+        }
+        let metadata = match fs::symlink_metadata(&candidate) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(CliError::message(format!(
+                    "could not inspect previous bundle asset {}: {error}",
+                    candidate.display()
+                )));
+            }
+        };
+        if !metadata.file_type().is_file() {
+            return Err(CliError::message(format!(
+                "refusing to replace non-file previous bundle asset {}",
+                candidate.display()
+            )));
+        }
+        fs::remove_file(&candidate).map_err(|error| {
+            CliError::message(format!(
+                "could not remove previous bundle asset {}: {error}",
+                candidate.display()
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+fn single_html(application: &[u8]) -> Result<String, CliError> {
+    let application = escape_json_for_html_script(application)?;
+    let runtime_hash = csp_hash(RUNTIME_JS.as_bytes());
+    let style_hash = csp_hash(RUNTIME_CSS.as_bytes());
+    Ok(format!(
+        "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src {runtime_hash}; style-src {style_hash}; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'\">\n  <title>ikashita application</title>\n  <style>{RUNTIME_CSS}</style>\n</head>\n<body>\n  <div id=\"ikashita-root\" aria-live=\"polite\"></div>\n  <script id=\"ikashita-application\" type=\"application/json\">{application}</script>\n  <script>{RUNTIME_JS}</script>\n</body>\n</html>\n"
+    ))
+}
+
+fn csp_hash(contents: &[u8]) -> String {
+    let digest = Sha256::digest(contents);
+    format!("'sha256-{}'", BASE64.encode(digest))
+}
+
+fn escape_json_for_html_script(application: &[u8]) -> Result<String, CliError> {
+    let application = std::str::from_utf8(application)
+        .map_err(|_| CliError::message("application bundle was not valid UTF-8"))?;
+    let mut escaped = String::with_capacity(application.len());
+    for character in application.chars() {
+        match character {
+            '<' => escaped.push_str("\\u003C"),
+            '>' => escaped.push_str("\\u003E"),
+            '&' => escaped.push_str("\\u0026"),
+            '\u{2028}' => escaped.push_str("\\u2028"),
+            '\u{2029}' => escaped.push_str("\\u2029"),
+            character => escaped.push(character),
+        }
+    }
+    Ok(escaped)
 }
 
 fn write_bundle(output: &Path, bundle: &StaticBundle) -> Result<Vec<String>, CliError> {
@@ -1717,6 +1859,54 @@ mod tests {
         assert!(runtime.contains("window.confirm"));
         assert!(runtime.contains("request_id"));
         fs::remove_dir_all(path).expect("cleanup");
+    }
+
+    #[test]
+    fn single_html_inlines_assets_and_escapes_script_sensitive_application_data() {
+        let application = format!(
+            "{{\"profile\":{{\"name\":\"</script><script>breakout(){}{}\",\"version\":\"0.1\"}},\"resources\":[],\"states\":[],\"pages\":[],\"actions\":[]}}",
+            '\u{2028}', '\u{2029}',
+        );
+        let html = single_html(application.as_bytes()).expect("single html");
+        let second_script = html
+            .split("<script id=\"ikashita-application\" type=\"application/json\">")
+            .nth(1)
+            .expect("application script")
+            .split("</script>")
+            .next()
+            .expect("application script body");
+        let decoded: Value = serde_json::from_str(second_script).expect("embedded JSON");
+
+        assert!(!html.contains("runtime.js"));
+        assert!(!html.contains("runtime.css"));
+        assert!(!html.contains("app.bundle.json"));
+        assert!(!html.contains(" href="));
+        assert!(!html.contains(" src="));
+        assert!(html.contains("type=\"application/json\""));
+        assert!(html.contains("script-src 'sha256-"));
+        assert!(html.contains("style-src 'sha256-"));
+        assert!(!second_script.contains('<'));
+        assert!(second_script.contains("\\u003C/script\\u003E"));
+        assert!(second_script.contains("\\u003Cscript\\u003E"));
+        assert!(second_script.contains("\\u2028"));
+        assert!(second_script.contains("\\u2029"));
+        assert_eq!(decoded["profile"]["version"], "0.1");
+        assert_eq!(html, single_html(application.as_bytes()).expect("deterministic html"));
+    }
+
+    #[test]
+    fn single_html_output_path_accepts_a_directory_or_html_file_only() {
+        let root = temp_project();
+        fs::create_dir_all(&root).expect("project");
+        assert_eq!(
+            single_html_output_path(&root, Path::new("dist"))
+                .expect("directory output")
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("index.html")
+        );
+        assert!(single_html_output_path(&root, Path::new("dist/site.txt")).is_err());
+        fs::remove_dir_all(root).expect("cleanup");
     }
 
     #[test]

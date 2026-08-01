@@ -19,6 +19,8 @@ usable local CLI/runtime:
   client, provider types, merge-patch helper, and safe JSON renderer.
 - `packages/react` and `packages/vue` provide framework-thin element/VNode
   adapters without installing either framework.
+- `packages/solid` and `packages/svelte` provide dependency-free host-primitive
+  adapters without installing either framework or compiler.
 - `python/ikashita` provides the standard-library Resource protocol/base class,
   ASGI adapter, and optional FastAPI bridge.
 - `ikashita-cli` provides project scaffolding, deterministic validation,
@@ -38,6 +40,7 @@ From the repository root, scaffold or use the checked-in example:
 cargo run -p ikashita-cli -- new my-contacts
 cargo run -p ikashita-cli -- validate my-contacts
 cargo run -p ikashita-cli -- build my-contacts
+cargo run -p ikashita-cli -- build my-contacts --format single-html --output dist/contacts.html
 cargo run -p ikashita-cli -- run my-contacts
 cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada
 ```
@@ -68,6 +71,15 @@ by `new` as a documentation placeholder only; this CLI does not execute Rhai,
 shell commands, or arbitrary JavaScript. `build` writes `dist/index.html`,
 `runtime.js`, `runtime.css`, and `app.bundle.json`. The bundle contains the
 validated application definition, not provider data or credentials.
+
+Use `build --format single-html` (or `build --single-html`) for a one-file
+artifact. With the default `--output dist`, it writes `dist/index.html`; when
+the output ends in `.html`, that path is used directly. CSS, runtime JavaScript,
+and application metadata are inline, with a CSP hash for the executable/style
+blocks and a non-executable `application/json` script for metadata. JSON
+characters that could close a script element, including `<`, U+2028, and
+U+2029, are escaped before embedding. `run` and `dev` retain the directory-style
+in-memory bundle and API behavior.
 
 ## Tooling
 

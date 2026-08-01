@@ -51,11 +51,11 @@ run = "deno fmt --check packages examples/js-embedded examples/ugoite-entries"
 
 [tasks."deno:check"]
 description = "Type-check the TypeScript/Deno host packages and examples"
-run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod.ts examples/js-embedded/main.ts examples/js-embedded/main_test.ts examples/ugoite-entries/adapter.ts examples/ugoite-entries/adapter_test.ts"
+run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod.ts packages/solid/mod.ts packages/svelte/mod.ts examples/js-embedded/main.ts examples/js-embedded/main_test.ts examples/ugoite-entries/adapter.ts examples/ugoite-entries/adapter_test.ts"
 
 [tasks."deno:test"]
 description = "Run deterministic TypeScript/Deno host tests"
-run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts"
+run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests packages/solid/tests packages/svelte/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts"
 
 [tasks."python:test"]
 description = "Run standard-library Python host adapter tests"
