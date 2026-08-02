@@ -401,6 +401,20 @@ DELETE /api/ikashita/v1/resources/:name/items/:id
 POST   /api/ikashita/v1/resources/:name/actions/:action
 ```
 
+The standalone server also exposes a provider-independent OpenAPI 3 document
+and a local Swagger UI-compatible viewer:
+
+```text
+GET    /api/ikashita/v1/openapi.json
+GET    /api/ikashita/v1/swagger
+```
+
+The viewer embeds its CSS, JavaScript, and OpenAPI document in the returned
+HTML. It does not load a CDN, external asset, font, or remote data source, so
+it remains usable when the local server has no registered provider. The
+OpenAPI paths describe the seven current dispatch operations: schema, list,
+create, get, patch, delete, and action.
+
 List responses are JSON objects with `items`, `total`, `offset`, and `limit`.
 Create returns 201 with the created item; get/update/action return 200 with
 their JSON result; delete returns 200 with `{ "ok": true }`. Unknown resources
