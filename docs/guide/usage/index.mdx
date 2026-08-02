@@ -1,16 +1,16 @@
 ---
 title: ジャンル別の使い方
-description: CSV、JavaScript、Python ASGI、Ugoite、framework adapterから選ぶ。
+description: local data、JavaScript、Python ASGI、Ugoite、framework adapterから選ぶ。
 sidebar:
   label: ジャンル別の使い方
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-同じResource Contractを、置き場所とhostに応じて使い分けます。最初はCSVで契約を確かめ、既存アプリへ埋め込むときにJavaScriptやPython、framework adapterへ進むのがおすすめです。
+同じResource Contractを、置き場所とhostに応じて使い分けます。最初はlocal dataで契約を確かめ、既存アプリへ埋め込むときにJavaScriptやPython、framework adapterへ進むのがおすすめです。
 
 <CardGrid>
-  <LinkCard title="standalone CSV" description="ローカルCSVを開いて list / search / build を試す。" href="/docs/guide/usage/csv/" />
+  <LinkCard title="local data" description="ローカルCSVまたはParquetを開いて list / search / build を試す。" href="/docs/guide/usage/csv/" />
   <LinkCard title="JS埋め込み" description="hostがproviderを注入し、DOM runtimeをmountする。" href="/docs/guide/usage/javascript/" />
   <LinkCard title="Python ASGI" description="標準ライブラリのASGI境界と任意のFastAPI bridge。" href="/docs/guide/usage/python/" />
   <LinkCard title="Ugoite" description="既存clientをUgoite adapterでResourceProviderに包む。" href="/docs/guide/usage/ugoite/" />
@@ -21,7 +21,7 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 | やりたいこと | 入口 | チェックアウト済みの確認 |
 | --- | --- | --- |
-| ファイルだけで一覧を作る | standalone CSV | `cargo run -p ikashita-cli -- list ...` |
+| ファイルだけで一覧を作る | local data | `cargo run -p ikashita-cli -- list ...` |
 | ブラウザhostに自分のAPIを注入する | `packages/runtime` | `deno test examples/js-embedded/main_test.ts` |
 | Pythonの既存resourceを公開する | `ResourceASGIApp` | `mise run python:test` |
 | Ugoite clientを再利用する | `createUgoiteEntriesProvider` | `deno test examples/ugoite-entries/adapter_test.ts` |

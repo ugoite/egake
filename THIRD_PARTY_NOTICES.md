@@ -2,7 +2,7 @@
 
 ikashita is distributed under the MIT License; see [`LICENSE`](LICENSE).
 This file records the registry dependencies in the committed `Cargo.lock` for
-the standalone resource, CSV, and HTTP increments. Versions and license
+the standalone resource, data, and HTTP increments. Versions and license
 expressions below were obtained from Cargo package metadata after lockfile
 resolution on 2026-08-01. The lockfile remains authoritative for releases.
 
@@ -19,13 +19,16 @@ available at <https://www.apache.org/licenses/LICENSE-2.0> and
 | Crate | Locked version | License expression | Used by |
 | --- | ---: | --- | --- |
 | axum | 0.8.9 | MIT | ikashita-server |
+| arrow-array | 59.1.0 | MIT OR Apache-2.0 | ikashita-data |
+| arrow-schema | 59.1.0 | MIT OR Apache-2.0 | ikashita-data |
 | clap | 4.6.4 | MIT OR Apache-2.0 | ikashita-cli |
-| csv | 1.4.0 | Unlicense/MIT | ikashita-csv |
+| csv | 1.4.0 | Unlicense/MIT | ikashita-data |
 | kdl | 6.5.0 | Apache-2.0 | ikashita-spec |
+| parquet | 59.1.0 | Apache-2.0 | ikashita-data |
 | serde | 1.0.229 | MIT OR Apache-2.0 | ikashita-resource |
-| serde_json | 1.0.151 | MIT OR Apache-2.0 | resource/csv/server |
+| serde_json | 1.0.151 | MIT OR Apache-2.0 | resource/data/server |
 | serde_urlencoded | 0.7.1 | MIT/Apache-2.0 | ikashita-resource |
-| tempfile | 3.27.0 | MIT OR Apache-2.0 | CSV tests only |
+| tempfile | 3.27.0 | MIT OR Apache-2.0 | data tests only |
 | toml | 0.9.12+spec-1.1.0 | MIT OR Apache-2.0 | ikashita-cli |
 | tokio | 1.53.1 | MIT | ikashita-server |
 | tower | 0.5.3 | MIT | server tests only |

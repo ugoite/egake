@@ -1,4 +1,6 @@
-//! A small, local-file CSV implementation of the JSON Resource Contract.
+//! A local-file implementation of the JSON Resource Contract for CSV and Parquet data.
+
+mod parquet_backend;
 
 pub mod config;
 
@@ -20,13 +22,14 @@ use ikashita_resource::{
 };
 use serde_json::{Map, Value};
 
-pub use config::{CsvConfigError, CsvResourceConfig, DEFAULT_RESOURCE_KEY};
+pub use config::{DEFAULT_RESOURCE_KEY, DataConfigError, DataFormat, DataResourceConfig};
+use parquet_backend::ParquetBackend;
 
 static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
 static TEMP_COUNTER: OnceLock<std::sync::atomic::AtomicU64> = OnceLock::new();
 
 /// A file-backed provider for small local CSV datasets.
-pub struct CsvResourceProvider {
+pub(crate) struct CsvBackend {
     path: PathBuf,
     key: String,
     headers: Vec<String>,
@@ -36,10 +39,10 @@ pub struct CsvResourceProvider {
     backup_count: u8,
 }
 
-impl std::fmt::Debug for CsvResourceProvider {
+impl std::fmt::Debug for CsvBackend {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
-            .debug_struct("CsvResourceProvider")
+            .debug_struct("CsvBackend")
             .field("path", &self.path)
             .field("key", &self.key)
             .field("headers", &self.headers)
@@ -49,16 +52,16 @@ impl std::fmt::Debug for CsvResourceProvider {
     }
 }
 
-impl CsvResourceProvider {
-    /// Opens and validates a CSV provider.
-    pub fn new(config: CsvResourceConfig) -> ResourceResult<Self> {
+impl CsvBackend {
+    /// Opens and validates a CSV backend.
+    pub fn new(config: DataResourceConfig) -> ResourceResult<Self> {
         config.validate().map_err(config_error)?;
         let path = fs::canonicalize(config.path()).map_err(|error| io_error("open CSV", error))?;
         let metadata = fs::metadata(&path).map_err(|error| io_error("inspect CSV", error))?;
         if !metadata.is_file() {
             return Err(ResourceError::new(
                 ResourceErrorKind::Validation,
-                "CSV path must refer to a regular file",
+                "data path must refer to a regular file",
             ));
         }
 
@@ -123,11 +126,6 @@ impl CsvResourceProvider {
         })
     }
 
-    /// Alias for Self::new that reads naturally at call sites.
-    pub fn open(config: CsvResourceConfig) -> ResourceResult<Self> {
-        Self::new(config)
-    }
-
     /// Returns the canonical file path used by this provider.
     #[must_use]
     pub fn path(&self) -> &Path {
@@ -138,7 +136,7 @@ impl CsvResourceProvider {
         self.headers.iter().position(|header| header == &self.key).ok_or_else(|| {
             ResourceError::new(
                 ResourceErrorKind::CapabilityDenied,
-                "CSV resource has no configured primary-key column",
+                "data resource has no configured primary-key column",
             )
         })
     }
@@ -149,7 +147,7 @@ impl CsvResourceProvider {
         } else {
             Err(ResourceError::new(
                 ResourceErrorKind::CapabilityDenied,
-                "CSV resource is read-only",
+                "data resource is read-only",
             ))
         }
     }
@@ -159,7 +157,7 @@ impl CsvResourceProvider {
         if headers != self.headers {
             return Err(ResourceError::new(
                 ResourceErrorKind::Conflict,
-                "CSV headers changed while the provider was open",
+                "data headers changed while the provider was open",
             ));
         }
         let key_index = self.headers.iter().position(|header| header == &self.key);
@@ -174,7 +172,7 @@ impl CsvResourceProvider {
         if headers != self.headers {
             return Err(ResourceError::new(
                 ResourceErrorKind::Conflict,
-                "CSV headers changed while the provider was open",
+                "data headers changed while the provider was open",
             ));
         }
         if let Some(key_index) = self.headers.iter().position(|header| header == &self.key) {
@@ -183,7 +181,7 @@ impl CsvResourceProvider {
         }
         let temp_path = temporary_path(&self.path);
         let permissions = fs::metadata(&self.path)
-            .map_err(|error| io_error("inspect CSV permissions", error))?
+            .map_err(|error| io_error("inspect data permissions", error))?
             .permissions();
         let write_result = write_csv(&temp_path, &self.headers, values)
             .and_then(|()| fs::set_permissions(&temp_path, permissions))
@@ -197,7 +195,7 @@ impl CsvResourceProvider {
     }
 }
 
-impl JsonResourceProvider for CsvResourceProvider {
+impl JsonResourceProvider for CsvBackend {
     fn schema(&self) -> ResourceResult<ResourceSchema> {
         Ok(self.schema.clone())
     }
@@ -251,7 +249,7 @@ impl JsonResourceProvider for CsvResourceProvider {
         validate_columns(&self.headers, &object)?;
         let key = required_key(&object, &self.key)?;
         let _guard = self.write_lock.lock().map_err(|_| {
-            ResourceError::new(ResourceErrorKind::Internal, "CSV write lock is poisoned")
+            ResourceError::new(ResourceErrorKind::Internal, "data write lock is poisoned")
         })?;
         let mut values = self.read_values()?;
         if values
@@ -289,7 +287,7 @@ impl JsonResourceProvider for CsvResourceProvider {
         require_object_patch(&patch)?;
         let key_index = self.key_index()?;
         let _guard = self.write_lock.lock().map_err(|_| {
-            ResourceError::new(ResourceErrorKind::Internal, "CSV write lock is poisoned")
+            ResourceError::new(ResourceErrorKind::Internal, "data write lock is poisoned")
         })?;
         let mut values = self.read_values()?;
         let position = values
@@ -332,7 +330,7 @@ impl JsonResourceProvider for CsvResourceProvider {
         self.ensure_writable()?;
         self.key_index()?;
         let _guard = self.write_lock.lock().map_err(|_| {
-            ResourceError::new(ResourceErrorKind::Internal, "CSV write lock is poisoned")
+            ResourceError::new(ResourceErrorKind::Internal, "data write lock is poisoned")
         })?;
         let mut values = self.read_values()?;
         let position = values
@@ -346,7 +344,7 @@ impl JsonResourceProvider for CsvResourceProvider {
     }
 }
 
-impl ResourceProvider for CsvResourceProvider {
+impl ResourceProvider for CsvBackend {
     type Item = Value;
 
     fn schema(&self) -> ResourceResult<ResourceSchema> {
@@ -374,7 +372,133 @@ impl ResourceProvider for CsvResourceProvider {
     }
 }
 
-fn config_error(error: CsvConfigError) -> ResourceError {
+#[derive(Debug)]
+enum DataBackend {
+    Csv(CsvBackend),
+    Parquet(ParquetBackend),
+}
+
+/// A local file-backed provider that dispatches between CSV and Parquet.
+pub struct DataResourceProvider {
+    format: DataFormat,
+    backend: DataBackend,
+}
+
+impl std::fmt::Debug for DataResourceProvider {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("DataResourceProvider")
+            .field("format", &self.format)
+            .field("backend", &self.backend)
+            .finish()
+    }
+}
+
+impl DataResourceProvider {
+    /// Opens and validates a provider selected by explicit format or extension.
+    pub fn new(config: DataResourceConfig) -> ResourceResult<Self> {
+        let format = config.resolved_format().map_err(config_error)?;
+        let backend = match format {
+            DataFormat::Csv => DataBackend::Csv(CsvBackend::new(config)?),
+            DataFormat::Parquet => DataBackend::Parquet(ParquetBackend::new(config)?),
+        };
+        Ok(Self { format, backend })
+    }
+
+    /// Alias for [`Self::new`] that reads naturally at call sites.
+    pub fn open(config: DataResourceConfig) -> ResourceResult<Self> {
+        Self::new(config)
+    }
+
+    /// Returns the selected data format.
+    #[must_use]
+    pub const fn format(&self) -> DataFormat {
+        self.format
+    }
+
+    /// Returns the canonical file path used by this provider.
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        match &self.backend {
+            DataBackend::Csv(provider) => provider.path(),
+            DataBackend::Parquet(provider) => provider.path(),
+        }
+    }
+}
+
+impl JsonResourceProvider for DataResourceProvider {
+    fn schema(&self) -> ResourceResult<ResourceSchema> {
+        match &self.backend {
+            DataBackend::Csv(provider) => JsonResourceProvider::schema(provider),
+            DataBackend::Parquet(provider) => JsonResourceProvider::schema(provider),
+        }
+    }
+
+    fn list(&self, query: &ListQuery) -> ResourceResult<ResourcePage<Value>> {
+        match &self.backend {
+            DataBackend::Csv(provider) => JsonResourceProvider::list(provider, query),
+            DataBackend::Parquet(provider) => JsonResourceProvider::list(provider, query),
+        }
+    }
+
+    fn get(&self, id: &str) -> ResourceResult<Option<Value>> {
+        match &self.backend {
+            DataBackend::Csv(provider) => JsonResourceProvider::get(provider, id),
+            DataBackend::Parquet(provider) => JsonResourceProvider::get(provider, id),
+        }
+    }
+
+    fn create(&self, value: Value) -> ResourceResult<Value> {
+        match &self.backend {
+            DataBackend::Csv(provider) => JsonResourceProvider::create(provider, value),
+            DataBackend::Parquet(provider) => JsonResourceProvider::create(provider, value),
+        }
+    }
+
+    fn update(&self, id: &str, patch: Value) -> ResourceResult<Value> {
+        match &self.backend {
+            DataBackend::Csv(provider) => JsonResourceProvider::update(provider, id, patch),
+            DataBackend::Parquet(provider) => JsonResourceProvider::update(provider, id, patch),
+        }
+    }
+
+    fn delete(&self, id: &str) -> ResourceResult<()> {
+        match &self.backend {
+            DataBackend::Csv(provider) => JsonResourceProvider::delete(provider, id),
+            DataBackend::Parquet(provider) => JsonResourceProvider::delete(provider, id),
+        }
+    }
+}
+
+impl ResourceProvider for DataResourceProvider {
+    type Item = Value;
+
+    fn schema(&self) -> ResourceResult<ResourceSchema> {
+        JsonResourceProvider::schema(self)
+    }
+
+    fn list(&self, query: &ListQuery) -> ResourceResult<ResourcePage<Self::Item>> {
+        JsonResourceProvider::list(self, query)
+    }
+
+    fn get(&self, id: &str) -> ResourceResult<Option<Self::Item>> {
+        JsonResourceProvider::get(self, id)
+    }
+
+    fn create(&mut self, value: Self::Item) -> ResourceResult<Self::Item> {
+        JsonResourceProvider::create(self, value)
+    }
+
+    fn update(&mut self, id: &str, patch: Self::Item) -> ResourceResult<Self::Item> {
+        JsonResourceProvider::update(self, id, patch)
+    }
+
+    fn delete(&mut self, id: &str) -> ResourceResult<()> {
+        JsonResourceProvider::delete(self, id)
+    }
+}
+
+fn config_error(error: DataConfigError) -> ResourceError {
     ResourceError::new(ResourceErrorKind::Validation, error.message())
 }
 
@@ -385,7 +509,7 @@ fn io_error(operation: &str, error: io::Error) -> ResourceError {
 
 fn path_lock(path: &Path) -> Arc<Mutex<()>> {
     let locks = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut locks = locks.lock().expect("global CSV lock registry is not poisoned");
+    let mut locks = locks.lock().expect("global data lock registry is not poisoned");
     locks.entry(path.to_owned()).or_insert_with(|| Arc::new(Mutex::new(()))).clone()
 }
 
@@ -394,21 +518,21 @@ fn read_rows(path: &Path) -> ResourceResult<(Vec<String>, Vec<StringRecord>)> {
     let mut reader = ReaderBuilder::new().has_headers(true).flexible(false).from_reader(file);
     let headers = reader
         .headers()
-        .map_err(|error| csv_error("read CSV headers", error))?
+        .map_err(|error| csv_error("read data headers", error))?
         .iter()
         .map(str::to_owned)
         .collect::<Vec<_>>();
     if headers.is_empty() || headers.iter().any(|header| header.trim().is_empty()) {
         return Err(ResourceError::new(
             ResourceErrorKind::Validation,
-            "CSV headers must not be empty",
+            "data headers must not be empty",
         ));
     }
     let mut unique = std::collections::BTreeSet::new();
     if headers.iter().any(|header| !unique.insert(header)) {
         return Err(ResourceError::new(
             ResourceErrorKind::Validation,
-            "CSV headers must be unique",
+            "data headers must be unique",
         ));
     }
     let mut records = Vec::new();
@@ -435,14 +559,14 @@ fn validate_unique_keys(
         if value.is_empty() {
             return Err(ResourceError::new(
                 ResourceErrorKind::Validation,
-                "CSV primary keys must not be empty",
+                "data primary keys must not be empty",
             )
             .with_field(key, "must not be empty"));
         }
         if !keys.insert(value) {
             return Err(ResourceError::new(
                 ResourceErrorKind::Conflict,
-                "CSV contains duplicate primary keys",
+                "data contains duplicate primary keys",
             )
             .with_field(key, "must be unique"));
         }
@@ -457,7 +581,7 @@ fn validate_unique_value_keys(values: &[Map<String, Value>], key: &str) -> Resou
         if key_value.is_none() || !keys.insert(key_value) {
             return Err(ResourceError::new(
                 ResourceErrorKind::Conflict,
-                "CSV values contain duplicate or empty primary keys",
+                "data values contain duplicate or empty primary keys",
             )
             .with_field(key, "must be unique and non-empty"));
         }
@@ -491,14 +615,14 @@ fn validate_columns(headers: &[String], object: &Map<String, Value>) -> Resource
         if !headers.iter().any(|header| header == field) {
             return Err(ResourceError::new(
                 ResourceErrorKind::Validation,
-                "value contains an unknown CSV column",
+                "value contains an unknown data column",
             )
             .with_field(field, "column does not exist"));
         }
         if object[field].is_object() || object[field].is_array() {
             return Err(ResourceError::new(
                 ResourceErrorKind::Validation,
-                "CSV values must be scalar",
+                "data values must be scalar",
             )
             .with_field(field, "must be a string, number, boolean, or null"));
         }
@@ -741,7 +865,7 @@ fn remove_backup_destination(path: &Path) -> io::Result<()> {
     if metadata.file_type().is_symlink() || metadata.is_file() {
         fs::remove_file(path)
     } else {
-        Err(io::Error::new(io::ErrorKind::AlreadyExists, "CSV backup path is not a regular file"))
+        Err(io::Error::new(io::ErrorKind::AlreadyExists, "data backup path is not a regular file"))
     }
 }
 
@@ -763,12 +887,12 @@ mod tests {
 
     use super::*;
 
-    fn provider(contents: &str, writable: bool) -> (tempfile::TempDir, CsvResourceProvider) {
+    fn provider(contents: &str, writable: bool) -> (tempfile::TempDir, CsvBackend) {
         let directory = tempdir().expect("tempdir");
         let path = directory.path().join("contacts.csv");
         fs::write(&path, contents).expect("CSV fixture");
-        let provider = CsvResourceProvider::new(
-            CsvResourceConfig::new(path).with_writable(writable).with_backup_count(2),
+        let provider = CsvBackend::new(
+            DataResourceConfig::new(path).with_writable(writable).with_backup_count(2),
         )
         .expect("provider");
         (directory, provider)
@@ -814,8 +938,7 @@ mod tests {
         let directory = tempdir().expect("tempdir");
         let path = directory.path().join("duplicates.csv");
         fs::write(&path, "id,name\n1,Ada\n1,Duplicate\n").expect("CSV fixture");
-        let error =
-            CsvResourceProvider::new(CsvResourceConfig::new(path)).expect_err("duplicate keys");
+        let error = CsvBackend::new(DataResourceConfig::new(path)).expect_err("duplicate keys");
         assert_eq!(error.kind, ResourceErrorKind::Conflict);
 
         let (_directory, read_only) = provider("id,name\n1,Ada\n", false);
@@ -828,11 +951,11 @@ mod tests {
         let directory = tempdir().expect("tempdir");
         let path = directory.path().join("records.csv");
         fs::write(&path, "name\nAda\n").expect("CSV fixture");
-        let error = CsvResourceProvider::new(CsvResourceConfig::new(path).with_writable(true))
+        let error = CsvBackend::new(DataResourceConfig::new(path).with_writable(true))
             .expect_err("missing key");
         assert_eq!(error.kind, ResourceErrorKind::Validation);
 
-        let config = CsvResourceConfig::new("../records.csv");
+        let config = DataResourceConfig::new("../records.csv");
         assert!(config.validate().is_err());
     }
 
@@ -849,8 +972,8 @@ mod tests {
             FieldSchema::new("status", FieldType::Text)
                 .with_enum_values(vec![serde_json::json!("active"), serde_json::json!("paused")]),
         );
-        let provider = CsvResourceProvider::new(
-            CsvResourceConfig::new(path).with_writable(true).with_schema(external),
+        let provider = CsvBackend::new(
+            DataResourceConfig::new(path).with_writable(true).with_schema(external),
         )
         .expect("provider");
 
@@ -880,12 +1003,10 @@ mod tests {
         let path = directory.path().join("concurrent.csv");
         fs::write(&path, "id,name\n0,Start\n").expect("CSV fixture");
         let first = Arc::new(
-            CsvResourceProvider::new(CsvResourceConfig::new(&path).with_writable(true))
-                .expect("provider"),
+            CsvBackend::new(DataResourceConfig::new(&path).with_writable(true)).expect("provider"),
         );
         let second = Arc::new(
-            CsvResourceProvider::new(CsvResourceConfig::new(&path).with_writable(true))
-                .expect("provider"),
+            CsvBackend::new(DataResourceConfig::new(&path).with_writable(true)).expect("provider"),
         );
         let handles = [first, second].into_iter().enumerate().map(|(offset, provider)| {
             thread::spawn(move || {
@@ -900,7 +1021,7 @@ mod tests {
         for handle in handles {
             handle.join().expect("worker");
         }
-        let reader = CsvResourceProvider::new(CsvResourceConfig::new(&path)).expect("reader");
+        let reader = CsvBackend::new(DataResourceConfig::new(&path)).expect("reader");
         let page = JsonResourceProvider::list(&reader, &ListQuery::new().with_pagination(0, 500))
             .expect("list");
         assert_eq!(page.total, 17);
@@ -932,8 +1053,8 @@ mod tests {
         fs::write(&path, "id,name\n1,Ada\n").expect("CSV fixture");
         fs::write(&outside, "do not overwrite").expect("outside fixture");
         symlink(&outside, directory.path().join("contacts.csv.bak.1")).expect("symlink");
-        let provider = CsvResourceProvider::new(
-            CsvResourceConfig::new(&path).with_writable(true).with_backup_count(1),
+        let provider = CsvBackend::new(
+            DataResourceConfig::new(&path).with_writable(true).with_backup_count(1),
         )
         .expect("provider");
         provider.update("1", serde_json::json!({"name": "Grace"})).expect("update");
@@ -946,16 +1067,36 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn replacement_preserves_csv_permissions() {
+    fn replacement_preserves_data_permissions() {
         use std::os::unix::fs::PermissionsExt;
 
         let directory = tempdir().expect("tempdir");
         let path = directory.path().join("contacts.csv");
         fs::write(&path, "id,name\n1,Ada\n").expect("CSV fixture");
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("permissions");
-        let provider = CsvResourceProvider::new(CsvResourceConfig::new(&path).with_writable(true))
-            .expect("provider");
+        let provider =
+            CsvBackend::new(DataResourceConfig::new(&path).with_writable(true)).expect("provider");
         provider.update("1", serde_json::json!({"name": "Grace"})).expect("update");
         assert_eq!(fs::metadata(path).expect("metadata").permissions().mode() & 0o777, 0o600);
+    }
+
+    #[test]
+    fn generic_provider_dispatch_preserves_csv_contract() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("records.csv");
+        fs::write(&path, "id,name\n1,Ada\n").expect("fixture");
+        let provider =
+            DataResourceProvider::open(DataResourceConfig::new(&path)).expect("generic provider");
+        assert_eq!(provider.format(), DataFormat::Csv);
+        assert!(
+            JsonResourceProvider::schema(&provider)
+                .expect("schema")
+                .capabilities
+                .contains(&Capability::Get)
+        );
+        assert_eq!(
+            JsonResourceProvider::get(&provider, "1").expect("get").expect("record")["name"],
+            "Ada"
+        );
     }
 }
