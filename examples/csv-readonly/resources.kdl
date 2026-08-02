@@ -1,4 +1,4 @@
 /- kdl-version 2
 resources {
-    csv "catalog" path="data/catalog.csv"
+    resource "catalog" path="data/catalog.csv"
 }

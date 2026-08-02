@@ -205,17 +205,19 @@ The JSON form is `{ "error": { "code", "message", "fields", "request_id" } }`.
 `fields` is an object (possibly empty), and `request_id` is always supplied by
 the standalone HTTP adapter.
 
-### CSV provider
+### Local data provider
 
-`ikashita-csv` opens an existing regular CSV file, reads its header row, and
-maps every row to a JSON object with string-valued fields. The configured
-primary key defaults to `id`; writable files must contain that header, and
-duplicate or empty primary keys, duplicate headers, malformed rows, path
+`ikashita-data` opens an existing regular CSV or Parquet file and maps each
+row to a JSON object. The format is inferred from the file extension or can be
+set explicitly in the resource configuration. CSV fields are strings and CSV
+resources may be writable; Parquet fields preserve their supported Arrow types
+and Parquet resources are read-only. The configured primary key defaults to
+`id`; duplicate or empty primary keys, duplicate fields, malformed rows, path
 traversal components, directories, and other non-file targets are rejected.
-Read-only CSVs may omit the key, in which case only schema/list capabilities
-are advertised. Search is a case-insensitive substring search over all fields;
-sorting is stable lexicographic field sorting followed by offset/limit
-pagination.
+Read-only resources may omit the key, in which case only schema/list
+capabilities are advertised. Search is a case-insensitive substring search
+over all fields; sorting is stable lexicographic field sorting followed by
+offset/limit pagination.
 
 CSV create/update/delete operations are protected by a process-local lock
 shared by providers opened for the same canonical path. A write serializes the
@@ -269,7 +271,7 @@ directory, `--project DIR`, or `.`. It requires `ikashita.toml` with an
 `[app]` table. `app.definition` defaults to `app.ui.kdl`; `app.name`, when
 present, must match the KDL `app` name. The commands are `new`, `validate`,
 `inspect`, `build`, `run`, `dev`, `test`, and `list`. `list` opens one
-configured CSV provider directly and supports the contract's search, sort,
+configured data provider directly and supports the contract's search, sort,
 offset, and limit values without starting a server. Validation diagnostics retain
 the spec diagnostic codes and are stable in text or `--json` form. Schema
 diagnostics use the CLI range `IK3002` and data/config diagnostics use
@@ -291,7 +293,7 @@ backup_count = 2
 ```kdl
 /- kdl-version 2
 resources {
-    csv "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
+    resource "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
 }
 ```
 
@@ -301,11 +303,11 @@ components are canonicalized, so symlinks that resolve outside the project are
 also rejected, including symlinked bundle asset directories. The CLI checks
 the MVP JSON Schema subset (`object`, required string names, property types,
 enum, and `email`/`date`/`date-time` formats), derives provider field metadata
-from it, and checks configured CSV rows without printing record values. A
+from it, and checks configured data rows without printing record values. A
 resource must expose every capability named
 by its application definition before `run`/`dev` starts.
 
-`run` and `dev` construct `CsvResourceProvider` instances, attach the generated
+`run` and `dev` construct `DataResourceProvider` instances, attach the generated
 `StaticBundle` to `ikashita-server::ServerState`, and serve the documented
 same-origin `/api/ikashita/v1` routes. They default to `127.0.0.1:8787`; a
 non-loopback host requires `--allow-external` and emits an explicit warning.

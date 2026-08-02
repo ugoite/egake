@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     "crates/ikashita-resource",
     "crates/ikashita-spec",
-    "crates/ikashita-csv",
+    "crates/ikashita-data",
     "crates/ikashita-server",
     "crates/ikashita-cli",
 ]

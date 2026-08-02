@@ -11,7 +11,7 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use ikashita_csv::{CsvResourceConfig, CsvResourceProvider};
+use ikashita_data::{DataFormat, DataResourceConfig, DataResourceProvider};
 use ikashita_resource::{
     Capability, FieldSchema, FieldType, JsonResourceProvider, ListQuery, ResourceSchema,
 };
@@ -74,13 +74,13 @@ enum Command {
     Inspect(ProjectArgs),
     /// Emit a self-contained static application bundle.
     Build(BuildArgs),
-    /// Serve the application and its configured CSV resources.
+    /// Serve the application and its configured data resources.
     Run(ServeArgs),
     /// Serve the application in development mode.
     Dev(ServeArgs),
     /// Run deterministic project validation checks.
     Test(ProjectArgs),
-    /// List a configured CSV resource without starting a server.
+    /// List a configured data resource without starting a server.
     List(ListArgs),
 }
 
@@ -163,7 +163,7 @@ struct ListArgs {
     /// Declared resource name to list.
     #[arg(short, long, value_name = "NAME")]
     resource: String,
-    /// Case-insensitive substring search over CSV fields.
+    /// Case-insensitive substring search over data fields.
     #[arg(long, alias = "q", value_name = "TEXT")]
     query: Option<String>,
     /// Comma-separated sort fields; prefix a field with '-' for descending.
@@ -196,6 +196,7 @@ struct RawAppConfig {
 #[serde(deny_unknown_fields)]
 struct RawResourceConfig {
     path: Option<PathBuf>,
+    format: Option<String>,
     #[serde(default = "default_resource_key")]
     key: String,
     #[serde(default)]
@@ -207,6 +208,7 @@ struct RawResourceConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ResourceConfig {
     path: PathBuf,
+    format: Option<DataFormat>,
     key: String,
     writable: bool,
     backup_count: u8,
@@ -499,7 +501,7 @@ fn command_list(args: ListArgs) -> Result<(), CliError> {
         ))
         .with_json(args.project.json)
     })?;
-    let provider = open_csv_provider(
+    let provider = open_data_provider(
         &validated.project.root,
         &args.resource,
         config,
@@ -575,7 +577,7 @@ fn command_serve(args: ServeArgs, dev: bool) -> Result<(), CliError> {
                 resource.name
             ))
         })?;
-        let provider = open_csv_provider(
+        let provider = open_data_provider(
             &validated.project.root,
             &resource.name,
             config,
@@ -759,7 +761,7 @@ fn load_validated(
             continue;
         };
         if check_data {
-            match open_csv_provider(
+            match open_data_provider(
                 &project.root,
                 &resource.name,
                 config,
@@ -769,10 +771,16 @@ fn load_validated(
                     let provider_schema = provider.schema();
                     check_capabilities(resource, &provider_schema, &mut diagnostics);
                     if let (Ok(provider_schema), Some(info)) = (&provider_schema, &info) {
-                        check_provider_schema(resource, provider_schema, info, &mut diagnostics);
+                        check_provider_schema(
+                            resource,
+                            provider_schema,
+                            info,
+                            provider.format(),
+                            &mut diagnostics,
+                        );
                     }
                     if let Some(info) = &info {
-                        validate_csv_data(
+                        validate_data(
                             &resource.name,
                             &resource.schema,
                             &provider,
@@ -795,27 +803,30 @@ fn load_validated(
     Ok(ValidatedProject { project, definition, resource_schemas })
 }
 
-fn open_csv_provider(
+fn open_data_provider(
     root: &Path,
     name: &str,
     config: &ResourceConfig,
     schema: Option<ResourceSchema>,
-) -> Result<CsvResourceProvider, ikashita_resource::ResourceError> {
-    let path = safe_project_join(root, &config.path, "CSV resource").map_err(|error| {
+) -> Result<DataResourceProvider, ikashita_resource::ResourceError> {
+    let path = safe_project_join(root, &config.path, "data resource").map_err(|error| {
         ikashita_resource::ResourceError::new(
             ikashita_resource::ResourceErrorKind::Validation,
             error.message.unwrap_or_default(),
         )
     })?;
-    let mut csv_config = CsvResourceConfig::new(path)
+    let mut data_config = DataResourceConfig::new(path)
         .with_name(name)
         .with_key(config.key.clone())
         .with_writable(config.writable)
         .with_backup_count(config.backup_count);
-    if let Some(schema) = schema {
-        csv_config = csv_config.with_schema(schema);
+    if let Some(format) = config.format {
+        data_config = data_config.with_format(format);
     }
-    CsvResourceProvider::open(csv_config)
+    if let Some(schema) = schema {
+        data_config = data_config.with_schema(schema);
+    }
+    DataResourceProvider::open(data_config)
 }
 
 fn check_capabilities(
@@ -850,6 +861,7 @@ fn check_provider_schema(
     resource: &ikashita_spec::ResourceDefinition,
     provider: &ResourceSchema,
     external: &SchemaInfo,
+    format: DataFormat,
     diagnostics: &mut Vec<CliDiagnostic>,
 ) {
     if provider.name != resource.name {
@@ -881,25 +893,32 @@ fn check_provider_schema(
             diagnostics.push(project_diagnostic(
                 DATA_ERROR_CODE,
                 format!(
-                    "resource '{}' JSON schema field '{field}' is missing from the CSV provider",
+                    "resource '{}' JSON schema field '{field}' is missing from the data provider",
                     resource.name
                 ),
                 Some("resources.kdl"),
             ));
-        } else if property.type_name.as_deref().is_some_and(|type_name| type_name != "string") {
+        } else if let Some(type_name) = property.type_name.as_deref()
+            && let Some(provider_field) = provider.fields.iter().find(|item| item.name == *field)
+            && !provider_field_type_matches(provider_field.field_type, type_name, format)
+        {
             diagnostics.push(project_diagnostic(
                 DATA_ERROR_CODE,
-                format!("resource '{}' CSV provider field '{field}' returns text but schema requires '{}'; use type=string", resource.name, property.type_name.as_deref().unwrap_or_default()),
+                format!(
+                    "resource '{}' data provider field '{field}' has type '{}' but schema requires '{type_name}'",
+                    resource.name,
+                    provider_field_type_name(provider_field.field_type, format),
+                ),
                 Some("resources.kdl"),
             ));
         }
     }
 }
 
-fn validate_csv_data(
+fn validate_data(
     resource: &str,
     schema_file: &str,
-    provider: &CsvResourceProvider,
+    provider: &DataResourceProvider,
     info: &SchemaInfo,
     diagnostics: &mut Vec<CliDiagnostic>,
 ) {
@@ -919,7 +938,15 @@ fn validate_csv_data(
         };
         for value in &page.items {
             row_number += 1;
-            validate_record(resource, schema_file, row_number, value, info, diagnostics);
+            validate_record(
+                resource,
+                schema_file,
+                row_number,
+                value,
+                info,
+                provider.format(),
+                diagnostics,
+            );
         }
         if page.items.is_empty() || offset + page.items.len() as u64 >= page.total {
             break;
@@ -934,6 +961,7 @@ fn validate_record(
     row_number: usize,
     value: &Value,
     info: &SchemaInfo,
+    format: DataFormat,
     diagnostics: &mut Vec<CliDiagnostic>,
 ) {
     let Some(object) = value.as_object() else {
@@ -961,7 +989,7 @@ fn validate_record(
             continue;
         }
         if let Some(type_name) = &property.type_name
-            && !csv_type_matches(value, type_name)
+            && !provider_type_matches(value, type_name, format)
         {
             diagnostics.push(project_diagnostic(
                 DATA_ERROR_CODE,
@@ -970,7 +998,7 @@ fn validate_record(
             ));
         }
         if let Some(enum_values) = &property.enum_values
-            && !enum_values.iter().any(|expected| csv_enum_matches(value, expected))
+            && !enum_values.iter().any(|expected| data_enum_matches(value, expected))
         {
             diagnostics.push(project_diagnostic(
                 DATA_ERROR_CODE,
@@ -979,7 +1007,7 @@ fn validate_record(
             ));
         }
         if let Some(format) = &property.format
-            && !csv_format_matches(value, format)
+            && !data_format_matches(value, format)
         {
             diagnostics.push(project_diagnostic(
                 DATA_ERROR_CODE,
@@ -1144,12 +1172,24 @@ fn valid_schema_type(value: &str) -> bool {
     matches!(value, "string" | "number" | "integer" | "boolean" | "object" | "array" | "null")
 }
 
-fn csv_type_matches(value: &Value, type_name: &str) -> bool {
+fn provider_type_matches(value: &Value, type_name: &str, format: DataFormat) -> bool {
+    if format == DataFormat::Csv {
+        return match type_name {
+            "string" => value.is_string(),
+            "number" => value.as_str().is_some_and(|value| value.parse::<f64>().is_ok()),
+            "integer" => value.as_str().is_some_and(|value| value.parse::<i64>().is_ok()),
+            "boolean" => value.as_str().is_some_and(|value| matches!(value, "true" | "false")),
+            "null" => value.is_null(),
+            "object" => value.is_object(),
+            "array" => value.is_array(),
+            _ => false,
+        };
+    }
     match type_name {
         "string" => value.is_string(),
-        "number" => value.as_str().is_some_and(|value| value.parse::<f64>().is_ok()),
-        "integer" => value.as_str().is_some_and(|value| value.parse::<i64>().is_ok()),
-        "boolean" => value.as_str().is_some_and(|value| matches!(value, "true" | "false")),
+        "number" => value.is_number(),
+        "integer" => value.as_i64().is_some() || value.as_u64().is_some(),
+        "boolean" => value.is_boolean(),
         "null" => value.is_null(),
         "object" => value.is_object(),
         "array" => value.is_array(),
@@ -1157,21 +1197,58 @@ fn csv_type_matches(value: &Value, type_name: &str) -> bool {
     }
 }
 
-fn csv_enum_matches(value: &Value, expected: &Value) -> bool {
+fn provider_field_type_matches(
+    field_type: FieldType,
+    schema_type: &str,
+    format: DataFormat,
+) -> bool {
+    if format == DataFormat::Csv {
+        return schema_type == "string";
+    }
+    match field_type {
+        FieldType::Text => schema_type == "string",
+        FieldType::Number => schema_type == "number",
+        FieldType::Integer => schema_type == "integer" || schema_type == "number",
+        FieldType::Boolean => schema_type == "boolean",
+        FieldType::Date => matches!(schema_type, "string" | "integer" | "number"),
+        FieldType::Json => matches!(schema_type, "object" | "array" | "null"),
+    }
+}
+
+fn field_type_name(field_type: FieldType) -> &'static str {
+    match field_type {
+        FieldType::Text => "text",
+        FieldType::Number => "number",
+        FieldType::Integer => "integer",
+        FieldType::Boolean => "boolean",
+        FieldType::Date => "date",
+        FieldType::Json => "json",
+    }
+}
+
+fn provider_field_type_name(field_type: FieldType, format: DataFormat) -> &'static str {
+    if format == DataFormat::Csv { "text" } else { field_type_name(field_type) }
+}
+
+fn data_enum_matches(value: &Value, expected: &Value) -> bool {
     match expected {
         Value::String(expected) => value.as_str() == Some(expected),
         Value::Number(expected) => {
-            value.as_str().is_some_and(|value| value.parse::<f64>().ok() == expected.as_f64())
+            value.as_number().is_some_and(|value| value.as_f64() == expected.as_f64())
+                || value
+                    .as_str()
+                    .is_some_and(|value| value.parse::<f64>().ok() == expected.as_f64())
         }
         Value::Bool(expected) => {
-            value.as_str().and_then(|value| value.parse::<bool>().ok()) == Some(*expected)
+            value.as_bool() == Some(*expected)
+                || value.as_str().and_then(|value| value.parse::<bool>().ok()) == Some(*expected)
         }
         Value::Null => value.is_null(),
         _ => value == expected,
     }
 }
 
-fn csv_format_matches(value: &Value, format: &str) -> bool {
+fn data_format_matches(value: &Value, format: &str) -> bool {
     let Some(value) = value.as_str() else { return false };
     match format {
         "email" => {
@@ -1278,7 +1355,7 @@ fn parse_resources_kdl(
                 };
                 nodes.extend(children.nodes());
             }
-            "csv" => nodes.push(node),
+            "resource" => nodes.push(node),
             unknown => {
                 return Err(CliError::message(format!("resources.kdl: unknown node '{unknown}'")));
             }
@@ -1286,13 +1363,13 @@ fn parse_resources_kdl(
     }
     let mut resources = BTreeMap::new();
     for node in nodes {
-        if node.name().value() != "csv" {
+        if node.name().value() != "resource" {
             return Err(CliError::message(format!(
                 "resources.kdl: unsupported resource node '{}'",
                 node.name().value()
             )));
         }
-        let (name, config) = parse_csv_node(node)?;
+        let (name, config) = parse_resource_node(node)?;
         if resources.insert(name.clone(), config).is_some() {
             return Err(CliError::message(format!(
                 "resources.kdl: resource '{name}' is declared more than once"
@@ -1302,62 +1379,68 @@ fn parse_resources_kdl(
     Ok(resources)
 }
 
-fn parse_csv_node(node: &KdlNode) -> Result<(String, ResourceConfig), CliError> {
+fn parse_resource_node(node: &KdlNode) -> Result<(String, ResourceConfig), CliError> {
     let positional: Vec<&KdlEntry> =
         node.entries().iter().filter(|entry| entry.name().is_none()).collect();
     if positional.len() != 1 {
-        return Err(CliError::message("resources.kdl: csv requires exactly one resource name"));
+        return Err(CliError::message(
+            "resources.kdl: resource requires exactly one resource name",
+        ));
     }
     let name = positional[0]
         .value()
         .as_string()
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| {
-            CliError::message("resources.kdl: csv resource name must be a non-empty string")
+            CliError::message("resources.kdl: resource name must be a non-empty string")
         })?
         .to_owned();
     if !is_safe_resource_name(&name) {
         return Err(CliError::message(
-            "resources.kdl: csv resource name is not a safe API path segment",
+            "resources.kdl: resource name is not a safe API path segment",
         ));
     }
     let mut values = BTreeMap::new();
     for entry in node.entries().iter().filter(|entry| entry.name().is_some()) {
         let key = entry.name().expect("filtered property").value().to_owned();
-        if !matches!(key.as_str(), "path" | "key" | "writable" | "backup-count") {
-            return Err(CliError::message(format!("resources.kdl: unknown csv attribute '{key}'")));
+        if !matches!(key.as_str(), "path" | "format" | "key" | "writable" | "backup-count") {
+            return Err(CliError::message(format!(
+                "resources.kdl: unknown resource attribute '{key}'"
+            )));
         }
         if values.insert(key.clone(), entry.value().clone()).is_some() {
             return Err(CliError::message(format!(
-                "resources.kdl: csv attribute '{key}' is repeated"
+                "resources.kdl: resource attribute '{key}' is repeated"
             )));
         }
     }
     let path = kdl_string(&values, "path")?
-        .ok_or_else(|| CliError::message("resources.kdl: csv requires path=..."))?;
+        .ok_or_else(|| CliError::message("resources.kdl: resource requires path=..."))?;
     let path = PathBuf::from(path);
     if path.as_os_str().is_empty()
         || path.is_absolute()
         || path.components().any(|component| component == PathComponent::ParentDir)
     {
         return Err(CliError::message(
-            "resources.kdl: csv path must be relative and must not contain '..'",
+            "resources.kdl: resource path must be relative and must not contain '..'",
         ));
     }
+    let format =
+        kdl_string(&values, "format")?.map(|value| parse_data_format(&value)).transpose()?;
     let key = kdl_string(&values, "key")?.unwrap_or_else(|| "id".to_owned());
     if key.trim().is_empty() {
-        return Err(CliError::message("resources.kdl: csv key must not be empty"));
+        return Err(CliError::message("resources.kdl: resource key must not be empty"));
     }
     if key.chars().any(char::is_control) {
         return Err(CliError::message(
-            "resources.kdl: csv key must not contain control characters",
+            "resources.kdl: resource key must not contain control characters",
         ));
     }
     let writable = kdl_bool(&values, "writable")?.unwrap_or(false);
     let backup_count = kdl_integer(&values, "backup-count")?.unwrap_or(0);
     let backup_count = u8::try_from(backup_count)
         .map_err(|_| CliError::message("resources.kdl: backup-count must be between 0 and 255"))?;
-    Ok((name, ResourceConfig { path, key, writable, backup_count }))
+    Ok((name, ResourceConfig { path, format, key, writable, backup_count }))
 }
 
 fn kdl_string(values: &BTreeMap<String, KdlValue>, name: &str) -> Result<Option<String>, CliError> {
@@ -1399,11 +1482,24 @@ fn raw_resource_config(raw: RawResourceConfig) -> Result<ResourceConfig, String>
     if raw.key.chars().any(char::is_control) {
         return Err("resource key must not contain control characters".to_owned());
     }
+    let format = raw
+        .format
+        .as_deref()
+        .map(parse_data_format)
+        .transpose()
+        .map_err(|error| error.message.unwrap_or_else(|| "invalid data format".to_owned()))?;
     Ok(ResourceConfig {
         path,
+        format,
         key: raw.key,
         writable: raw.writable,
         backup_count: raw.backup_count,
+    })
+}
+
+fn parse_data_format(value: &str) -> Result<DataFormat, CliError> {
+    value.parse::<DataFormat>().map_err(|error| {
+        CliError::message(format!("resource format '{value}' is invalid: {}", error.message()))
     })
 }
 
@@ -1798,7 +1894,7 @@ fn scaffold_project(path: &Path, name: &str) -> Result<(), CliError> {
     )?;
     write_new_file(
         &path.join("resources.kdl"),
-        "/- kdl-version 2\nresources {\n    csv \"contacts\" path=\"data/contacts.csv\" key=\"id\" writable=#true backup-count=2\n}\n",
+        "/- kdl-version 2\nresources {\n    resource \"contacts\" path=\"data/contacts.csv\" key=\"id\" writable=#true backup-count=2\n}\n",
     )?;
     write_new_file(
         &path.join("schemas/contacts.schema.json"),
@@ -1972,6 +2068,7 @@ mod tests {
             1,
             &value,
             &info,
+            DataFormat::Csv,
             &mut data_diagnostics,
         );
         assert!(data_diagnostics.is_empty());
@@ -1983,6 +2080,7 @@ mod tests {
             2,
             &invalid,
             &info,
+            DataFormat::Csv,
             &mut data_diagnostics,
         );
         assert!(
@@ -2031,7 +2129,7 @@ mod tests {
     }
 
     #[test]
-    fn schema_and_csv_provider_type_mismatches_are_diagnostics() {
+    fn schema_and_provider_type_mismatches_are_diagnostics() {
         let path = temp_project();
         scaffold_project(&path, "test-app").expect("scaffold");
         let schema_path = path.join("schemas/contacts.schema.json");
@@ -2042,7 +2140,7 @@ mod tests {
         let error = load_validated(&path, false, true).expect_err("provider mismatch");
         let rendered =
             error.diagnostics.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
-        assert!(rendered.contains("returns text"));
+        assert!(rendered.contains("has type 'text' but schema requires 'number'"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 
@@ -2052,14 +2150,14 @@ mod tests {
         fs::create_dir_all(&path).expect("project");
         fs::write(
             path.join("resources.kdl"),
-            "/- kdl-version 2\nresources { csv \"contacts\" path=\"data/contacts.csv\" }\n",
+            "/- kdl-version 2\nresources { resource \"contacts\" path=\"data/contacts.csv\" }\n",
         )
         .expect("resources");
         let resources = parse_resources_kdl(&path, Path::new("resources.kdl")).expect("parse");
         assert_eq!(resources["contacts"].key, "id");
         fs::write(
             path.join("resources.kdl"),
-            "/- kdl-version 2\nresources { csv \"contacts\" path=\"../contacts.csv\" }\n",
+            "/- kdl-version 2\nresources { resource \"contacts\" path=\"../contacts.csv\" }\n",
         )
         .expect("resources");
         let error = parse_resources_kdl(&path, Path::new("resources.kdl")).expect_err("traversal");
@@ -2079,7 +2177,7 @@ mod tests {
         .expect("definition");
         fs::write(
             path.join("resources.kdl"),
-            "/- kdl-version 2\nresources { csv \"items\" path=\"items.csv\" }\n",
+            "/- kdl-version 2\nresources { resource \"items\" path=\"items.csv\" }\n",
         )
         .expect("KDL resources");
         fs::write(

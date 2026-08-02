@@ -1,11 +1,11 @@
 ---
-title: standalone CSV
-description: ikashita-cliでローカルCSVをread-onlyまたはwritable resourceとして使う。
+title: local data provider
+description: ikashita-cliでローカルCSVまたはParquetをresourceとして使う。
 sidebar:
-  label: standalone CSV
+  label: local data
 ---
 
-CSVは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](../../../examples/csv-readonly)相当の構成は、`ikashita.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。
+ローカルdata providerは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](../../../examples/csv-readonly)相当の構成は、`ikashita.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。拡張子が`.parquet`なら同じ設定でParquetをread-onlyで開けます。
 
 ## read-onlyの最小構成
 
@@ -23,7 +23,7 @@ examples/csv-readonly/
 ```kdl
 /- kdl-version 2
 resources {
-    csv "catalog" path="data/catalog.csv"
+    resource "catalog" path="data/catalog.csv"
 }
 ```
 
@@ -48,6 +48,19 @@ cargo run -p ikashita-cli -- test examples/csv-readonly
 
 `list`の検索は全フィールドに対するcase-insensitive substringです。sortは安定したlexicographic sortで、`--offset`と`--limit`はResource Contractのpaginationに従います。
 
+## formatを明示するParquet
+
+拡張子から判定できない場合や設定を明示したい場合は`format`を指定します。
+
+```kdl
+/- kdl-version 2
+resources {
+    resource "catalog" path="data/catalog.parquet" format="parquet"
+}
+```
+
+Parquet resourceはread-onlyで、列のArrow型をJSONのnumber、boolean、配列、objectなどへ変換します。`id`列が文字列なら`get`も広告されます。
+
 ## writable CSVに進むとき
 
 書き込みを有効にする場合は、固定列とprimary keyが必要です。
@@ -55,8 +68,8 @@ cargo run -p ikashita-cli -- test examples/csv-readonly
 ```kdl
 /- kdl-version 2
 resources {
-    csv "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
+    resource "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
 }
 ```
 
-CSV providerは`id`の重複・空値、schemaにない不足列、path traversalを許可しません。`update`は完全置換ではなくRFC 7396 merge-patchです。詳細は[CSV providerの仕様](../../spec.md#csv-provider)を参照してください。
+data providerは`id`の重複・空値、schemaにない不足列、path traversalを許可しません。CSVの`update`は完全置換ではなくRFC 7396 merge-patchです。詳細は[local data providerの仕様](../../spec.md#local-data-provider)を参照してください。

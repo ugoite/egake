@@ -1,5 +1,5 @@
 /- kdl-version 2
 resources {
-    csv "contacts" path="data/contacts.csv"
-    csv "teams" path="data/teams.csv"
+    resource "contacts" path="data/contacts.csv"
+    resource "teams" path="data/teams.csv"
 }

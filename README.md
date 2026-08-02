@@ -11,7 +11,7 @@ usable local CLI/runtime:
   structured-error types, generic provider trait, JSON provider boundary, and
   merge-patch helper.
 - `ikashita-spec` owns the versioned Application Profile metadata.
-- `ikashita-csv` provides a locked, atomic-write local CSV Resource Provider.
+- `ikashita-data` provides generic local data resources with CSV and Parquet backends.
 - `ikashita-server` provides the localhost HTTP router, provider registry, and
   static-bundle configuration.
 - `ikashita-cli` provides the versioned command-line entry point.
@@ -70,9 +70,13 @@ merged or overridden. The preferred KDL convention is:
 ```kdl
 /- kdl-version 2
 resources {
-    csv "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
+    resource "contacts" path="data/contacts.csv" key="id" writable=#true backup-count=2
 }
 ```
+
+The format is inferred from `.csv` or `.parquet`; use `format="csv"` or
+`format="parquet"` when a path has no supported extension. CSV resources can
+be writable, while Parquet resources are read-only.
 
 Paths are project-relative and may not contain `..`. `dev` is a validated
 no-watch development server; restart it after editing source files.

@@ -18,7 +18,7 @@ commands, JavaScript, or remote code.
 
 | Workflow | Example or implementation | Offline acceptance command | Covered behavior |
 | --- | --- | --- | --- |
-| Read-only CSV list/search | [`examples/csv-readonly`](../examples/csv-readonly) | `cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada` | CSV without an `id`, schema/list-only capabilities, case-insensitive search, sorting, pagination |
+| Read-only data list/search | [`examples/csv-readonly`](../examples/csv-readonly) | `cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada` | CSV without an `id`, schema/list-only capabilities, case-insensitive search, sorting, pagination |
 | Multi-resource project | [`examples/multi-resource`](../examples/multi-resource) | `cargo run -p ikashita-cli -- test examples/multi-resource` | Two declared resources, two schemas/data files, deterministic bundle and validation |
 | Standalone HTML build | CLI integration test | `cargo test -p ikashita-cli --test usage_examples` | `--format single-html`/`--single-html`, one generated HTML file, no external runtime/application assets, default four-file regression |
 | Browser/JS embedded provider | [`examples/js-embedded`](../examples/js-embedded) | `deno test examples/js-embedded/main_test.ts` | Host-owned provider injection, list/search, declared provider action invoke |
@@ -65,7 +65,7 @@ cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --que
 cargo run -p ikashita-cli -- test examples/multi-resource
 ```
 
-`list` opens the configured local CSV directly. `--json` emits the contract
+`list` opens the configured local data resource directly. `--json` emits the contract
 page object (`items`, `total`, `offset`, and `limit`) for scripts; the default
 output emits one JSON record per line after a short page summary.
 
@@ -119,7 +119,7 @@ writable = false
 ```kdl
 /- kdl-version 2
 resources {
-    csv "catalog" path="data/catalog.csv"
+    resource "catalog" path="data/catalog.csv"
 }
 ```
 
