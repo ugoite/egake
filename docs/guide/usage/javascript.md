@@ -5,6 +5,8 @@ sidebar:
   label: JS埋め込み
 ---
 
+<!-- i18n-sync: id=guide/usage/javascript digest=1f748430fd05b17370a7ecac5e060a1fda9a324dbc208995cd1d0bd84ec8ee52 -->
+
 JavaScript埋め込みでは、アプリケーション定義とproviderを分けます。`packages/runtime`はDeno/TypeScriptのbuilt-inだけで動き、hostがprovider mapを所有します。
 
 ## チェックアウト済みexampleを確認する
@@ -21,7 +23,12 @@ const capabilities: readonly Capability[] = ["schema", "list", "invoke"];
 
 const provider: ResourceProvider = {
   schema: () => ({ name: "status", fields: [], capabilities }),
-  list: (query) => ({ items, total: items.length, offset: query.offset, limit: query.limit }),
+  list: (query) => ({
+    items,
+    total: items.length,
+    offset: query.offset,
+    limit: query.limit,
+  }),
   get: () => unsupported("get"),
   create: () => unsupported("create"),
   update: () => unsupported("update"),
@@ -37,15 +44,13 @@ const provider: ResourceProvider = {
 実行時にはhostがbundleをロードし、root elementとprovider mapを渡します。
 
 ```ts
-startIkashitaHost(
-  document.getElementById("app")!,
-  application,
-  { status: createEmbeddedProvider() },
-);
+startIkashitaHost(document.getElementById("app")!, application, {
+  status: createEmbeddedProvider(),
+});
 ```
 
 この呼び出しはexampleに定義された`startIkashitaHost`の形です。runtimeはDOM APIで要素を作り、値を`textContent`やDOM propertyへ渡します。任意のHTML文字列、`eval`、remote assetは使いません。
 
 ## HTTP providerを使う場合
 
-同じruntimeには`ResourceClient`もあります。API rootはsame-originの相対pathだけを受け付け、request ID、query、schema、structured errorを検証します。HTTP routeの正本は[Standalone HTTP adapter](../../spec.md#standalone-http-adapter)です。
+同じruntimeには`ResourceClient`もあります。API rootはsame-originの相対pathだけを受け付け、request ID、query、schema、structured errorを検証します。HTTP routeの正本は[Standalone HTTP adapter](../../../spec/#standalone-http-adapter)です。

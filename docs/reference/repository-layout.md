@@ -5,6 +5,8 @@ sidebar:
   label: リポジトリ構成
 ---
 
+<!-- i18n-sync: id=reference/repository-layout digest=014f937eded5a318d59b5dec2f6db8d295ea5b411c56dea24544c8445ac06c87 -->
+
 ```text
 .
 ├── crates/                 RustのResource / spec / CSV / server / CLI
@@ -30,7 +32,7 @@ checkは、content configが`docsLoader()`を使うこと、symlinkが正確に`
 
 ## 変更の置き場所
 
-- 実装の仕様・数値・route・error → [`docs/spec.md`](../spec.md)。
-- 実行コマンドとacceptance → [`docs/usage.md`](../usage.md)。
+- 実装の仕様・数値・route・error → [`docs/spec.md`](../../spec/)。
+- 実行コマンドとacceptance → [`docs/usage.md`](../../usage/)。
 - 初心者向けの説明 → `docs/guide/`。仕様を再定義せず、正本へのリンクを置く。
 - サイト設定・sidebar・CSS → `docsite/`。製品仕様の本文は置かない。

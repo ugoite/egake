@@ -5,7 +5,9 @@ sidebar:
   label: standalone CSV
 ---
 
-CSVは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](../../../examples/csv-readonly)相当の構成は、`ikashita.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。
+<!-- i18n-sync: id=guide/usage/csv digest=66f7e52c036b2b7af7b6b027f31c9fd675937c1bf771bad956a4d319fd20b7c5 -->
+
+CSVは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](https://github.com/ikashita/ikashita/tree/main/examples/csv-readonly)相当の構成は、`ikashita.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。
 
 ## read-onlyの最小構成
 
@@ -59,4 +61,4 @@ resources {
 }
 ```
 
-CSV providerは`id`の重複・空値、schemaにない不足列、path traversalを許可しません。`update`は完全置換ではなくRFC 7396 merge-patchです。詳細は[CSV providerの仕様](../../spec.md#csv-provider)を参照してください。
+CSV providerは`id`の重複・空値、schemaにない不足列、path traversalを許可しません。`update`は完全置換ではなくRFC 7396 merge-patchです。詳細は[CSV providerの仕様](../../../spec/#csv-provider)を参照してください。

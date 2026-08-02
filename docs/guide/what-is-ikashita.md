@@ -5,6 +5,8 @@ sidebar:
   label: ikashitaとは何か
 ---
 
+<!-- i18n-sync: id=guide/what-is-ikashita digest=2674a44c2ca13a509b18e397136fa69327975e74b95c104023ab252de8c4b4a8 -->
+
 ikashitaは、**画面の定義**と**データを読む・書く方法**を別々に扱う、Rust/WASM志向のlow-code UI runtimeです。
 
 「CSVをそのまま一覧にする」ことから始められますが、同じResource ContractをJavaScript、Python ASGI、Ugoiteなどの既存ホストにも渡せます。最初から大きなアプリケーションフレームワークを選ぶのではなく、データ境界を固定してから表示方法を選ぶのが基本です。
@@ -23,13 +25,13 @@ ikashitaは、**画面の定義**と**データを読む・書く方法**を別�
 
 ## 何を定義するのか
 
-| ファイル / 層 | 役割 | 例 |
-| --- | --- | --- |
-| `app.ui.kdl` | Application Profile v0.1 | `page`、`data-table`、`action` |
-| schema JSON | フィールド型、required、enum、format | `schemas/catalog.schema.json` |
-| `resources.kdl` または TOML | providerの接続設定 | CSV path、`writable` |
-| provider | 実データと操作 | `list`、`get`、`update` |
-| `dist/` | `ikashita build`の生成物 | `index.html`、`runtime.js`、`app.bundle.json` |
+| ファイル / 層               | 役割                                 | 例                                            |
+| --------------------------- | ------------------------------------ | --------------------------------------------- |
+| `app.ui.kdl`                | Application Profile v0.1             | `page`、`data-table`、`action`                |
+| schema JSON                 | フィールド型、required、enum、format | `schemas/catalog.schema.json`                 |
+| `resources.kdl` または TOML | providerの接続設定                   | CSV path、`writable`                          |
+| provider                    | 実データと操作                       | `list`、`get`、`update`                       |
+| `dist/`                     | `ikashita build`の生成物             | `index.html`、`runtime.js`、`app.bundle.json` |
 
 ## ikashitaがしないこと
 
@@ -38,4 +40,4 @@ ikashitaは、**画面の定義**と**データを読む・書く方法**を別�
 - bundleにCSVレコード、cookie、credentialを埋め込まない。
 - UgoiteやFastAPIなどの認証・URL・保存方式を所有しない。
 
-次は[メンタルモデル](mental-model.mdx)でデータの流れを把握し、その後[最短クイックスタート](quickstart.mdx)で実際に確認してください。
+次は[メンタルモデル](../mental-model/)でデータの流れを把握し、その後[最短クイックスタート](../quickstart/)で実際に確認してください。

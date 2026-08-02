@@ -5,7 +5,9 @@ sidebar:
   label: メンタルモデル
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+{/* i18n-sync: id=guide/mental-model digest=766c806f0d2c2d55fbe03f053b69602e8c5226654317089b8c23ac5d3b17a8ec */}
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
 
 ikashitaを覚えるときは、「KDLがデータを持っている」と考えないことが大切です。KDLは画面とデータ要求の**設計図**で、データはproviderが所有します。
 
@@ -38,10 +40,18 @@ app.ui.kdl + schema JSON + resources.kdl
 Resourceは、必要な操作だけを`capabilities`で広告します。
 
 <CardGrid>
-  <Card title="schema" icon="document">フィールド型、required、enum、formatを返す。</Card>
-  <Card title="list / get" icon="magnifiers">検索、sort、offset/limit、個別取得を行う。</Card>
-  <Card title="create / update / delete" icon="pencil">書き込みはproviderが検証し、`update`はmerge-patch。</Card>
-  <Card title="invoke" icon="command">providerが明示的に公開したactionだけを呼ぶ。</Card>
+  <Card title="schema" icon="document">
+    フィールド型、required、enum、formatを返す。
+  </Card>
+  <Card title="list / get" icon="magnifiers">
+    検索、sort、offset/limit、個別取得を行う。
+  </Card>
+  <Card title="create / update / delete" icon="pencil">
+    書き込みはproviderが検証し、`update`はmerge-patch。
+  </Card>
+  <Card title="invoke" icon="command">
+    providerが明示的に公開したactionだけを呼ぶ。
+  </Card>
 </CardGrid>
 
 `data-table`が`list`を要求するのにproviderが`list`を広告していなければ、アプリは起動前に失敗します。これは「できるかもしれない操作」を画面が勝手に試さないための境界です。
@@ -53,4 +63,4 @@ Resourceは、必要な操作だけを`capabilities`で広告します。
 3. 検索・保存・認証・外部APIを変える → provider / host側。
 4. 実装済みか確信がない → `docs/spec.md`と該当example、テストを先に見る。
 
-このモデルを実際のファイルで確かめるなら、[CSVの使い方](usage/csv.md)が最小です。
+このモデルを実際のファイルで確かめるなら、[CSVの使い方](../usage/csv/)が最小です。

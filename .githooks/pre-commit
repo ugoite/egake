@@ -20,3 +20,6 @@ mise run deno:check
 echo "pre-commit: checking Python lint and types"
 mise run python:lint
 mise run python:typecheck
+
+echo "pre-commit: checking documentation and locale pairs"
+mise run docs:check

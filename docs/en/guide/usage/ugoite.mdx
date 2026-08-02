@@ -1,0 +1,46 @@
+---
+title: Ugoite adapter
+description: Wrap an existing Ugoite client as an ikashita ResourceProvider.
+sidebar:
+  label: Ugoite
+---
+
+{/* i18n-sync: id=guide/usage/ugoite digest=93506dede7df8902df79c2a256b236d6af86ee8ba636bb38a1c9e07d60273958 */}
+
+import { Aside } from "@astrojs/starlight/components";
+
+Ugoite integration is not an ikashita dependency. Keep the existing Ugoite client, authentication, URLs, cookies, and data types in the host; use a thin adapter to map them to the Resource Contract.
+
+## Run the example
+
+```sh
+deno check examples/ugoite-entries/adapter.ts
+deno test examples/ugoite-entries/adapter_test.ts
+```
+
+The client shape required by `examples/ugoite-entries/adapter.ts` is:
+
+```ts
+export interface UgoiteEntriesClient {
+  schema(): Promise<ResourceSchema>;
+  list(query: ListQuery): Promise<ResourcePage>;
+  get(id: string): Promise<JsonObject>;
+  create(value: JsonObject): Promise<JsonObject>;
+  update(id: string, mergePatch: JsonObject): Promise<JsonObject>;
+  delete(id: string): Promise<void>;
+  invoke(action: string, input: JsonValue): Promise<JsonValue>;
+}
+```
+
+The adapter delegates each client method to the provider method with the same name.
+
+```ts
+const provider = createUgoiteEntriesProvider(existingUgoiteClient);
+```
+
+The checked-in test uses `FakeUgoiteClient`, so delegation is verified without Ugoite itself, a network, or credentials. Keep authentication and retry ownership outside the adapter when connecting a real client.
+
+<Aside type="caution" title="Do not make Ugoite a core dependency">
+  Do not add a Ugoite URL or credential handling to `Cargo.toml` or `packages/`.
+  The core must build without a Ugoite checkout.
+</Aside>
