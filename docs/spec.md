@@ -5,7 +5,7 @@ sidebar:
   label: 実行可能なMVP仕様
 ---
 
-<!-- i18n-sync: id=spec digest=1098fc3bcb715b57840838cf93994fc4abfd3f6d65d8d2bdbb86adfd6075780b -->
+<!-- i18n-sync: id=spec digest=f879f3a83333c17428f9b231b497a0797fbf65692fc116355b06ce40aa84468d -->
 
 This page is the executable contract. Beginner-oriented explanations live in
 the guide pages; when an explanation and this page disagree, this page and the

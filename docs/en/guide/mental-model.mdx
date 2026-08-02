@@ -5,7 +5,7 @@ sidebar:
   label: Mental model
 ---
 
-{/* i18n-sync: id=guide/mental-model digest=39a4320ab1e80959b2eae34c3824e86fc2ce439d359b28bb4f3a5234c188c10c */}
+{/* i18n-sync: id=guide/mental-model digest=a1078cc4507f51120b326e2c0bf79dc5bfac3336ad519f2656b03d2bf5d1c249 */}
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
@@ -33,7 +33,7 @@ app.ui.kdl + schema JSON + resources.kdl
       └──── Resource Contract ────┘
 ```
 
-`run` and `dev` serve a bundle from memory and connect a CSV provider to `/api/ikashita/v1`. Embedded JavaScript creates a `ResourceProvider` map and passes it to `mountApplication`. In both cases, the screen does not need to know where records are stored.
+`run` and `dev` serve a bundle from memory and connect a local data provider to `/api/ikashita/v1`. Embedded JavaScript creates a `ResourceProvider` map and passes it to `mountApplication`. In both cases, the screen does not need to know where records are stored.
 
 ## A contract is a set of operations
 

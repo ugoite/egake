@@ -5,7 +5,7 @@ sidebar:
   label: 受け入れマトリクス
 ---
 
-<!-- i18n-sync: id=usage digest=0d35b22ba5041d2c537294f5ef31a58f47e8277cc786227c5919b82eba600032 -->
+<!-- i18n-sync: id=usage digest=6b7c50233c80c8d4c84979fe80d34792a743383af92a1301655615fbf97f957c -->
 
 This page is the repository's executable usage and acceptance reference. For
 the beginner path, start with [最短クイックスタート](../guide/quickstart/).

@@ -5,7 +5,7 @@ sidebar:
   label: Acceptance matrix
 ---
 
-<!-- i18n-sync: id=usage digest=0d35b22ba5041d2c537294f5ef31a58f47e8277cc786227c5919b82eba600032 -->
+<!-- i18n-sync: id=usage digest=6b7c50233c80c8d4c84979fe80d34792a743383af92a1301655615fbf97f957c -->
 
 This page is the executable usage and acceptance reference. For the beginner path, start with the [short quickstart](../guide/quickstart/). Providers own data and actions; the browser receives data-only application metadata; and the CLI never evaluates Rhai, shell commands, JavaScript, or remote code.
 
@@ -92,7 +92,7 @@ writable = false
 ```kdl
 /- kdl-version 2
 resources {
-    csv "catalog" path="data/catalog.csv"
+    resource "catalog" path="data/catalog.csv"
 }
 ```
 

@@ -5,7 +5,7 @@ sidebar:
   label: Executable MVP specification
 ---
 
-<!-- i18n-sync: id=spec digest=1098fc3bcb715b57840838cf93994fc4abfd3f6d65d8d2bdbb86adfd6075780b -->
+<!-- i18n-sync: id=spec digest=f879f3a83333c17428f9b231b497a0797fbf65692fc116355b06ce40aa84468d -->
 
 This page is the executable contract. Beginner-oriented explanations live in the guide pages; when an explanation and this page disagree, this page and the implementation take precedence.
 
@@ -93,9 +93,9 @@ Sort is a comma-separated list of field names; `-field` and `field:desc` descend
 
 Provider failures have a stable `code`, human-facing `message`, optional field-level messages, and optional `request_id`. The initial codes are `validation_failed`, `not_found`, `conflict`, `capability_denied`, `unavailable`, and `internal`. The JSON form is `{ "error": { "code", "message", "fields", "request_id" } }`; `fields` is an object and the standalone HTTP adapter always supplies a request ID.
 
-### CSV provider
+### Local data provider
 
-`ikashita-csv` opens an existing regular CSV file, reads its header, and maps each row to a JSON object with string fields. The primary key defaults to `id`; writable files require it. Duplicate or empty keys, duplicate headers, malformed rows, path traversal, directories, and other non-file targets are rejected. Read-only CSVs may omit the key and then advertise only schema/list capabilities. Search is a case-insensitive substring over all fields; sorting is stable lexicographic field sorting followed by offset/limit pagination.
+`ikashita-data` opens an existing regular CSV or Parquet file and maps each row to a JSON object. The format is inferred from the file extension or set explicitly in resource configuration. CSV fields are strings and CSV resources may be writable; Parquet fields preserve supported Arrow types and Parquet resources are read-only. The primary key defaults to `id`; duplicate or empty keys, duplicate fields, malformed rows, path traversal, directories, and other non-file targets are rejected. Read-only resources may omit the key and then advertise only schema/list capabilities. Search is a case-insensitive substring over all fields; sorting is stable lexicographic field sorting followed by offset/limit pagination.
 
 Writes use a process-local lock shared by providers opened for the same canonical path. The provider serializes read-modify-write, writes and syncs a temporary file, optionally retains regular-file backups, atomically replaces the original, and syncs the containing directory. A failed write removes only its temporary file. CSV has a fixed column set: merge-patch `null` persists as an empty cell, and records and values are never echoed in storage errors.
 
@@ -109,9 +109,9 @@ Writes use a process-local lock shared by providers opened for the same canonica
 
 The Rust `ikashita` binary resolves a project from a positional directory, `--project DIR`, or `.`. It requires `ikashita.toml` with an `[app]` table; `app.definition` defaults to `app.ui.kdl`, and `app.name`, when present, must match the KDL app name. Commands are `new`, `validate`, `inspect`, `build`, `run`, `dev`, `test`, and `list`.
 
-Resource configuration selects `resources.kdl` when present, otherwise the TOML tables. Supplying both is a hard error. Definition, schema, CSV, and output paths are project-relative and reject absolute paths and `..`; symlinks resolving outside the project are also rejected. The CLI checks the supported JSON Schema subset, derives provider metadata, validates CSV rows without printing their values, and ensures every declared capability is provided before `run` or `dev` starts.
+Resource configuration selects `resources.kdl` when present, otherwise the TOML tables. Supplying both is a hard error. Definition, schema, data, and output paths are project-relative and reject absolute paths and `..`; symlinks resolving outside the project are also rejected. The CLI checks the supported JSON Schema subset, derives provider metadata, validates data rows without printing their values, and ensures every declared capability is provided before `run` or `dev` starts.
 
-`run` and `dev` construct CSV providers, attach a generated `StaticBundle` to the server state, and serve same-origin `/api/ikashita/v1` routes on loopback by default. A non-loopback host requires `--allow-external` and an explicit warning. `dev` is a local server with an in-memory bundle; watching is outside this increment.
+`run` and `dev` construct data providers, attach a generated `StaticBundle` to the server state, and serve same-origin `/api/ikashita/v1` routes on loopback by default. A non-loopback host requires `--allow-external` and an explicit warning. `dev` is a local server with an in-memory bundle; watching is outside this increment.
 
 ## Framework host adapters
 
@@ -124,6 +124,11 @@ Ugoite is a host-owned client, not an ikashita dependency. The adapter maps `sch
 ## Standalone HTTP adapter
 
 The HTTP adapter registers providers by exact resource name and exposes the versioned same-origin routes under `/api/ikashita/v1`. It provides schema and list/get/create/update/delete operations, plus provider-defined `POST /resources/:name/actions/:action` invoke. It validates path segments, request IDs, query encoding, JSON bodies, capabilities, and limits before dispatch. Errors remain structured and include a request ID; the adapter does not add a default CORS layer.
+
+The standalone server also exposes a provider-independent OpenAPI 3 document at
+`GET /api/ikashita/v1/openapi.json` and a local Swagger-compatible viewer at
+`GET /api/ikashita/v1/swagger`. The viewer embeds its CSS, JavaScript, and
+OpenAPI document, and never loads a CDN, external asset, font, or remote data.
 
 ## Host/runtime adapters
 
