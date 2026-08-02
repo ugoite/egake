@@ -2,6 +2,7 @@
 
 pub mod bundle;
 pub mod config;
+mod swagger;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -24,6 +25,10 @@ use ikashita_resource::{
 };
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
+
+use self::swagger::{
+    OPENAPI_JSON_SUFFIX, SWAGGER_UI_INDEX_SUFFIX, SWAGGER_UI_SLASH_SUFFIX, SWAGGER_UI_SUFFIX,
+};
 
 pub use bundle::StaticBundle;
 pub use config::ServerConfig;
@@ -130,6 +135,10 @@ impl ServerState {
 /// Builds a testable axum router from shared server state.
 pub fn router(state: Arc<ServerState>) -> Router {
     Router::new()
+        .route(&format!("{API_PREFIX}{OPENAPI_JSON_SUFFIX}"), any(documentation_dispatch))
+        .route(&format!("{API_PREFIX}{SWAGGER_UI_SUFFIX}"), any(documentation_dispatch))
+        .route(&format!("{API_PREFIX}{SWAGGER_UI_SLASH_SUFFIX}"), any(documentation_dispatch))
+        .route(&format!("{API_PREFIX}{SWAGGER_UI_INDEX_SUFFIX}"), any(documentation_dispatch))
         .route(&format!("{API_PREFIX}/{{*path}}"), any(api_dispatch))
         .route(API_PREFIX, any(api_dispatch))
         .with_state(state.clone())
@@ -155,6 +164,48 @@ pub async fn serve(config: ServerConfig, state: Arc<ServerState>) -> io::Result<
 /// Runs the local HTTP server; this is an alias for serve for CLI call sites.
 pub async fn run(config: ServerConfig, state: Arc<ServerState>) -> io::Result<()> {
     serve(config, state).await
+}
+
+async fn documentation_dispatch(
+    axum::extract::State(state): axum::extract::State<Arc<ServerState>>,
+    request: Request<Body>,
+) -> Response<Body> {
+    let request_id = state.request_id(&request);
+    if request.method() != Method::GET {
+        return error_response(method_error(), &request_id);
+    }
+
+    let path = request.uri().path();
+    if path == format!("{API_PREFIX}{OPENAPI_JSON_SUFFIX}") {
+        let response = match json_response(StatusCode::OK, swagger::openapi_document(API_PREFIX)) {
+            Ok(response) => response,
+            Err(error) => return error_response(error, &request_id),
+        };
+        return response_with_request_id(response, &request_id);
+    }
+
+    let is_swagger_ui = [
+        format!("{API_PREFIX}{SWAGGER_UI_SUFFIX}"),
+        format!("{API_PREFIX}{SWAGGER_UI_SLASH_SUFFIX}"),
+        format!("{API_PREFIX}{SWAGGER_UI_INDEX_SUFFIX}"),
+    ]
+    .iter()
+    .any(|expected| expected == path);
+    if is_swagger_ui {
+        return response_with_request_id(
+            text_response(
+                StatusCode::OK,
+                &swagger::swagger_ui_html(API_PREFIX),
+                "text/html; charset=utf-8",
+            ),
+            &request_id,
+        );
+    }
+
+    error_response(
+        ResourceError::new(ResourceErrorKind::NotFound, "documentation route was not found"),
+        &request_id,
+    )
 }
 
 async fn api_dispatch(
@@ -776,6 +827,83 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(action, json!({"ok": true}));
+    }
+
+    #[tokio::test]
+    async fn serves_provider_free_openapi_and_local_swagger_ui() {
+        let app = router(Arc::new(ServerState::new()));
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/ikashita/v1/openapi.json")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("OpenAPI response");
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+        assert!(response.headers().get(REQUEST_ID_HEADER).is_some());
+        let document = serde_json::from_slice::<Value>(
+            &to_bytes(response.into_body(), MAX_JSON_BODY).await.expect("OpenAPI body"),
+        )
+        .expect("valid OpenAPI JSON");
+        assert_eq!(document["openapi"], "3.0.3");
+        assert_eq!(document["info"]["title"], "ikashita Standalone API");
+        assert!(document["components"]["schemas"]["ErrorResponse"].is_object());
+
+        let paths = document["paths"].as_object().expect("OpenAPI paths object");
+        let mut operations = BTreeSet::new();
+        for (path, item) in paths {
+            for method in ["get", "post", "patch", "delete"] {
+                if let Some(operation) = item.get(method) {
+                    assert!(operation["operationId"].as_str().is_some());
+                    assert!(operation["responses"].is_object());
+                    operations.insert(format!("{method} {path}"));
+                }
+            }
+        }
+        let expected_operations: BTreeSet<_> = [
+            "get /api/ikashita/v1/resources/{resource}/schema",
+            "get /api/ikashita/v1/resources/{resource}",
+            "post /api/ikashita/v1/resources/{resource}",
+            "get /api/ikashita/v1/resources/{resource}/items/{id}",
+            "patch /api/ikashita/v1/resources/{resource}/items/{id}",
+            "delete /api/ikashita/v1/resources/{resource}/items/{id}",
+            "post /api/ikashita/v1/resources/{resource}/actions/{action}",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        assert_eq!(operations, expected_operations);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/ikashita/v1/swagger")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("Swagger UI response");
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "text/html; charset=utf-8");
+        assert!(response.headers().get(REQUEST_ID_HEADER).is_some());
+        let html = String::from_utf8(
+            to_bytes(response.into_body(), MAX_JSON_BODY).await.expect("Swagger UI body").to_vec(),
+        )
+        .expect("UTF-8 HTML");
+        assert!(html.contains("Swagger UI"));
+        assert!(html.contains("OpenAPI 3.0.3"));
+        assert!(html.contains("/api/ikashita/v1/openapi.json"));
+        for operation_id in ["schema", "list", "create", "get", "patch", "delete", "action"] {
+            assert!(html.contains(&format!("\"operationId\":\"{operation_id}\"")));
+        }
+        assert!(!html.contains("http://"));
+        assert!(!html.contains("https://"));
+        assert!(!html.contains("<script src"));
+        assert!(!html.contains("<link rel=\"stylesheet\""));
     }
 
     #[tokio::test]
