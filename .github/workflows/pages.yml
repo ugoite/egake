@@ -33,7 +33,7 @@ jobs:
       - name: Install pinned toolchain
         run: mise install
       - name: Build documentation
-        run: mise run docs:build
+        run: mise run docs:build:pages
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

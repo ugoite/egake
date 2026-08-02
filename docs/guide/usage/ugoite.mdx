@@ -5,7 +5,9 @@ sidebar:
   label: Ugoite
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+{/* i18n-sync: id=guide/usage/ugoite digest=93506dede7df8902df79c2a256b236d6af86ee8ba636bb38a1c9e07d60273958 */}
+
+import { Aside } from "@astrojs/starlight/components";
 
 Ugoite連携はikashita本体の依存ではありません。既存のUgoite client、認証、URL、cookie、data typeをhost側に残し、薄いadapterでResource Contractへ写像します。
 
@@ -39,5 +41,6 @@ const provider = createUgoiteEntriesProvider(existingUgoiteClient);
 このcheckoutのtestは`FakeUgoiteClient`を使うため、Ugoite本体、network、credentialなしでdelegationを検証できます。実際のclientをつなぐ場合も、authやretryの所有者をadapterの外に保ってください。
 
 <Aside type="caution" title="Ugoiteをcore dependencyにしない">
-  `Cargo.toml`や`packages/`にUgoiteのURLやcredential処理を追加する手順ではありません。ikashitaのcoreがUgoite checkoutなしでbuildできることが境界の一部です。
+  `Cargo.toml`や`packages/`にUgoiteのURLやcredential処理を追加する手順ではありません。ikashitaのcoreがUgoite
+  checkoutなしでbuildできることが境界の一部です。
 </Aside>

@@ -5,6 +5,8 @@ sidebar:
   label: 実行可能なMVP仕様
 ---
 
+<!-- i18n-sync: id=spec digest=1098fc3bcb715b57840838cf93994fc4abfd3f6d65d8d2bdbb86adfd6075780b -->
+
 This page is the executable contract. Beginner-oriented explanations live in
 the guide pages; when an explanation and this page disagree, this page and the
 implementation take precedence.
@@ -522,15 +524,15 @@ built site on the same files.
 
 The host adapter surface currently shipped in this checkout is:
 
-| Host | Shipped entry point | Contract |
-| --- | --- | --- |
-| Browser / JavaScript | `packages/runtime/mod.ts` | `ResourceProvider`, `ResourceClient`, `mountApplication` |
-| Solid | `packages/solid/mod.ts` | `createSolidRenderer`, `createSolidResourceProvider` |
-| Svelte | `packages/svelte/mod.ts` | `createSvelteRenderer`, `createSvelteResourceProvider` |
-| React | `packages/react/mod.ts` | `createReactRenderer`, `createReactResourceProvider` |
-| Vue | `packages/vue/mod.ts` | `createVueRenderer`, `createVueResourceProvider` |
-| Python ASGI | `python/ikashita` | `ResourceASGIApp`, `ResourceBase` |
-| Ugoite | `examples/ugoite-entries/adapter.ts` | example adapter around a host-owned client |
+| Host                 | Shipped entry point                  | Contract                                                 |
+| -------------------- | ------------------------------------ | -------------------------------------------------------- |
+| Browser / JavaScript | `packages/runtime/mod.ts`            | `ResourceProvider`, `ResourceClient`, `mountApplication` |
+| Solid                | `packages/solid/mod.ts`              | `createSolidRenderer`, `createSolidResourceProvider`     |
+| Svelte               | `packages/svelte/mod.ts`             | `createSvelteRenderer`, `createSvelteResourceProvider`   |
+| React                | `packages/react/mod.ts`              | `createReactRenderer`, `createReactResourceProvider`     |
+| Vue                  | `packages/vue/mod.ts`                | `createVueRenderer`, `createVueResourceProvider`         |
+| Python ASGI          | `python/ikashita`                    | `ResourceASGIApp`, `ResourceBase`                        |
+| Ugoite               | `examples/ugoite-entries/adapter.ts` | example adapter around a host-owned client               |
 
 Solid and Svelte adapters follow the same serialized-application and
 `ResourceProvider` contracts as the other framework packages.

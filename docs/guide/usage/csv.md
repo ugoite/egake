@@ -5,7 +5,9 @@ sidebar:
   label: local data
 ---
 
-ローカルdata providerは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](../../../examples/csv-readonly)相当の構成は、`ikashita.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。拡張子が`.parquet`なら同じ設定でParquetをread-onlyで開けます。
+<!-- i18n-sync: id=guide/usage/csv digest=87d3eeca7d8bc8a13da235ea09e1ed684f6b79a4202a161b89663b3176cb5c7e -->
+
+ローカルdata providerは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](https://github.com/ugoite/ikashita/tree/main/examples/csv-readonly)相当の構成は、`ikashita.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。拡張子が`.parquet`なら同じ設定でParquetをread-onlyで開けます。
 
 ## read-onlyの最小構成
 
@@ -72,4 +74,4 @@ resources {
 }
 ```
 
-data providerは`id`の重複・空値、schemaにない不足列、path traversalを許可しません。CSVの`update`は完全置換ではなくRFC 7396 merge-patchです。詳細は[local data providerの仕様](../../spec.md#local-data-provider)を参照してください。
+data providerは`id`の重複・空値、schemaにない不足列、path traversalを許可しません。CSVの`update`は完全置換ではなくRFC 7396 merge-patchです。詳細は[local data providerの仕様](../../../spec/#local-data-provider)を参照してください。

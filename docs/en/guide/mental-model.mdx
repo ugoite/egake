@@ -1,0 +1,66 @@
+---
+title: Mental model
+description: Understand the flow from definition and validation to bundles and providers.
+sidebar:
+  label: Mental model
+---
+
+{/* i18n-sync: id=guide/mental-model digest=39a4320ab1e80959b2eae34c3824e86fc2ce439d359b28bb4f3a5234c188c10c */}
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Do not think of KDL as the place where data lives. KDL is the **blueprint** for a screen and its data requests; a provider owns the data.
+
+## One request from definition to provider
+
+```text
+app.ui.kdl + schema JSON + resources.kdl
+                │
+                ▼
+        validate / inspect
+                │ references, schema, and CSV are checked
+                ▼
+             build
+                │ no records are embedded
+                ▼
+             app.bundle.json + runtime.js/css
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+  local CSV            host provider
+  ikashita run         JS / Python / Ugoite
+      │                   │
+      └──── Resource Contract ────┘
+```
+
+`run` and `dev` serve a bundle from memory and connect a CSV provider to `/api/ikashita/v1`. Embedded JavaScript creates a `ResourceProvider` map and passes it to `mountApplication`. In both cases, the screen does not need to know where records are stored.
+
+## A contract is a set of operations
+
+Resources advertise only the operations they support through `capabilities`.
+
+<CardGrid>
+  <Card title="schema" icon="document">
+    Return field types, required fields, enum values, and formats.
+  </Card>
+  <Card title="list / get" icon="magnifiers">
+    Search, sort, paginate, and fetch one item.
+  </Card>
+  <Card title="create / update / delete" icon="pencil">
+    The provider validates writes; `update` uses merge-patch.
+  </Card>
+  <Card title="invoke" icon="command">
+    Call only actions explicitly exposed by a provider.
+  </Card>
+</CardGrid>
+
+If a `data-table` requires `list` but its provider does not advertise `list`, the application fails before startup. The screen must not guess what an implementation might support.
+
+## A useful decision rule
+
+1. Change UI shape or buttons → `app.ui.kdl`.
+2. Change field types, required fields, or enum → schema JSON and data together.
+3. Change search, persistence, authentication, or an external API → the provider or host.
+4. Unsure whether something exists → read `docs/spec.md`, the relevant example, and its tests first.
+
+The smallest concrete example is the [standalone CSV guide](../usage/csv/).

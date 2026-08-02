@@ -5,27 +5,29 @@ sidebar:
   label: 受け入れマトリクス
 ---
 
+<!-- i18n-sync: id=usage digest=0d35b22ba5041d2c537294f5ef31a58f47e8277cc786227c5919b82eba600032 -->
+
 This page is the repository's executable usage and acceptance reference. For
-the beginner path, start with [最短クイックスタート](guide/quickstart.mdx).
+the beginner path, start with [最短クイックスタート](../guide/quickstart/).
 
 This page is the executable follow-up to the original draft plan. The plan's
 user-facing workflows are constrained by the decisions in
-[`spec.md`](spec.md): providers own data and actions, the browser receives
+[`spec.md`](../spec/): providers own data and actions, the browser receives
 data-only application metadata, and the CLI never evaluates Rhai, shell
 commands, JavaScript, or remote code.
 
 ## Acceptance matrix
 
-| Workflow | Example or implementation | Offline acceptance command | Covered behavior |
-| --- | --- | --- | --- |
-| Read-only data list/search | [`examples/csv-readonly`](../examples/csv-readonly) | `cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada` | CSV without an `id`, schema/list-only capabilities, case-insensitive search, sorting, pagination |
-| Multi-resource project | [`examples/multi-resource`](../examples/multi-resource) | `cargo run -p ikashita-cli -- test examples/multi-resource` | Two declared resources, two schemas/data files, deterministic bundle and validation |
-| Standalone HTML build | CLI integration test | `cargo test -p ikashita-cli --test usage_examples` | `--format single-html`/`--single-html`, one generated HTML file, no external runtime/application assets, default four-file regression |
-| Browser/JS embedded provider | [`examples/js-embedded`](../examples/js-embedded) | `deno test examples/js-embedded/main_test.ts` | Host-owned provider injection, list/search, declared provider action invoke |
-| Solid/Svelte host adapters | [`packages/solid`](../packages/solid), [`packages/svelte`](../packages/svelte) | `mise run deno:test` | Safe recursive children, host primitive boundaries, provider helpers, lifecycle |
-| Python ASGI/FastAPI provider | [`examples/python-fastapi`](../examples/python-fastapi) | `mise run python:test` | Standard-library ASGI routes and optional FastAPI bridge, including invoke |
-| Ugoite client adapter | [`examples/ugoite-entries`](../examples/ugoite-entries) | `deno test examples/ugoite-entries/adapter_test.ts` | Host-owned Ugoite client protocol and transparent CRUD/action delegation |
-| Provider-defined action invoke | Rust server, JS, and Python adapters | `cargo test -p ikashita-server && mise run deno:test && mise run python:test` | `/actions/:action`, safe browser invoke step, and deterministic host adapters |
+| Workflow                       | Example or implementation                                                      | Offline acceptance command                                                               | Covered behavior                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only data list/search     | [`examples/csv-readonly`](../examples/csv-readonly)                            | `cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada` | CSV without an `id`, schema/list-only capabilities, case-insensitive search, sorting, pagination                                      |
+| Multi-resource project         | [`examples/multi-resource`](../examples/multi-resource)                        | `cargo run -p ikashita-cli -- test examples/multi-resource`                              | Two declared resources, two schemas/data files, deterministic bundle and validation                                                   |
+| Standalone HTML build          | CLI integration test                                                           | `cargo test -p ikashita-cli --test usage_examples`                                       | `--format single-html`/`--single-html`, one generated HTML file, no external runtime/application assets, default four-file regression |
+| Browser/JS embedded provider   | [`examples/js-embedded`](../examples/js-embedded)                              | `deno test examples/js-embedded/main_test.ts`                                            | Host-owned provider injection, list/search, declared provider action invoke                                                           |
+| Solid/Svelte host adapters     | [`packages/solid`](../packages/solid), [`packages/svelte`](../packages/svelte) | `mise run deno:test`                                                                     | Safe recursive children, host primitive boundaries, provider helpers, lifecycle                                                       |
+| Python ASGI/FastAPI provider   | [`examples/python-fastapi`](../examples/python-fastapi)                        | `mise run python:test`                                                                   | Standard-library ASGI routes and optional FastAPI bridge, including invoke                                                            |
+| Ugoite client adapter          | [`examples/ugoite-entries`](../examples/ugoite-entries)                        | `deno test examples/ugoite-entries/adapter_test.ts`                                      | Host-owned Ugoite client protocol and transparent CRUD/action delegation                                                              |
+| Provider-defined action invoke | Rust server, JS, and Python adapters                                           | `cargo test -p ikashita-server && mise run deno:test && mise run python:test`            | `/actions/:action`, safe browser invoke step, and deterministic host adapters                                                         |
 
 The complete local acceptance suite is:
 

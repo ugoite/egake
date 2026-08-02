@@ -5,12 +5,15 @@
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --strictPort --port 4321",
     "build": "astro build",
-    "check": "node scripts/check-ssot.mjs && astro check",
-    "format": "prettier --write astro.config.mjs src scripts package.json tsconfig.json",
-    "format:check": "prettier --check astro.config.mjs src/content.config.ts src/docs-ssot.mjs src/env.d.ts src/styles/custom.css scripts/check-ssot.mjs package.json tsconfig.json"
+    "check": "node scripts/check-i18n.mjs && node scripts/check-ssot.mjs && astro check",
+    "format": "prettier --write ../docs astro.config.mjs src scripts package.json tsconfig.json",
+    "format:check": "prettier --check ../docs astro.config.mjs src/content.config.ts src/docs-ssot.mjs src/env.d.ts src/styles/custom.css scripts/check-i18n.mjs scripts/check-ssot.mjs package.json tsconfig.json",
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "i18n:update": "node scripts/check-i18n.mjs --update"
   },
   "dependencies": {
     "@astrojs/mdx": "7.0.5",
+    "@astrojs/markdown-remark": "7.2.2",
     "@astrojs/starlight": "0.41.6",
     "astro": "7.1.6"
   },

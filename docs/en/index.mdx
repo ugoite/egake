@@ -1,0 +1,77 @@
+---
+title: ikashita documentation
+description: A practical guide to keeping the boundary between ikashita data and UI small.
+template: splash
+hero:
+  title: Run ikashita first
+  tagline: Define UI shape with KDL and connect data through the Resource Contract.
+  actions:
+    - text: Quickstart
+      link: docs/guide/quickstart/
+      icon: right-arrow
+    - text: What is ikashita?
+      link: docs/guide/what-is-ikashita/
+      variant: minimal
+---
+
+{/* i18n-sync: id=index digest=812b182e1624299694d65dc5e3dafbcf1e919d57285a18d6e4e0651e7f3d0dba */}
+
+import { Aside, Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+`ikashita` separates a screen definition from the provider that owns its data. This site explains what to define, where data belongs, and how to run a checked-out example.
+
+<CardGrid>
+  <Card title="Learn the model" icon="open-book">
+    Understand the KDL Application Profile, Resource Contract, bundle, and
+    provider boundary with short examples.
+  </Card>
+  <Card title="Run a checked-in example" icon="rocket">
+    The `examples/csv-readonly` fixture runs without a service, credentials, or
+    Node package.
+  </Card>
+  <Card title="Connect your host" icon="setting">
+    Follow the implemented JavaScript, Python ASGI, Ugoite, React, and Vue
+    boundaries.
+  </Card>
+</CardGrid>
+
+## Reading order
+
+<CardGrid>
+  <LinkCard
+    title="What is ikashita?"
+    description="Separate screen shape, contract, and data provider."
+    href="docs/guide/what-is-ikashita/"
+  />
+  <LinkCard
+    title="Mental model"
+    description="See KDL, bundle, provider, and HTTP/host relationships together."
+    href="docs/guide/mental-model/"
+  />
+  <LinkCard
+    title="Quickstart"
+    description="Run validate → list → test → build locally."
+    href="docs/guide/quickstart/"
+  />
+  <LinkCard
+    title="Usage by host"
+    description="Choose CSV, JavaScript, Python, Ugoite, or a framework adapter."
+    href="docs/guide/usage/"
+  />
+</CardGrid>
+
+## Source of truth and checks
+
+The executable specification is <a href="docs/spec/"><code>docs/spec.md</code></a>, and the acceptance workflows are in <a href="docs/usage/"><code>docs/usage.md</code></a>. The site reads the repository `docs/` tree through Starlight’s `docsLoader()` instead of copying page bodies.
+
+```sh
+mise run docs:install
+mise run docs:check
+mise run docs:build
+```
+
+<Aside type="tip" title="A promise of this site">
+  Commands, filenames, and identifiers in the text exist in this checkout. A
+  framework adapter that is not shipped is described as a generic runtime
+  boundary, not as a package that can be installed.
+</Aside>

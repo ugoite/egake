@@ -5,7 +5,9 @@ sidebar:
   label: 最短クイックスタート
 ---
 
-import { Aside, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+{/* i18n-sync: id=guide/quickstart digest=09e53b44e102f6157df80eadfcae4f36a949a1717ca2bbe5ffa6a767249447c8 */}
+
+import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 この手順はリポジトリルートで実行します。`examples/csv-readonly`は既にcheckout済みで、外部サービス・認証・Node packageを必要としません。
 
@@ -39,6 +41,7 @@ import { Aside, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
    ```
 
    buildは`examples/csv-readonly/dist/`に`index.html`、runtime assets、`app.bundle.json`を書き出します。この生成物はcommitしません。
+
 </Steps>
 
 ## 何が起きたか
@@ -46,23 +49,24 @@ import { Aside, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
 <Tabs>
   <TabItem label="定義">
 
-  `app.ui.kdl`は`catalog` resourceの`list`だけを要求し、`data-table`に`title`、`category`、`description`を表示します。
+`app.ui.kdl`は`catalog` resourceの`list`だけを要求し、`data-table`に`title`、`category`、`description`を表示します。
 
   </TabItem>
   <TabItem label="データ">
 
-  `resources.kdl`は`data/catalog.csv`をread-only providerとして開きます。`id`列がないので、書き込み機能は広告されません。
+`resources.kdl`は`data/catalog.csv`をread-only providerとして開きます。`id`列がないので、書き込み機能は広告されません。
 
   </TabItem>
   <TabItem label="出力">
 
-  `app.bundle.json`は検証済みのApplication Profileとschema metadataだけを持ち、CSVレコードは持ちません。
+`app.bundle.json`は検証済みのApplication Profileとschema metadataだけを持ち、CSVレコードは持ちません。
 
   </TabItem>
 </Tabs>
 
 <Aside type="note" title="編集したら再実行">
-  `dev`はこのMVPではno-watchです。ファイルを編集した場合は停止して、`cargo run -p ikashita-cli -- dev examples/csv-readonly`を再起動してください。
+  `dev`はこのMVPではno-watchです。ファイルを編集した場合は停止して、`cargo run
+  -p ikashita-cli -- dev examples/csv-readonly`を再起動してください。
 </Aside>
 
-次は[ジャンル別の使い方](usage/index.mdx)から、自分のhost環境に近い章へ進めます。
+次は[ジャンル別の使い方](../usage/)から、自分のhost環境に近い章へ進めます。

@@ -148,11 +148,21 @@ run = "npm --prefix docsite ci"
 
 [tasks."docs:check"]
 description = "Check repository documentation and the Starlight site"
-depends = ["docs:fmt:check"]
+depends = ["docs:fmt:check", "docs:i18n:check"]
 run = [
     "python scripts/check_docs.py",
     "npm --prefix docsite run check",
 ]
+
+[tasks."docs:i18n:check"]
+description = "Check Japanese/English documentation pairs and sync markers"
+depends = ["docs:install"]
+run = "npm --prefix docsite run i18n:check"
+
+[tasks."docs:i18n:update"]
+description = "Explicitly update Japanese/English documentation sync markers"
+depends = ["docs:install"]
+run = "npm --prefix docsite run i18n:update"
 
 [tasks."docs:fmt:check"]
 description = "Check docsite configuration formatting"
@@ -160,13 +170,30 @@ depends = ["docs:install"]
 run = "npm --prefix docsite run format:check"
 
 [tasks."docs:build"]
-description = "Build the Astro Starlight docsite from repository docs/"
+description = "Build and check the local-default Astro Starlight docsite (base=/)"
 depends = ["docs:check"]
-run = "npm --prefix docsite run build"
+env = { DOCSITE_BASE = "/" }
+run = [
+    "npm --prefix docsite run build",
+    "python scripts/check_doc_links.py --dist docsite/dist --base \"${DOCSITE_BASE:-/}\"",
+]
+
+[tasks."docs:build:pages"]
+description = "Build and check the GitHub Pages Astro Starlight docsite (base=/ikashita/)"
+depends = ["docs:check"]
+env = { DOCSITE_BASE = "ikashita" }
+run = [
+    "npm --prefix docsite run build",
+    "python scripts/check_doc_links.py --dist docsite/dist --base \"${DOCSITE_BASE:-/}\"",
+]
+
+[tasks."docs:build:both"]
+description = "Build and check the docsite with both supported base paths"
+depends = ["docs:build", "docs:build:pages"]
 
 [tasks."docs:ci"]
 description = "Run the reproducible docsite install, checks, and production build"
-depends = ["docs:build"]
+depends = ["docs:build:both"]
 
 [tasks."git:hygiene"]
 description = "Audit tracked and reachable generated, secret, and cache paths"

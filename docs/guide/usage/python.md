@@ -5,6 +5,8 @@ sidebar:
   label: Python ASGI
 ---
 
+<!-- i18n-sync: id=guide/usage/python digest=6bcbdeb0e413e1409948e43aafce5bf6466e605411f1175f638359a7b4a68c0e -->
+
 Python hostでは、`python/ikashita`がResource ContractをASGI appとして公開します。coreは標準ライブラリだけで動き、FastAPIは`create_fastapi_app`を呼んだときだけ必要です。
 
 ## 実行できるexample
@@ -31,4 +33,4 @@ FastAPIがインストール済みの環境だけで、同じproviderをbridge�
 PYTHONPATH=python uvicorn app:app --app-dir examples/python-fastapi
 ```
 
-このcommandはoptional依存を自動インストールしません。未インストールでも標準ライブラリのtestは通り、認証middlewareが必要な場合はdeployment hostが追加します。ASGIのpath、request ID、body/query上限、structured errorは[Python host boundary](../../spec.md#hostruntime-adapters)を正本とします。
+このcommandはoptional依存を自動インストールしません。未インストールでも標準ライブラリのtestは通り、認証middlewareが必要な場合はdeployment hostが追加します。ASGIのpath、request ID、body/query上限、structured errorは[Python host boundary](../../../spec/#hostruntime-adapters)を正本とします。

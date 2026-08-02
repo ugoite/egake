@@ -5,16 +5,18 @@ sidebar:
   label: Framework adapters
 ---
 
+<!-- i18n-sync: id=guide/usage/framework-adapters digest=6ce5644f6c0c935263d44586f32b3a345f70b503284e08017a44c410614ec934 -->
+
 framework adapterは、Application Profile JSONをそのframeworkのelement/VNodeへ変換する薄い層です。framework本体をikashitaが依存に追加せず、hostからrender primitiveを受け取る設計です。
 
 ## 現在の対応状況
 
-| Framework | このcheckoutの状態 | 公開識別子 |
-| --- | --- | --- |
-| React | adapter実装済み | `createReactRenderer` / `createReactResourceProvider` |
-| Vue | adapter実装済み | `createVueRenderer` / `createVueResourceProvider` |
-| Solid | 専用adapter未提供 | `packages/runtime`をDOM lifecycleへ接続する |
-| Svelte | 専用adapter未提供 | `packages/runtime`をDOM lifecycleへ接続する |
+| Framework | このcheckoutの状態 | 公開識別子                                            |
+| --------- | ------------------ | ----------------------------------------------------- |
+| React     | adapter実装済み    | `createReactRenderer` / `createReactResourceProvider` |
+| Vue       | adapter実装済み    | `createVueRenderer` / `createVueResourceProvider`     |
+| Solid     | 専用adapter未提供  | `packages/runtime`をDOM lifecycleへ接続する           |
+| Svelte    | 専用adapter未提供  | `packages/runtime`をDOM lifecycleへ接続する           |
 
 Solid/Svelteについては、存在しないnpm package名やimportを案内しません。専用adapterが必要なら、既存のruntimeの`SerializedApplication`、`SerializedComponent`、`ResourceProvider`の契約を使って、各frameworkの正式なmount lifecycleに薄い変換層を実装してください。
 
@@ -23,7 +25,10 @@ Solid/Svelteについては、存在しないnpm package名やimportを案内し
 Reactはhostから`createElement`を渡します。adapter自身はReactをimportしません。
 
 ```ts
-import { createReactRenderer, createReactResourceProvider } from "./packages/react/mod.ts";
+import {
+  createReactRenderer,
+  createReactResourceProvider,
+} from "./packages/react/mod.ts";
 
 const contacts = createReactResourceProvider(client, "contacts");
 const renderApplication = createReactRenderer(React, {
@@ -39,7 +44,10 @@ const element = renderApplication(applicationJson);
 Vueはhostから`h`を渡します。
 
 ```ts
-import { createVueRenderer, createVueResourceProvider } from "./packages/vue/mod.ts";
+import {
+  createVueRenderer,
+  createVueResourceProvider,
+} from "./packages/vue/mod.ts";
 
 const contacts = createVueResourceProvider(client, "contacts");
 const renderApplication = createVueRenderer(Vue, {
@@ -59,4 +67,4 @@ const vnode = renderApplication(applicationJson);
 3. DOM rootの生成・破棄をframeworkのlifecycleで所有する。
 4. providerの`capabilities`とstructured errorを維持し、HTML文字列へ変換しない。
 
-この段階で必要な安全性と契約の詳細は[TypeScript/Deno browser runtime](../../spec.md#typescriptdeno-browser-runtime)にあります。専用adapterの追加は、実装とtestを同じcommitに含めてから、この表と仕様を更新します。
+この段階で必要な安全性と契約の詳細は[TypeScript/Deno browser runtime](../../../spec/#typescriptdeno-browser-runtime)にあります。専用adapterの追加は、実装とtestを同じcommitに含めてから、この表と仕様を更新します。

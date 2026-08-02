@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, urljoin, urlsplit
 
 MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 SKIPPED_SCHEMES = ("http://", "https://", "mailto:")
@@ -16,12 +16,13 @@ def markdown_files(root: Path) -> list[Path]:
 
     return sorted(
         path
-        for path in root.rglob("*.md")
+        for path in root.rglob("*")
+        if path.suffix in {".md", ".mdx"}
         if ".git" not in path.parts and "target" not in path.parts and "node_modules" not in path.parts
     )
 
 
-def local_target(source: Path, destination: str) -> Path | None:
+def local_target(root: Path, source: Path, destination: str) -> Path | None:
     """Resolve a Markdown destination when it refers to a local file."""
 
     destination = destination.strip()
@@ -30,7 +31,55 @@ def local_target(source: Path, destination: str) -> Path | None:
     path_part = unquote(destination.split("#", 1)[0]).strip("<>")
     if not path_part:
         return None
+    generated_target = generated_doc_target(root, source, path_part)
+    if generated_target is not None:
+        return generated_target
     return (source.parent / path_part).resolve()
+
+
+def generated_doc_target(root: Path, source: Path, destination: str) -> Path | None:
+    """Resolve route-relative links against the generated Starlight URL tree."""
+
+    if not destination.endswith("/"):
+        return None
+    docs_root = root / "docs"
+    try:
+        relative = source.relative_to(docs_root).as_posix()
+    except ValueError:
+        return None
+    segments = relative.split("/")
+    locale = "en" if segments[0] == "en" else None
+    if locale:
+        segments.pop(0)
+    topic = "/".join(segments)
+    topic = re.sub(r"\.mdx?$", "", topic)
+    if topic == "index":
+        topic = ""
+    elif topic.endswith("/index"):
+        topic = topic.removesuffix("/index")
+    current_route = f"/{locale + '/' if locale else ''}{'' if not topic else 'docs/' + topic}/"
+    resolved = urlsplit(urljoin(current_route, destination)).path.strip("/")
+    resolved_parts = resolved.split("/") if resolved else []
+    if resolved_parts and resolved_parts[0] == "en":
+        if locale != "en":
+            return None
+        resolved_parts.pop(0)
+    elif locale == "en":
+        return None
+    if not resolved_parts:
+        return docs_root / ("en/index.mdx" if locale == "en" else "index.mdx")
+    if resolved_parts[0] != "docs":
+        return None
+    target = docs_root / ("en" if locale == "en" else "") / "/".join(resolved_parts[1:])
+    for extension in (".mdx", ".md"):
+        candidate = target.with_suffix(extension)
+        if candidate.is_file():
+            return candidate
+    for extension in (".mdx", ".md"):
+        candidate = target / f"index{extension}"
+        if candidate.is_file():
+            return candidate
+    return target
 
 
 def broken_links(root: Path) -> list[str]:
@@ -41,7 +90,7 @@ def broken_links(root: Path) -> list[str]:
     for source in markdown_files(root):
         content = source.read_text(encoding="utf-8")
         for match in MARKDOWN_LINK.finditer(content):
-            target = local_target(source, match.group(1))
+            target = local_target(root, source, match.group(1))
             if target is None:
                 continue
             try:
