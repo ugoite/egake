@@ -189,7 +189,8 @@ run = [
 
 [tasks."docs:build:both"]
 description = "Build and check the docsite with both supported base paths"
-depends = ["docs:build", "docs:build:pages"]
+depends = ["docs:build"]
+run = "mise run docs:build:pages"
 
 [tasks."docs:ci"]
 description = "Run the reproducible docsite install, checks, and production build"
