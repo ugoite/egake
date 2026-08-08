@@ -75,7 +75,7 @@ function renderNode(
     ? "table"
     : "div";
   const element = host.createElement(type);
-  host.setAttribute(element, "class", `ikashita-${component.kind}`);
+  host.setAttribute(element, "class", `egake-${component.kind}`);
   if (component.id) host.setAttribute(element, "id", component.id);
   const label = text(component.attributes.label);
   const field = text(component.attributes.field);
@@ -125,10 +125,10 @@ function renderApplication(
   cleanups: Array<() => void>,
 ): SvelteNode {
   const root = host.createElement("div");
-  host.setAttribute(root, "class", "ikashita-app");
+  host.setAttribute(root, "class", "egake-app");
   for (const page of application.pages) {
     const section = host.createElement("section");
-    host.setAttribute(section, "class", "ikashita-page");
+    host.setAttribute(section, "class", "egake-page");
     host.setAttribute(section, "aria-label", page.title);
     const heading = host.createElement("h1");
     host.append(heading, host.createText(page.title));

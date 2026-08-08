@@ -1,4 +1,4 @@
-"""Dependency-free ASGI adapter for the ikashita Resource Contract."""
+"""Dependency-free ASGI adapter for the egake Resource Contract."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from .resource import (
     require_object_patch,
 )
 
-API_PREFIX = "/api/ikashita/v1"
+API_PREFIX = "/api/egake/v1"
 MAX_JSON_BODY = 2 * 1024 * 1024
 MAX_QUERY_BYTES = 16 * 1024
 _request_counter = 0

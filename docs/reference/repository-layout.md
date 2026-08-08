@@ -1,11 +1,11 @@
 ---
 title: リポジトリとドキュメントサイトの構成
-description: docs/を正本にした、ikashitaのコード・example・docsiteの配置。
+description: docs/を正本にした、egakeのコード・example・docsiteの配置。
 sidebar:
   label: リポジトリ構成
 ---
 
-<!-- i18n-sync: id=reference/repository-layout digest=014f937eded5a318d59b5dec2f6db8d295ea5b411c56dea24544c8445ac06c87 -->
+<!-- i18n-sync: id=reference/repository-layout digest=8eac5f5a9756d816c2836bfe2246b941ffcd00bee2b84853109cbf6f73f82885 -->
 
 ```text
 .

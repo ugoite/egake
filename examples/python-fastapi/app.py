@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ikashita import (
+from egake import (
     CAPABILITIES,
     FieldSchema,
     JsonObject,
@@ -16,7 +16,7 @@ from ikashita import (
     ResourceSchema,
     apply_merge_patch,
 )
-from ikashita.fastapi import create_fastapi_app
+from egake.fastapi import create_fastapi_app
 
 
 class Contacts(ResourceBase):

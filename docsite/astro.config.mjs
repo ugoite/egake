@@ -38,9 +38,9 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: "ikashita",
+      title: "egake",
       description:
-        "初心者向けに学ぶ、ikashitaのKDL UIランタイムとResource Contract。",
+        "初心者向けに学ぶ、egakeのKDL UIランタイムとResource Contract。",
       locales: {
         root: { label: "日本語", lang: "ja" },
         en: { label: "English", lang: "en" },
@@ -51,7 +51,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/ikashita/ikashita",
+          href: "https://github.com/ugoite/egake",
         },
       ],
       markdown: {
@@ -63,7 +63,7 @@ export default defineConfig({
         {
           label: "はじめに",
           items: [
-            { slug: "docs/guide/what-is-ikashita" },
+            { slug: "docs/guide/what-is-egake" },
             { slug: "docs/guide/mental-model" },
             { slug: "docs/guide/quickstart" },
           ],

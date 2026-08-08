@@ -1,4 +1,4 @@
-# `@ikashita/runtime`
+# `@egake/runtime`
 
 The runtime package is a dependency-free Deno/TypeScript host boundary. Its
 entrypoint is [`mod.ts`](mod.ts) (or `src/index.ts` inside this repository).

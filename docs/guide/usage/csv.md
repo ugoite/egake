@@ -1,20 +1,20 @@
 ---
 title: local data provider
-description: ikashita-cliでローカルCSVまたはParquetをresourceとして使う。
+description: egake-cliでローカルCSVまたはParquetをresourceとして使う。
 sidebar:
   label: local data
 ---
 
-<!-- i18n-sync: id=guide/usage/csv digest=87d3eeca7d8bc8a13da235ea09e1ed684f6b79a4202a161b89663b3176cb5c7e -->
+<!-- i18n-sync: id=guide/usage/csv digest=15729b4cb9eed813e0c96dcc32a502b4d5f9a5c285efc30321e7c0afa6cd5af7 -->
 
-ローカルdata providerは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](https://github.com/ugoite/ikashita/tree/main/examples/csv-readonly)相当の構成は、`ikashita.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。拡張子が`.parquet`なら同じ設定でParquetをread-onlyで開けます。
+ローカルdata providerは、provider境界を最小のファイルで試す入口です。既存の[`examples/csv-readonly`](https://github.com/ugoite/egake/tree/main/examples/csv-readonly)相当の構成は、`egake.toml`、`app.ui.kdl`、`resources.kdl`、schema JSON、CSVからなります。拡張子が`.parquet`なら同じ設定でParquetをread-onlyで開けます。
 
 ## read-onlyの最小構成
 
 ```text
 examples/csv-readonly/
 ├── app.ui.kdl
-├── ikashita.toml
+├── egake.toml
 ├── resources.kdl
 ├── schemas/catalog.schema.json
 └── data/catalog.csv
@@ -42,10 +42,10 @@ resource "catalog" schema="schemas/catalog.schema.json" {
 ## 実行できるコマンド
 
 ```sh
-cargo run -p ikashita-cli -- validate examples/csv-readonly
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --json
-cargo run -p ikashita-cli -- test examples/csv-readonly
+cargo run -p egake-cli -- validate examples/csv-readonly
+cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
+cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --json
+cargo run -p egake-cli -- test examples/csv-readonly
 ```
 
 `list`の検索は全フィールドに対するcase-insensitive substringです。sortは安定したlexicographic sortで、`--offset`と`--limit`はResource Contractのpaginationに従います。

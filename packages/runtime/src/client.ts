@@ -18,7 +18,7 @@ import {
   requireObjectPatch,
 } from "./merge-patch.ts";
 
-const DEFAULT_BASE_PATH = "/api/ikashita/v1";
+const DEFAULT_BASE_PATH = "/api/egake/v1";
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 500;
 const MAX_QUERY_BYTES = 16 * 1024;

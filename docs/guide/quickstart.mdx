@@ -1,11 +1,11 @@
 ---
 title: 最短クイックスタート
-description: チェックアウト済みcsv-readonly exampleを使ってikashitaを初めて動かす。
+description: チェックアウト済みcsv-readonly exampleを使ってegakeを初めて動かす。
 sidebar:
   label: 最短クイックスタート
 ---
 
-{/* i18n-sync: id=guide/quickstart digest=09e53b44e102f6157df80eadfcae4f36a949a1717ca2bbe5ffa6a767249447c8 */}
+{/* i18n-sync: id=guide/quickstart digest=d841feb9e5b84ce15ef90695534cf92971e3330e1ef1de046c1202f429b29eee */}
 
 import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
@@ -22,7 +22,7 @@ import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 2. exampleが正しいか検証します。
 
    ```sh
-   cargo run -p ikashita-cli -- validate examples/csv-readonly
+   cargo run -p egake-cli -- validate examples/csv-readonly
    ```
 
    `app.ui.kdl`、schema JSON、`resources.kdl`、CSVの整合性を確認します。
@@ -30,14 +30,14 @@ import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 3. CSVを検索して一覧します。`ada`はタイトルのAda Lovelaceに一致します。
 
    ```sh
-   cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
+   cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
    ```
 
 4. プロジェクトテストと静的bundleを確認します。
 
    ```sh
-   cargo run -p ikashita-cli -- test examples/csv-readonly
-   cargo run -p ikashita-cli -- build examples/csv-readonly
+   cargo run -p egake-cli -- test examples/csv-readonly
+   cargo run -p egake-cli -- build examples/csv-readonly
    ```
 
    buildは`examples/csv-readonly/dist/`に`index.html`、runtime assets、`app.bundle.json`を書き出します。この生成物はcommitしません。
@@ -66,7 +66,7 @@ import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 <Aside type="note" title="編集したら再実行">
   `dev`はこのMVPではno-watchです。ファイルを編集した場合は停止して、`cargo run
-  -p ikashita-cli -- dev examples/csv-readonly`を再起動してください。
+  -p egake-cli -- dev examples/csv-readonly`を再起動してください。
 </Aside>
 
 次は[ジャンル別の使い方](../usage/)から、自分のhost環境に近い章へ進めます。

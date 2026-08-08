@@ -1,11 +1,11 @@
 ---
 title: 実行可能なMVP仕様
-description: ikashitaのResource Contract、KDL Application Profile、CLI、ホスト境界の正本。
+description: egakeのResource Contract、KDL Application Profile、CLI、ホスト境界の正本。
 sidebar:
   label: 実行可能なMVP仕様
 ---
 
-<!-- i18n-sync: id=spec digest=f879f3a83333c17428f9b231b497a0797fbf65692fc116355b06ce40aa84468d -->
+<!-- i18n-sync: id=spec digest=b70f34fcb192659870e29206083200a2d7a2cb7c3e7bbf4ab01e4d8c0f258b4a -->
 
 This page is the executable contract. Beginner-oriented explanations live in
 the guide pages; when an explanation and this page disagree, this page and the
@@ -33,10 +33,10 @@ validation error; a later profile may define an explicit migration.
 
 ### Parser and typed IR
 
-`ikashita-spec` exposes these owned entry points:
+`egake-spec` exposes these owned entry points:
 
 ```rust
-use ikashita_spec::{parse_and_validate, ApplicationDefinition};
+use egake_spec::{parse_and_validate, ApplicationDefinition};
 
 let definition: ApplicationDefinition = parse_and_validate(source)?;
 let definition = ApplicationDefinition::parse_and_validate_file("app.ui.kdl")?;
@@ -209,7 +209,7 @@ the standalone HTTP adapter.
 
 ### Local data provider
 
-`ikashita-data` opens an existing regular CSV or Parquet file and maps each
+`egake-data` opens an existing regular CSV or Parquet file and maps each
 row to a JSON object. The format is inferred from the file extension or can be
 set explicitly in the resource configuration. CSV fields are strings and CSV
 resources may be writable; Parquet fields preserve their supported Arrow types
@@ -237,13 +237,13 @@ error details.
 
 ## Build output
 
-`ikashita build` emits a self-contained static bundle by default. The output
+`egake build` emits a self-contained static bundle by default. The output
 contains `index.html`, `runtime.js`, `runtime.css`, and `app.bundle.json`; it
 does not load runtime code from a CDN or require the source KDL file at
 runtime. A host may inject Resource Providers at the documented adapter
 boundary; provider data and credentials are not embedded in the static output.
 
-`ikashita build --format single-html` (also `--single-html`) selects the
+`egake build --format single-html` (also `--single-html`) selects the
 standalone artifact format. `--output dist` writes one file at
 `dist/index.html`; an output path ending in `.html`, such as
 `--output dist/app.html`, is written directly. The document contains exactly
@@ -268,8 +268,8 @@ document. It refuses to replace a symlink or other non-file at those names.
 
 ## CLI project and runtime increment
 
-The Rust `ikashita` binary resolves a project directory from a positional
-directory, `--project DIR`, or `.`. It requires `ikashita.toml` with an
+The Rust `egake` binary resolves a project directory from a positional
+directory, `--project DIR`, or `.`. It requires `egake.toml` with an
 `[app]` table. `app.definition` defaults to `app.ui.kdl`; `app.name`, when
 present, must match the KDL `app` name. The commands are `new`, `validate`,
 `inspect`, `build`, `run`, `dev`, `test`, and `list`. `list` opens one
@@ -310,8 +310,8 @@ resource must expose every capability named
 by its application definition before `run`/`dev` starts.
 
 `run` and `dev` construct `DataResourceProvider` instances, attach the generated
-`StaticBundle` to `ikashita-server::ServerState`, and serve the documented
-same-origin `/api/ikashita/v1` routes. They default to `127.0.0.1:8787`; a
+`StaticBundle` to `egake-server::ServerState`, and serve the documented
+same-origin `/api/egake/v1` routes. They default to `127.0.0.1:8787`; a
 non-loopback host requires `--allow-external` and emits an explicit warning.
 The server has no CORS layer by default. `dev` currently means a local
 development server with an in-memory generated bundle; file watching is
@@ -326,7 +326,7 @@ failures as field-aware errors/toasts. It uses
 `textContent`/DOM construction and does not use `eval`, arbitrary HTML
 injection, CDN assets, remote URLs, or embedded resource records.
 
-`new` creates a working contacts CRUD fixture with `ikashita.toml`,
+`new` creates a working contacts CRUD fixture with `egake.toml`,
 `app.ui.kdl`, `resources.kdl`, a JSON schema, `data/contacts.csv`, and an
 `actions.rhai` documentation placeholder. The placeholder is never executed;
 the CLI does not provide an OS command or Rhai execution boundary.
@@ -383,34 +383,34 @@ has `update` and `destroy`; the Solid result is handed to the host's normal
 
 ## Ugoite integration boundary
 
-Ugoite integration is a separate adapter, not a dependency of any ikashita
+Ugoite integration is a separate adapter, not a dependency of any egake
 crate. The adapter wraps an existing Ugoite client and maps it to the shared
-Resource Contract. ikashita does not own Ugoite authentication, URLs, storage,
+Resource Contract. egake does not own Ugoite authentication, URLs, storage,
 or data types, and the core workspace must remain buildable without a Ugoite
 checkout or network access.
 
 ## Standalone HTTP adapter
 
-`ikashita-server` exposes a testable axum router and an async `serve`/`run`
+`egake-server` exposes a testable axum router and an async `serve`/`run`
 function. The default `ServerConfig` remains `127.0.0.1:8787`; binding, auth,
 and external exposure are not forced by the library. The routes are:
 
 ```text
-GET    /api/ikashita/v1/resources/:name/schema
-GET    /api/ikashita/v1/resources/:name?q=&sort=&offset=&limit=
-POST   /api/ikashita/v1/resources/:name
-GET    /api/ikashita/v1/resources/:name/items/:id
-PATCH  /api/ikashita/v1/resources/:name/items/:id
-DELETE /api/ikashita/v1/resources/:name/items/:id
-POST   /api/ikashita/v1/resources/:name/actions/:action
+GET    /api/egake/v1/resources/:name/schema
+GET    /api/egake/v1/resources/:name?q=&sort=&offset=&limit=
+POST   /api/egake/v1/resources/:name
+GET    /api/egake/v1/resources/:name/items/:id
+PATCH  /api/egake/v1/resources/:name/items/:id
+DELETE /api/egake/v1/resources/:name/items/:id
+POST   /api/egake/v1/resources/:name/actions/:action
 ```
 
 The standalone server also exposes a provider-independent OpenAPI 3 document
 and a local Swagger UI-compatible viewer:
 
 ```text
-GET    /api/ikashita/v1/openapi.json
-GET    /api/ikashita/v1/swagger
+GET    /api/egake/v1/openapi.json
+GET    /api/egake/v1/swagger
 ```
 
 The viewer embeds its CSS, JavaScript, and OpenAPI document in the returned
@@ -495,7 +495,7 @@ repository.
 
 ### Python host boundary
 
-`python/ikashita` contains a standard-library `Resource` protocol and
+`python/egake` contains a standard-library `Resource` protocol and
 `ResourceBase` convenience class. `ResourceASGIApp` dispatches the same schema,
 list, get, create, merge-patch update, delete, and invoke routes. It parses
 `q`, comma-separated `sort`, `offset`, and `limit` (default 50, zero becomes 1,
@@ -506,7 +506,7 @@ returned as a generic `internal` error without logging request data. It rejects
 malformed/oversized query and body input, decodes path segments once, validates
 provider schema/result shapes, and does not echo internal provider messages.
 
-The core adapter does not know about auth. `ikashita.fastapi.create_fastapi_app`
+The core adapter does not know about auth. `egake.fastapi.create_fastapi_app`
 is an optional bridge that imports FastAPI only when called; deployment hosts
 may add their own middleware. Core Python tests require only the standard
 library. See `examples/python-fastapi`, `examples/js-embedded`, and
@@ -531,7 +531,7 @@ The host adapter surface currently shipped in this checkout is:
 | Svelte               | `packages/svelte/mod.ts`             | `createSvelteRenderer`, `createSvelteResourceProvider`   |
 | React                | `packages/react/mod.ts`              | `createReactRenderer`, `createReactResourceProvider`     |
 | Vue                  | `packages/vue/mod.ts`                | `createVueRenderer`, `createVueResourceProvider`         |
-| Python ASGI          | `python/ikashita`                    | `ResourceASGIApp`, `ResourceBase`                        |
+| Python ASGI          | `python/egake`                       | `ResourceASGIApp`, `ResourceBase`                        |
 | Ugoite               | `examples/ugoite-entries/adapter.ts` | example adapter around a host-owned client               |
 
 Solid and Svelte adapters follow the same serialized-application and

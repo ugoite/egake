@@ -5,7 +5,7 @@ sidebar:
   label: Mental model
 ---
 
-{/* i18n-sync: id=guide/mental-model digest=a1078cc4507f51120b326e2c0bf79dc5bfac3336ad519f2656b03d2bf5d1c249 */}
+{/* i18n-sync: id=guide/mental-model digest=a502c22a9fdf81837cccb4b64de6e5a3e5652f82e0c7537dc7e7f05b9abbaf8a */}
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
@@ -28,12 +28,12 @@ app.ui.kdl + schema JSON + resources.kdl
       ┌─────────┴─────────┐
       ▼                   ▼
   local CSV            host provider
-  ikashita run         JS / Python / Ugoite
+  egake run         JS / Python / Ugoite
       │                   │
       └──── Resource Contract ────┘
 ```
 
-`run` and `dev` serve a bundle from memory and connect a local data provider to `/api/ikashita/v1`. Embedded JavaScript creates a `ResourceProvider` map and passes it to `mountApplication`. In both cases, the screen does not need to know where records are stored.
+`run` and `dev` serve a bundle from memory and connect a local data provider to `/api/egake/v1`. Embedded JavaScript creates a `ResourceProvider` map and passes it to `mountApplication`. In both cases, the screen does not need to know where records are stored.
 
 ## A contract is a set of operations
 

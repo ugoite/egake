@@ -1,6 +1,6 @@
 [package]
-name = "ikashita-spec"
-description = "Versioned KDL Application Profile metadata for ikashita"
+name = "egake-spec"
+description = "Versioned KDL Application Profile metadata for egake"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

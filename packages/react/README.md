@@ -1,4 +1,4 @@
-# `@ikashita/react`
+# `@egake/react`
 
 This is a thin, dependency-free adapter. React stays a host application
 dependency; the package only expects a value with `createElement`.

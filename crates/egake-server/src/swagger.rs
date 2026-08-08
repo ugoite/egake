@@ -224,9 +224,9 @@ pub(crate) fn openapi_document(api_prefix: &str) -> Value {
     json!({
         "openapi": OPENAPI_VERSION,
         "info": {
-            "title": "ikashita Standalone API",
+            "title": "egake Standalone API",
             "version": "1.0.0",
-            "description": "OpenAPI 3 contract for the local ikashita Resource Provider HTTP adapter."
+            "description": "OpenAPI 3 contract for the local egake Resource Provider HTTP adapter."
         },
         "servers": [{ "url": "/", "description": "Current local server" }],
         "tags": [{ "name": "Resources", "description": "Provider-backed JSON resources." }],
@@ -407,7 +407,7 @@ pub(crate) fn swagger_ui_html(api_prefix: &str) -> String {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Swagger UI — ikashita Standalone API</title>
+  <title>Swagger UI — egake Standalone API</title>
   <style>
     :root {{ color-scheme: light; font-family: ui-sans-serif, system-ui, sans-serif; background: #f4f6f8; color: #17202a; }}
     body {{ margin: 0; }}
@@ -435,7 +435,7 @@ pub(crate) fn swagger_ui_html(api_prefix: &str) -> String {
 </head>
 <body>
   <header>
-    <h1>Swagger UI — ikashita Standalone API</h1>
+    <h1>Swagger UI — egake Standalone API</h1>
     <p>OpenAPI {OPENAPI_VERSION} · local, bundled, and provider-independent</p>
     <a href="{openapi_url}">Download OpenAPI JSON</a>
   </header>
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn generated_ui_has_no_external_references() {
-        let html = swagger_ui_html("/api/ikashita/v1");
+        let html = swagger_ui_html("/api/egake/v1");
         assert!(html.contains("Swagger UI"));
         assert!(html.contains("OpenAPI 3.0.3"));
         assert!(!html.contains("http://"));
@@ -538,12 +538,12 @@ mod tests {
 
     #[test]
     fn generated_document_maps_every_contract_operation() {
-        let document = openapi_document("/api/ikashita/v1");
+        let document = openapi_document("/api/egake/v1");
         assert_eq!(document["openapi"], OPENAPI_VERSION);
         assert_eq!(document["paths"].as_object().map(Map::len), Some(4));
 
         for endpoint in ENDPOINT_CONTRACT {
-            let path = format!("/api/ikashita/v1{}", endpoint.path);
+            let path = format!("/api/egake/v1{}", endpoint.path);
             assert_eq!(
                 document["paths"][path.as_str()][endpoint.method]["operationId"],
                 endpoint.operation_id

@@ -27,14 +27,14 @@ run = [
 [tasks."ui:build"]
 description = "Build the checked-in Tailwind v4 browser runtime stylesheet"
 sources = [
-    "crates/ikashita-cli/assets/runtime.css.src",
-    "crates/ikashita-cli/assets/runtime.js",
+    "crates/egake-cli/assets/runtime.css.src",
+    "crates/egake-cli/assets/runtime.js",
     "packages/runtime/src/application.ts",
     "package.json",
     "deno.lock",
 ]
-outputs = ["crates/ikashita-cli/assets/runtime.css"]
-run = "deno run --frozen --node-modules-dir=auto -A npm:@tailwindcss/cli@4.3.0 --input crates/ikashita-cli/assets/runtime.css.src --output crates/ikashita-cli/assets/runtime.css --minify"
+outputs = ["crates/egake-cli/assets/runtime.css"]
+run = "deno run --frozen --node-modules-dir=auto -A npm:@tailwindcss/cli@4.3.0 --input crates/egake-cli/assets/runtime.css.src --output crates/egake-cli/assets/runtime.css --minify"
 
 [tasks."ui:check"]
 description = "Check that the checked-in Tailwind runtime stylesheet is reproducible"
@@ -179,9 +179,9 @@ run = [
 ]
 
 [tasks."docs:build:pages"]
-description = "Build and check the GitHub Pages Astro Starlight docsite (base=/ikashita/)"
+description = "Build and check the GitHub Pages Astro Starlight docsite (base=/egake/)"
 depends = ["docs:check"]
-env = { DOCSITE_BASE = "ikashita" }
+env = { DOCSITE_BASE = "egake" }
 run = [
     "npm --prefix docsite run build",
     "python scripts/check_doc_links.py --dist docsite/dist --base \"${DOCSITE_BASE:-/}\"",
@@ -200,9 +200,13 @@ depends = ["docs:build:both"]
 description = "Audit tracked and reachable generated, secret, and cache paths"
 run = "bash scripts/audit-git-hygiene.sh"
 
+[tasks."brand:check"]
+description = "Reject stale product paths and text"
+run = "bash scripts/check-brand.sh"
+
 [tasks.ci]
 description = "Run the complete local validation suite"
-depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test", "docs:ci", "git:hygiene"]
+depends = ["fmt:check", "lint", "check", "test", "build", "deno:fmt:check", "deno:check", "deno:test", "python:test", "docs:ci", "git:hygiene", "brand:check"]
 
 [tasks.install-hooks]
 description = "Configure the repository-local pre-commit hook"

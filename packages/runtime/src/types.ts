@@ -108,7 +108,7 @@ export interface ResourceProvider<T extends JsonObject = JsonObject> {
 
 /** Options for a same-origin HTTP client. */
 export interface ResourceClientOptions {
-  /** Relative API root; defaults to `/api/ikashita/v1`. */
+  /** Relative API root; defaults to `/api/egake/v1`. */
   readonly basePath?: string;
   /** Fetch implementation, useful for deterministic tests and embedded hosts. */
   readonly fetch?: typeof globalThis.fetch;

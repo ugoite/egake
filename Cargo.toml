@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/ikashita-resource",
-    "crates/ikashita-spec",
-    "crates/ikashita-data",
-    "crates/ikashita-server",
-    "crates/ikashita-cli",
+    "crates/egake-resource",
+    "crates/egake-spec",
+    "crates/egake-data",
+    "crates/egake-server",
+    "crates/egake-cli",
 ]
 
 [workspace.package]

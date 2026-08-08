@@ -3,7 +3,7 @@ import json
 import unittest
 from typing import Any, cast
 
-from ikashita import (
+from egake import (
     CAPABILITIES,
     FieldSchema,
     JsonObject,
@@ -105,7 +105,7 @@ class ResourceASGITest(unittest.TestCase):
         self.app = ResourceASGIApp({"contacts": MemoryResource()})
 
     def test_crud_and_invoke_routes(self):
-        status, schema, _ = call(self.app, "GET", "/api/ikashita/v1/resources/contacts/schema")
+        status, schema, _ = call(self.app, "GET", "/api/egake/v1/resources/contacts/schema")
         self.assertEqual(status, 200)
         self.assertEqual(schema["name"], "contacts")
         self.assertEqual(schema["fields"][2]["enum"], ["active", "paused"])
@@ -120,29 +120,29 @@ class ResourceASGITest(unittest.TestCase):
             },
         )
 
-        status, page, _ = call(self.app, "GET", "/api/ikashita/v1/resources/contacts")
+        status, page, _ = call(self.app, "GET", "/api/egake/v1/resources/contacts")
         self.assertEqual(status, 200)
         self.assertEqual(page["items"][0]["name"], "Ada")
 
-        status, created, _ = call(self.app, "POST", "/api/ikashita/v1/resources/contacts", b'{"id":"2","name":"Grace"}')
+        status, created, _ = call(self.app, "POST", "/api/egake/v1/resources/contacts", b'{"id":"2","name":"Grace"}')
         self.assertEqual((status, created["id"]), (201, "2"))
 
         status, updated, _ = call(
-            self.app, "PATCH", "/api/ikashita/v1/resources/contacts/items/2", b'{"name":"Grace Hopper"}'
+            self.app, "PATCH", "/api/egake/v1/resources/contacts/items/2", b'{"name":"Grace Hopper"}'
         )
         self.assertEqual((status, updated["name"]), (200, "Grace Hopper"))
 
-        status, result, _ = call(self.app, "POST", "/api/ikashita/v1/resources/contacts/actions/echo", b'{"ok":true}')
+        status, result, _ = call(self.app, "POST", "/api/egake/v1/resources/contacts/actions/echo", b'{"ok":true}')
         self.assertEqual((status, result["action"]), (200, "echo"))
 
-        status, deleted, _ = call(self.app, "DELETE", "/api/ikashita/v1/resources/contacts/items/2")
+        status, deleted, _ = call(self.app, "DELETE", "/api/egake/v1/resources/contacts/items/2")
         self.assertEqual((status, deleted["ok"]), (200, True))
 
     def test_structured_errors_and_request_id(self):
         status, error, headers = call(
             self.app,
             "GET",
-            "/api/ikashita/v1/resources/missing",
+            "/api/egake/v1/resources/missing",
             headers=((b"x-request-id", b"host-request-1"),),
         )
         self.assertEqual(status, 404)
@@ -150,14 +150,14 @@ class ResourceASGITest(unittest.TestCase):
         self.assertEqual(error["error"]["request_id"], "host-request-1")
         self.assertEqual(headers[b"x-request-id"], b"host-request-1")
 
-        status, error, _ = call(self.app, "POST", "/api/ikashita/v1/resources/contacts", b"not json")
+        status, error, _ = call(self.app, "POST", "/api/egake/v1/resources/contacts", b"not json")
         self.assertEqual((status, error["error"]["code"]), (400, "validation_failed"))
 
     def test_encoded_paths_oversized_input_and_invalid_request_ids_are_safe(self):
         status, item, headers = call(
             self.app,
             "GET",
-            "/api/ikashita/v1/resources/contacts/items/%31",
+            "/api/egake/v1/resources/contacts/items/%31",
             headers=((b"x-request-id", b"bad\r\nvalue"),),
         )
         self.assertEqual((status, item["id"]), (200, "1"))
@@ -167,14 +167,14 @@ class ResourceASGITest(unittest.TestCase):
         status, error, _ = call(
             self.app,
             "GET",
-            "/api/ikashita/v1/resources/contacts/items/%2e%2e",
+            "/api/egake/v1/resources/contacts/items/%2e%2e",
         )
         self.assertEqual((status, error["error"]["code"]), (404, "not_found"))
 
         status, error, _ = call(
             self.app,
             "GET",
-            "/api/ikashita/v1/resources/contacts",
+            "/api/egake/v1/resources/contacts",
             query_string=b"q=" + b"x" * (16 * 1024),
         )
         self.assertEqual((status, error["error"]["code"]), (400, "validation_failed"))
@@ -183,7 +183,7 @@ class ResourceASGITest(unittest.TestCase):
         status, error, _ = call(
             limited,
             "POST",
-            "/api/ikashita/v1/resources/contacts",
+            "/api/egake/v1/resources/contacts",
             b'{"id":"2"}',
         )
         self.assertEqual((status, error["error"]["code"]), (400, "validation_failed"))
@@ -196,7 +196,7 @@ class ResourceASGITest(unittest.TestCase):
         status, error, _ = call(
             ResourceASGIApp({"contacts": MismatchedResource()}),
             "GET",
-            "/api/ikashita/v1/resources/contacts/schema",
+            "/api/egake/v1/resources/contacts/schema",
         )
         self.assertEqual((status, error["error"]["code"]), (500, "internal"))
         self.assertEqual(error["error"]["message"], "internal server error")
@@ -208,7 +208,7 @@ class ResourceASGITest(unittest.TestCase):
         status, error, _ = call(
             ResourceASGIApp({"contacts": LeakyResource()}),
             "GET",
-            "/api/ikashita/v1/resources/contacts/items/1",
+            "/api/egake/v1/resources/contacts/items/1",
         )
         self.assertEqual((status, error["error"]["code"]), (500, "internal"))
         self.assertEqual(error["error"]["message"], "internal server error")
@@ -226,6 +226,6 @@ class ResourceASGITest(unittest.TestCase):
             status, error, _ = call(
                 ResourceASGIApp({"contacts": InvalidResource()}),
                 "GET",
-                "/api/ikashita/v1/resources/contacts/schema",
+                "/api/egake/v1/resources/contacts/schema",
             )
             self.assertEqual((status, error["error"]["code"]), (500, "internal"))

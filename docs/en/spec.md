@@ -1,11 +1,11 @@
 ---
 title: Executable MVP specification
-description: The source of truth for ikashita's Resource Contract, KDL Application Profile, CLI, and host boundaries.
+description: The source of truth for egake's Resource Contract, KDL Application Profile, CLI, and host boundaries.
 sidebar:
   label: Executable MVP specification
 ---
 
-<!-- i18n-sync: id=spec digest=f879f3a83333c17428f9b231b497a0797fbf65692fc116355b06ce40aa84468d -->
+<!-- i18n-sync: id=spec digest=b70f34fcb192659870e29206083200a2d7a2cb7c3e7bbf4ab01e4d8c0f258b4a -->
 
 This page is the executable contract. Beginner-oriented explanations live in the guide pages; when an explanation and this page disagree, this page and the implementation take precedence.
 
@@ -26,10 +26,10 @@ The profile version is part of validated application metadata and is independent
 
 ### Parser and typed IR
 
-`ikashita-spec` exposes owned entry points such as:
+`egake-spec` exposes owned entry points such as:
 
 ```rust
-use ikashita_spec::{parse_and_validate, ApplicationDefinition};
+use egake_spec::{parse_and_validate, ApplicationDefinition};
 
 let definition: ApplicationDefinition = parse_and_validate(source)?;
 let definition = ApplicationDefinition::parse_and_validate_file("app.ui.kdl")?;
@@ -95,23 +95,23 @@ Provider failures have a stable `code`, human-facing `message`, optional field-l
 
 ### Local data provider
 
-`ikashita-data` opens an existing regular CSV or Parquet file and maps each row to a JSON object. The format is inferred from the file extension or set explicitly in resource configuration. CSV fields are strings and CSV resources may be writable; Parquet fields preserve supported Arrow types and Parquet resources are read-only. The primary key defaults to `id`; duplicate or empty keys, duplicate fields, malformed rows, path traversal, directories, and other non-file targets are rejected. Read-only resources may omit the key and then advertise only schema/list capabilities. Search is a case-insensitive substring over all fields; sorting is stable lexicographic field sorting followed by offset/limit pagination.
+`egake-data` opens an existing regular CSV or Parquet file and maps each row to a JSON object. The format is inferred from the file extension or set explicitly in resource configuration. CSV fields are strings and CSV resources may be writable; Parquet fields preserve supported Arrow types and Parquet resources are read-only. The primary key defaults to `id`; duplicate or empty keys, duplicate fields, malformed rows, path traversal, directories, and other non-file targets are rejected. Read-only resources may omit the key and then advertise only schema/list capabilities. Search is a case-insensitive substring over all fields; sorting is stable lexicographic field sorting followed by offset/limit pagination.
 
 Writes use a process-local lock shared by providers opened for the same canonical path. The provider serializes read-modify-write, writes and syncs a temporary file, optionally retains regular-file backups, atomically replaces the original, and syncs the containing directory. A failed write removes only its temporary file. CSV has a fixed column set: merge-patch `null` persists as an empty cell, and records and values are never echoed in storage errors.
 
 ## Build output
 
-`ikashita build` emits a self-contained static bundle by default: `index.html`, `runtime.js`, `runtime.css`, and `app.bundle.json`. It does not load runtime code from a CDN or require the source KDL at runtime. Provider data and credentials are not embedded.
+`egake build` emits a self-contained static bundle by default: `index.html`, `runtime.js`, `runtime.css`, and `app.bundle.json`. It does not load runtime code from a CDN or require the source KDL at runtime. Provider data and credentials are not embedded.
 
 `--format single-html` (also `--single-html`) writes one HTML document. CSS and JavaScript are inline, validated metadata is in a non-executable JSON script block, and the document has no external runtime/application assets. Its CSP uses `default-src 'none'`, same-origin API `connect-src`, and hashes for the exact inline contents. Script-sensitive characters are escaped in serialized application data.
 
 ## CLI project and runtime increment
 
-The Rust `ikashita` binary resolves a project from a positional directory, `--project DIR`, or `.`. It requires `ikashita.toml` with an `[app]` table; `app.definition` defaults to `app.ui.kdl`, and `app.name`, when present, must match the KDL app name. Commands are `new`, `validate`, `inspect`, `build`, `run`, `dev`, `test`, and `list`.
+The Rust `egake` binary resolves a project from a positional directory, `--project DIR`, or `.`. It requires `egake.toml` with an `[app]` table; `app.definition` defaults to `app.ui.kdl`, and `app.name`, when present, must match the KDL app name. Commands are `new`, `validate`, `inspect`, `build`, `run`, `dev`, `test`, and `list`.
 
 Resource configuration selects `resources.kdl` when present, otherwise the TOML tables. Supplying both is a hard error. Definition, schema, data, and output paths are project-relative and reject absolute paths and `..`; symlinks resolving outside the project are also rejected. The CLI checks the supported JSON Schema subset, derives provider metadata, validates data rows without printing their values, and ensures every declared capability is provided before `run` or `dev` starts.
 
-`run` and `dev` construct data providers, attach a generated `StaticBundle` to the server state, and serve same-origin `/api/ikashita/v1` routes on loopback by default. A non-loopback host requires `--allow-external` and an explicit warning. `dev` is a local server with an in-memory bundle; watching is outside this increment.
+`run` and `dev` construct data providers, attach a generated `StaticBundle` to the server state, and serve same-origin `/api/egake/v1` routes on loopback by default. A non-loopback host requires `--allow-external` and an explicit warning. `dev` is a local server with an in-memory bundle; watching is outside this increment.
 
 ## Framework host adapters
 
@@ -119,15 +119,15 @@ Framework adapters are thin translation layers. The host supplies render primiti
 
 ## Ugoite integration boundary
 
-Ugoite is a host-owned client, not an ikashita dependency. The adapter maps `schema`, `list`, `get`, `create`, `update`, `delete`, and optional `invoke` to the Resource Contract. Authentication, URLs, cookies, retries, and data types remain in the host. The core builds without a Ugoite checkout.
+Ugoite is a host-owned client, not an egake dependency. The adapter maps `schema`, `list`, `get`, `create`, `update`, `delete`, and optional `invoke` to the Resource Contract. Authentication, URLs, cookies, retries, and data types remain in the host. The core builds without a Ugoite checkout.
 
 ## Standalone HTTP adapter
 
-The HTTP adapter registers providers by exact resource name and exposes the versioned same-origin routes under `/api/ikashita/v1`. It provides schema and list/get/create/update/delete operations, plus provider-defined `POST /resources/:name/actions/:action` invoke. It validates path segments, request IDs, query encoding, JSON bodies, capabilities, and limits before dispatch. Errors remain structured and include a request ID; the adapter does not add a default CORS layer.
+The HTTP adapter registers providers by exact resource name and exposes the versioned same-origin routes under `/api/egake/v1`. It provides schema and list/get/create/update/delete operations, plus provider-defined `POST /resources/:name/actions/:action` invoke. It validates path segments, request IDs, query encoding, JSON bodies, capabilities, and limits before dispatch. Errors remain structured and include a request ID; the adapter does not add a default CORS layer.
 
 The standalone server also exposes a provider-independent OpenAPI 3 document at
-`GET /api/ikashita/v1/openapi.json` and a local Swagger-compatible viewer at
-`GET /api/ikashita/v1/swagger`. The viewer embeds its CSS, JavaScript, and
+`GET /api/egake/v1/openapi.json` and a local Swagger-compatible viewer at
+`GET /api/egake/v1/swagger`. The viewer embeds its CSS, JavaScript, and
 OpenAPI document, and never loads a CDN, external asset, font, or remote data.
 
 ## Host/runtime adapters

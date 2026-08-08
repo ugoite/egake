@@ -15,7 +15,7 @@ use std::{
 };
 
 use csv::{ReaderBuilder, StringRecord, WriterBuilder};
-use ikashita_resource::{
+use egake_resource::{
     Capability, FieldSchema, FieldType, JsonResourceProvider, ListQuery, ResourceError,
     ResourceErrorKind, ResourcePage, ResourceProvider, ResourceResult, ResourceSchema,
     SortDirection, apply_merge_patch, require_object_patch,
@@ -784,7 +784,7 @@ fn valid_time(value: &str) -> bool {
     valid_clock && valid_timezone
 }
 
-fn compare_values(left: &Value, right: &Value, sorts: &[ikashita_resource::Sort]) -> Ordering {
+fn compare_values(left: &Value, right: &Value, sorts: &[egake_resource::Sort]) -> Ordering {
     sorts
         .iter()
         .find_map(|sort| {
@@ -836,7 +836,7 @@ fn temporary_path(path: &Path) -> PathBuf {
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
     let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or("resource.csv");
-    path.with_file_name(format!(".{file_name}.ikashita-{stamp}-{counter}.tmp"))
+    path.with_file_name(format!(".{file_name}.egake-{stamp}-{counter}.tmp"))
 }
 
 fn retain_backups(path: &Path, backup_count: u8) -> io::Result<()> {
@@ -882,7 +882,7 @@ fn backup_path(path: &Path, index: u8) -> PathBuf {
 mod tests {
     use std::{fs, sync::Arc, thread};
 
-    use ikashita_resource::{Capability, JsonResourceProvider, ListQuery, ResourceErrorKind, Sort};
+    use egake_resource::{Capability, JsonResourceProvider, ListQuery, ResourceErrorKind, Sort};
     use tempfile::tempdir;
 
     use super::*;

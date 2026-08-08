@@ -1,4 +1,4 @@
-//! The `ikashita` project CLI and local static runtime host.
+//! The `egake` project CLI and local static runtime host.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -11,12 +11,12 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use ikashita_data::{DataFormat, DataResourceConfig, DataResourceProvider};
-use ikashita_resource::{
+use egake_data::{DataFormat, DataResourceConfig, DataResourceProvider};
+use egake_resource::{
     Capability, FieldSchema, FieldType, JsonResourceProvider, ListQuery, ResourceSchema,
 };
-use ikashita_server::{ServerConfig, ServerState, StaticBundle};
-use ikashita_spec::{
+use egake_server::{ServerConfig, ServerState, StaticBundle};
+use egake_spec::{
     ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, Component, Diagnostic,
     EventBinding, ResourceCapability,
 };
@@ -31,11 +31,11 @@ const INDEX_HTML: &str = r##"<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'">
-  <title>ikashita application</title>
+  <title>egake application</title>
   <link rel="stylesheet" href="runtime.css">
 </head>
 <body>
-  <div id="ikashita-root" aria-live="polite"></div>
+  <div id="egake-root" aria-live="polite"></div>
   <script src="runtime.js" defer></script>
 </body>
 </html>
@@ -58,7 +58,7 @@ const SCHEMA_ERROR_CODE: &str = "IK3002";
 const DATA_ERROR_CODE: &str = "IK3003";
 
 #[derive(Debug, Parser)]
-#[command(name = "ikashita", version, about = "Build and run KDL application projects")]
+#[command(name = "egake", version, about = "Build and run KDL application projects")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -86,7 +86,7 @@ enum Command {
 
 #[derive(Debug, Args)]
 struct ProjectArgs {
-    /// Project directory containing ikashita.toml.
+    /// Project directory containing egake.toml.
     #[arg(short, long, value_name = "DIR")]
     project: Option<PathBuf>,
     /// Project directory positional shorthand.
@@ -120,7 +120,7 @@ struct BuildArgs {
 
 #[derive(Debug, Args)]
 struct ServeArgs {
-    /// Project directory containing ikashita.toml.
+    /// Project directory containing egake.toml.
     #[arg(short, long, value_name = "DIR")]
     project: Option<PathBuf>,
     /// Project directory positional shorthand.
@@ -370,7 +370,7 @@ fn command_new(args: NewArgs) -> Result<(), CliError> {
     if args.json {
         print_json(json!({ "ok": true, "project": args.path, "application": name }));
     } else {
-        println!("created ikashita project {} ({name})", args.path.display());
+        println!("created egake project {} ({name})", args.path.display());
     }
     Ok(())
 }
@@ -602,7 +602,7 @@ fn command_serve(args: ServeArgs, dev: bool) -> Result<(), CliError> {
         .build()
         .map_err(|_| CliError::message("could not initialize the async server runtime"))?;
     runtime
-        .block_on(ikashita_server::run(config, state))
+        .block_on(egake_server::run(config, state))
         .map_err(|error| CliError::message(format!("server stopped: {error}")))
 }
 
@@ -632,11 +632,11 @@ fn load_project(path: &Path) -> Result<Project, CliError> {
     if !root.is_dir() {
         return Err(CliError::message("project path must be a directory"));
     }
-    let config_path = root.join("ikashita.toml");
+    let config_path = root.join("egake.toml");
     let config_source = fs::read_to_string(&config_path)
-        .map_err(|error| CliError::message(format!("ikashita.toml: {error}")))?;
+        .map_err(|error| CliError::message(format!("egake.toml: {error}")))?;
     let config: RawProjectConfig = toml::from_str(&config_source).map_err(|error| {
-        CliError::message(format!("ikashita.toml: invalid configuration: {error}"))
+        CliError::message(format!("egake.toml: invalid configuration: {error}"))
     })?;
     let definition_relative = config.app.definition.unwrap_or_else(|| PathBuf::from("app.ui.kdl"));
     let definition_path = safe_project_join(&root, &definition_relative, "application definition")?;
@@ -662,7 +662,7 @@ fn load_project(path: &Path) -> Result<Project, CliError> {
         let kdl_resources = parse_resources_kdl(&root, Path::new("resources.kdl"))?;
         if !resources.is_empty() {
             return Err(CliError::message(
-                "resource configuration must use either resources.kdl or [resources.*] in ikashita.toml, not both",
+                "resource configuration must use either resources.kdl or [resources.*] in egake.toml, not both",
             ));
         }
         resources = kdl_resources;
@@ -702,10 +702,10 @@ fn load_validated(
         diagnostics.push(project_diagnostic(
             PROJECT_ERROR_CODE,
             format!(
-                "ikashita.toml app.name '{}' does not match app definition '{}'",
+                "egake.toml app.name '{}' does not match app definition '{}'",
                 configured_name, definition.profile.name
             ),
-            Some("ikashita.toml"),
+            Some("egake.toml"),
         ));
     }
 
@@ -808,10 +808,10 @@ fn open_data_provider(
     name: &str,
     config: &ResourceConfig,
     schema: Option<ResourceSchema>,
-) -> Result<DataResourceProvider, ikashita_resource::ResourceError> {
+) -> Result<DataResourceProvider, egake_resource::ResourceError> {
     let path = safe_project_join(root, &config.path, "data resource").map_err(|error| {
-        ikashita_resource::ResourceError::new(
-            ikashita_resource::ResourceErrorKind::Validation,
+        egake_resource::ResourceError::new(
+            egake_resource::ResourceErrorKind::Validation,
             error.message.unwrap_or_default(),
         )
     })?;
@@ -830,8 +830,8 @@ fn open_data_provider(
 }
 
 fn check_capabilities(
-    resource: &ikashita_spec::ResourceDefinition,
-    schema: &ikashita_resource::ResourceResult<ResourceSchema>,
+    resource: &egake_spec::ResourceDefinition,
+    schema: &egake_resource::ResourceResult<ResourceSchema>,
     diagnostics: &mut Vec<CliDiagnostic>,
 ) {
     let Ok(schema) = schema else { return };
@@ -858,7 +858,7 @@ fn check_capabilities(
 }
 
 fn check_provider_schema(
-    resource: &ikashita_spec::ResourceDefinition,
+    resource: &egake_spec::ResourceDefinition,
     provider: &ResourceSchema,
     external: &SchemaInfo,
     format: DataFormat,
@@ -1592,7 +1592,7 @@ fn resource_config_diagnostic(resource: &str, message: String) -> CliDiagnostic 
     project_diagnostic(
         RESOURCE_CONFIG_ERROR_CODE,
         format!("resource '{resource}': {message}"),
-        Some("ikashita.toml"),
+        Some("egake.toml"),
     )
 }
 
@@ -1680,7 +1680,7 @@ fn single_html(application: &[u8]) -> Result<String, CliError> {
     let runtime_hash = csp_hash(RUNTIME_JS.as_bytes());
     let style_hash = csp_hash(RUNTIME_CSS.as_bytes());
     Ok(format!(
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src {runtime_hash}; style-src {style_hash}; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'\">\n  <title>ikashita application</title>\n  <style>{RUNTIME_CSS}</style>\n</head>\n<body>\n  <div id=\"ikashita-root\" aria-live=\"polite\"></div>\n  <script id=\"ikashita-application\" type=\"application/json\">{application}</script>\n  <script>{RUNTIME_JS}</script>\n</body>\n</html>\n"
+        "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src {runtime_hash}; style-src {style_hash}; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'\">\n  <title>egake application</title>\n  <style>{RUNTIME_CSS}</style>\n</head>\n<body>\n  <div id=\"egake-root\" aria-live=\"polite\"></div>\n  <script id=\"egake-application\" type=\"application/json\">{application}</script>\n  <script>{RUNTIME_JS}</script>\n</body>\n</html>\n"
     ))
 }
 
@@ -1883,7 +1883,7 @@ fn scaffold_project(path: &Path, name: &str) -> Result<(), CliError> {
     })?;
     let escaped = name.replace('\\', "\\\\").replace('"', "\\\"");
     write_new_file(
-        &path.join("ikashita.toml"),
+        &path.join("egake.toml"),
         &format!("[app]\nname = \"{escaped}\"\ndefinition = \"app.ui.kdl\"\n"),
     )?;
     write_new_file(
@@ -1906,11 +1906,11 @@ fn scaffold_project(path: &Path, name: &str) -> Result<(), CliError> {
     )?;
     write_new_file(
         &path.join("actions.rhai"),
-        "# Placeholder for a future declarative action host.\n# The ikashita CLI never executes this file in the MVP.\n",
+        "# Placeholder for a future declarative action host.\n# The egake CLI never executes this file in the MVP.\n",
     )?;
     write_new_file(
         &path.join("README.md"),
-        "# ikashita application\n\nRun `ikashita validate`, then `ikashita build` or `ikashita run`.\n\n`actions.rhai` is documentation-only in this MVP and is never executed by the CLI.\n",
+        "# egake application\n\nRun `egake validate`, then `egake build` or `egake run`.\n\n`actions.rhai` is documentation-only in this MVP and is never executed by the CLI.\n",
     )?;
     Ok(())
 }
@@ -1933,7 +1933,7 @@ mod tests {
     fn temp_project() -> PathBuf {
         let suffix = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
         let counter = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!("ikashita-cli-test-{}-{suffix}-{counter}", process::id()))
+        std::env::temp_dir().join(format!("egake-cli-test-{}-{suffix}-{counter}", process::id()))
     }
 
     #[test]
@@ -1948,22 +1948,22 @@ mod tests {
         let runtime = String::from_utf8_lossy(bundle.assets().get("runtime.js").expect("runtime"));
         assert!(!runtime.contains("eval("));
         assert!(!runtime.contains("innerHTML"));
-        assert!(runtime.contains("/api/ikashita/v1"));
+        assert!(runtime.contains("/api/egake/v1"));
         assert!(runtime.contains("method: \"PATCH\""));
         assert!(runtime.contains("invokeProviderAction"));
         assert!(runtime.contains("/actions/"));
         assert!(runtime.contains("window.confirm"));
         assert!(runtime.contains("request_id"));
-        assert!(runtime.contains("ikashita-backdrop"));
+        assert!(runtime.contains("egake-backdrop"));
         assert!(runtime.contains("aria-modal"));
         assert!(runtime.contains("Loading records"));
         let stylesheet =
             String::from_utf8_lossy(bundle.assets().get("runtime.css").expect("style"));
         assert!(stylesheet.contains("tailwindcss v4.3.0"));
         assert!(stylesheet.contains("--ik-bg"));
-        assert!(stylesheet.contains("ikashita-form[data-mode=drawer]"));
+        assert!(stylesheet.contains("egake-form[data-mode=drawer]"));
         assert!(stylesheet.contains("prefers-color-scheme:dark"));
-        assert!(stylesheet.contains("ikashita-table-empty"));
+        assert!(stylesheet.contains("egake-table-empty"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 
@@ -1975,7 +1975,7 @@ mod tests {
         );
         let html = single_html(application.as_bytes()).expect("single html");
         let second_script = html
-            .split("<script id=\"ikashita-application\" type=\"application/json\">")
+            .split("<script id=\"egake-application\" type=\"application/json\">")
             .nth(1)
             .expect("application script")
             .split("</script>")
@@ -2169,7 +2169,7 @@ mod tests {
     fn resource_configuration_sources_are_not_merged() {
         let path = temp_project();
         fs::create_dir_all(&path).expect("project");
-        fs::write(path.join("ikashita.toml"), "[app]\nname=\"app\"\n").expect("config");
+        fs::write(path.join("egake.toml"), "[app]\nname=\"app\"\n").expect("config");
         fs::write(
             path.join("app.ui.kdl"),
             "/- kdl-version 2\napp \"app\" version=\"0.1\" { page \"home\" title=\"Home\" {} }\n",
@@ -2181,7 +2181,7 @@ mod tests {
         )
         .expect("KDL resources");
         fs::write(
-            path.join("ikashita.toml"),
+            path.join("egake.toml"),
             "[app]\nname=\"app\"\n\n[resources.items]\npath=\"items.csv\"\n",
         )
         .expect("TOML resources");

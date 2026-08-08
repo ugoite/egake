@@ -19,7 +19,7 @@ use arrow_array::{
     },
 };
 use arrow_schema::{DataType, TimeUnit};
-use ikashita_resource::{
+use egake_resource::{
     Capability, FieldSchema, FieldType, JsonResourceProvider, ListQuery, ResourceError,
     ResourceErrorKind, ResourcePage, ResourceProvider, ResourceResult, ResourceSchema,
     SortDirection,
@@ -494,7 +494,7 @@ fn value_contains_text(value: &Value, needle: &str) -> bool {
     }
 }
 
-fn compare_values(left: &Value, right: &Value, sorts: &[ikashita_resource::Sort]) -> Ordering {
+fn compare_values(left: &Value, right: &Value, sorts: &[egake_resource::Sort]) -> Ordering {
     sorts
         .iter()
         .find_map(|sort| {
@@ -571,7 +571,7 @@ mod tests {
         builder::{ListBuilder, StringBuilder},
     };
     use arrow_schema::{DataType, Field};
-    use ikashita_resource::{Capability, JsonResourceProvider, ListQuery, ResourceErrorKind};
+    use egake_resource::{Capability, JsonResourceProvider, ListQuery, ResourceErrorKind};
     use parquet::arrow::ArrowWriter;
     use tempfile::tempdir;
 

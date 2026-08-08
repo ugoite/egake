@@ -7,10 +7,10 @@ column and the provider is not writable, so it advertises only `schema` and
 Run from the repository root without a server, network, or credentials:
 
 ```sh
-cargo run -p ikashita-cli -- validate examples/csv-readonly
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --json
-cargo run -p ikashita-cli -- test examples/csv-readonly
+cargo run -p egake-cli -- validate examples/csv-readonly
+cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
+cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --json
+cargo run -p egake-cli -- test examples/csv-readonly
 ```
 
 The list command prints one JSON object per matching row. `run` can also serve

@@ -38,7 +38,7 @@ function renderNode(
   ) => void,
 ): unknown {
   const props: Record<string, unknown> = {
-    class: `ikashita-${component.kind}`,
+    class: `egake-${component.kind}`,
   };
   if (component.id) props.id = component.id;
   const label = text(component.attributes.label);
@@ -101,11 +101,11 @@ export function createVueRenderer(
     const application: SerializedApplication = parseApplication(serialized);
     return vue.h(
       "div",
-      { class: "ikashita-app" },
+      { class: "egake-app" },
       application.pages.map((page) =>
         vue.h("section", {
           key: page.name,
-          class: "ikashita-page",
+          class: "egake-page",
           "aria-label": page.title,
         }, [
           vue.h("h1", null, page.title),

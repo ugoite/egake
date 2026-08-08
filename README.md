@@ -1,29 +1,29 @@
-# ikashita
+# egake
 
-ikashita is an MIT-licensed Rust/WASM-oriented low-code UI runtime. It is
+egake is an MIT-licensed Rust/WASM-oriented low-code UI runtime. It is
 delivered incrementally around a transport-neutral Resource Contract and a KDL
 Application Profile.
 
 This repository currently contains the standalone data/API increment and a
 usable local CLI/runtime:
 
-- `ikashita-resource` defines the shared resource query, schema, page,
+- `egake-resource` defines the shared resource query, schema, page,
   structured-error types, generic provider trait, JSON provider boundary, and
   merge-patch helper.
-- `ikashita-spec` owns the versioned Application Profile metadata.
-- `ikashita-data` provides generic local data resources with CSV and Parquet backends.
-- `ikashita-server` provides the localhost HTTP router, provider registry, and
+- `egake-spec` owns the versioned Application Profile metadata.
+- `egake-data` provides generic local data resources with CSV and Parquet backends.
+- `egake-server` provides the localhost HTTP router, provider registry, and
   static-bundle configuration.
-- `ikashita-cli` provides the versioned command-line entry point.
+- `egake-cli` provides the versioned command-line entry point.
 - `packages/runtime` provides the dependency-free Deno/TypeScript browser
   client, provider types, merge-patch helper, and safe JSON renderer.
 - `packages/react` and `packages/vue` provide framework-thin element/VNode
   adapters without installing either framework.
 - `packages/solid` and `packages/svelte` provide dependency-free host-primitive
   adapters without installing either framework or compiler.
-- `python/ikashita` provides the standard-library Resource protocol/base class,
+- `python/egake` provides the standard-library Resource protocol/base class,
   ASGI adapter, and optional FastAPI bridge.
-- `ikashita-cli` provides project scaffolding, deterministic validation,
+- `egake-cli` provides project scaffolding, deterministic validation,
   inspection/build output, and the localhost browser runtime.
 
 The beginner-oriented documentation starts at [`docs/index.mdx`](docs/index.mdx)
@@ -47,12 +47,12 @@ from this checkout.
 From the repository root, scaffold or use the checked-in example:
 
 ```sh
-cargo run -p ikashita-cli -- new my-contacts
-cargo run -p ikashita-cli -- validate my-contacts
-cargo run -p ikashita-cli -- build my-contacts
-cargo run -p ikashita-cli -- build my-contacts --format single-html --output dist/contacts.html
-cargo run -p ikashita-cli -- run my-contacts
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada
+cargo run -p egake-cli -- new my-contacts
+cargo run -p egake-cli -- validate my-contacts
+cargo run -p egake-cli -- build my-contacts
+cargo run -p egake-cli -- build my-contacts --format single-html --output dist/contacts.html
+cargo run -p egake-cli -- run my-contacts
+cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada
 ```
 
 The commands are `new`, `validate`, `inspect`, `build`, `run`, `dev`, `test`,
@@ -62,7 +62,7 @@ listen on `127.0.0.1:8787` by default. A non-loopback `--host` requires the
 explicit `--allow-external` flag and prints a warning because this MVP has no
 authentication. CORS is disabled by default.
 
-Projects contain `ikashita.toml` and `app.ui.kdl`. Resource providers use
+Projects contain `egake.toml` and `app.ui.kdl`. Resource providers use
 exactly one configuration source: `resources.kdl` when present, otherwise
 `[resources.<name>]` tables in TOML. Supplying both is an error; they are never
 merged or overridden. The preferred KDL convention is:

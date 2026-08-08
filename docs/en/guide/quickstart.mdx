@@ -1,11 +1,11 @@
 ---
 title: Short quickstart
-description: Run ikashita for the first time with the checked-in csv-readonly example.
+description: Run egake for the first time with the checked-in csv-readonly example.
 sidebar:
   label: Short quickstart
 ---
 
-{/* i18n-sync: id=guide/quickstart digest=09e53b44e102f6157df80eadfcae4f36a949a1717ca2bbe5ffa6a767249447c8 */}
+{/* i18n-sync: id=guide/quickstart digest=d841feb9e5b84ce15ef90695534cf92971e3330e1ef1de046c1202f429b29eee */}
 
 import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
@@ -22,7 +22,7 @@ Run these commands from the repository root. `examples/csv-readonly` is checked 
 2. Validate the example.
 
    ```sh
-   cargo run -p ikashita-cli -- validate examples/csv-readonly
+   cargo run -p egake-cli -- validate examples/csv-readonly
    ```
 
    This checks `app.ui.kdl`, the schema JSON, `resources.kdl`, and the CSV together.
@@ -30,14 +30,14 @@ Run these commands from the repository root. `examples/csv-readonly` is checked 
 3. Search and list the CSV. `ada` matches Ada Lovelace’s title.
 
    ```sh
-   cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
+   cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
    ```
 
 4. Run the project test and inspect the static bundle.
 
    ```sh
-   cargo run -p ikashita-cli -- test examples/csv-readonly
-   cargo run -p ikashita-cli -- build examples/csv-readonly
+   cargo run -p egake-cli -- test examples/csv-readonly
+   cargo run -p egake-cli -- build examples/csv-readonly
    ```
 
    The build writes `index.html`, runtime assets, and `app.bundle.json` to `examples/csv-readonly/dist/`. Do not commit that generated directory.
@@ -66,7 +66,7 @@ Run these commands from the repository root. `examples/csv-readonly` is checked 
 
 <Aside type="note" title="Run again after edits">
   `dev` is no-watch in this MVP. Stop it after editing files and run `cargo run
-  -p ikashita-cli -- dev examples/csv-readonly` again.
+  -p egake-cli -- dev examples/csv-readonly` again.
 </Aside>
 
 Continue with the [usage guide](../usage/).

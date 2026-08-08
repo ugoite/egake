@@ -1,15 +1,15 @@
 ---
 title: Ugoite adapter
-description: 既存のUgoite clientをikashitaのResourceProviderへ包む。
+description: 既存のUgoite clientをegakeのResourceProviderへ包む。
 sidebar:
   label: Ugoite
 ---
 
-{/* i18n-sync: id=guide/usage/ugoite digest=93506dede7df8902df79c2a256b236d6af86ee8ba636bb38a1c9e07d60273958 */}
+{/* i18n-sync: id=guide/usage/ugoite digest=9f326961bcbb900a77171ea52dbbbf38b90db5f0618620a1d12dc0a379f1cf95 */}
 
 import { Aside } from "@astrojs/starlight/components";
 
-Ugoite連携はikashita本体の依存ではありません。既存のUgoite client、認証、URL、cookie、data typeをhost側に残し、薄いadapterでResource Contractへ写像します。
+Ugoite連携はegake本体の依存ではありません。既存のUgoite client、認証、URL、cookie、data typeをhost側に残し、薄いadapterでResource Contractへ写像します。
 
 ## exampleを実行する
 
@@ -41,6 +41,6 @@ const provider = createUgoiteEntriesProvider(existingUgoiteClient);
 このcheckoutのtestは`FakeUgoiteClient`を使うため、Ugoite本体、network、credentialなしでdelegationを検証できます。実際のclientをつなぐ場合も、authやretryの所有者をadapterの外に保ってください。
 
 <Aside type="caution" title="Ugoiteをcore dependencyにしない">
-  `Cargo.toml`や`packages/`にUgoiteのURLやcredential処理を追加する手順ではありません。ikashitaのcoreがUgoite
+  `Cargo.toml`や`packages/`にUgoiteのURLやcredential処理を追加する手順ではありません。egakeのcoreがUgoite
   checkoutなしでbuildできることが境界の一部です。
 </Aside>

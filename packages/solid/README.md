@@ -1,4 +1,4 @@
-# `@ikashita/solid`
+# `@egake/solid`
 
 This adapter is dependency-free. It uses the host's Solid primitives instead of
 importing `solid-js`, so the application keeps ownership of its Solid version

@@ -1,7 +1,7 @@
 import unittest
 from typing import cast
 
-from ikashita import (
+from egake import (
     JsonObject,
     ResourceError,
     ResourcePage,

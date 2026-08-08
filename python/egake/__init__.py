@@ -1,4 +1,4 @@
-"""Python host adapters for ikashita's Resource Contract."""
+"""Python host adapters for egake's Resource Contract."""
 
 from .asgi import API_PREFIX, ResourceASGIApp, make_request_id, parse_list_query
 from .resource import (

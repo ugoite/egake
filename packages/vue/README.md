@@ -1,4 +1,4 @@
-# `@ikashita/vue`
+# `@egake/vue`
 
 The Vue adapter has no Vue dependency of its own. Pass Vue's `h` function (or a
 compatible host primitive) to `createVueRenderer`; use

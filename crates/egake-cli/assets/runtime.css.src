@@ -125,336 +125,336 @@
 }
 
 @layer components {
-  #ikashita-root {
+  #egake-root {
     @apply min-h-screen;
   }
 
-  .ikashita-shell {
+  .egake-shell {
     @apply min-h-screen;
     background: var(--ik-bg);
     color: var(--ik-ink);
   }
 
-  .ikashita-topbar {
+  .egake-topbar {
     @apply sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b px-5 sm:px-8;
     border-color: color-mix(in srgb, var(--ik-line) 88%, transparent);
     background: color-mix(in srgb, var(--ik-bg) 88%, transparent);
     backdrop-filter: blur(16px);
   }
 
-  .ikashita-brand {
+  .egake-brand {
     @apply inline-flex items-center gap-2.5 font-semibold tracking-tight;
   }
 
-  .ikashita-brand-mark {
+  .egake-brand-mark {
     @apply grid size-8 place-items-center rounded-xl text-sm font-black;
     background: var(--ik-ink);
     color: var(--ik-panel);
   }
 
-  .ikashita-topbar-title {
+  .egake-topbar-title {
     @apply max-w-[min(55vw,34rem)] truncate text-xs font-medium;
     color: var(--ik-muted);
   }
 
-  .ikashita-shell-main {
+  .egake-shell-main {
     @apply mx-auto w-full max-w-7xl px-4 pb-24 pt-8 sm:px-8 sm:pt-10;
   }
 
-  .ikashita-page-header {
+  .egake-page-header {
     @apply mb-6 flex flex-wrap items-start justify-between gap-4;
   }
 
-  .ikashita-page-heading {
+  .egake-page-heading {
     @apply grid gap-1;
   }
 
-  .ikashita-eyebrow {
+  .egake-eyebrow {
     @apply text-[0.7rem] font-bold uppercase tracking-[0.12em];
     color: var(--ik-muted);
   }
 
-  .ikashita-page-title {
+  .egake-page-title {
     @apply m-0 text-3xl font-extrabold leading-tight tracking-[-0.045em] sm:text-4xl;
   }
 
-  .ikashita-page-subtitle {
+  .egake-page-subtitle {
     @apply m-0 max-w-2xl text-sm;
     color: var(--ik-muted);
   }
 
-  .ikashita-content,
-  .ikashita-column {
+  .egake-content,
+  .egake-column {
     @apply flex flex-col gap-4;
   }
 
-  .ikashita-row {
+  .egake-row {
     @apply flex flex-wrap items-end gap-3;
   }
 
-  .ikashita-row[data-align="center"] {
+  .egake-row[data-align="center"] {
     @apply items-center;
   }
 
-  .ikashita-row[data-align="start"] {
+  .egake-row[data-align="start"] {
     @apply items-start;
   }
 
-  .ikashita-row[data-align="stretch"] {
+  .egake-row[data-align="stretch"] {
     @apply items-stretch;
   }
 
-  .ikashita-text,
-  .ikashita-muted {
+  .egake-text,
+  .egake-muted {
     @apply m-0;
     color: var(--ik-muted);
   }
 
-  .ikashita-button {
+  .egake-button {
     @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm font-semibold shadow-sm transition;
     border-color: var(--ik-line);
     background: var(--ik-panel);
     color: var(--ik-ink);
   }
 
-  .ikashita-button:hover {
+  .egake-button:hover {
     border-color: var(--ik-line-strong);
     background: var(--ik-panel-soft);
   }
 
-  .ikashita-button[data-variant="primary"] {
+  .egake-button[data-variant="primary"] {
     border-color: var(--ik-ink);
     background: var(--ik-ink);
     color: var(--ik-panel);
   }
 
-  .ikashita-button[data-variant="primary"]:hover {
+  .egake-button[data-variant="primary"]:hover {
     background: color-mix(in srgb, var(--ik-ink) 86%, var(--ik-focus));
   }
 
-  .ikashita-button[data-variant="danger"] {
+  .egake-button[data-variant="danger"] {
     border-color: color-mix(in srgb, var(--ik-danger) 28%, var(--ik-line));
     background: color-mix(in srgb, var(--ik-danger) 7%, var(--ik-panel));
     color: var(--ik-danger);
   }
 
-  .ikashita-button[data-variant="ghost"] {
+  .egake-button[data-variant="ghost"] {
     border-color: transparent;
     background: transparent;
     box-shadow: none;
   }
 
-  .ikashita-button[data-variant="ghost"]:hover {
+  .egake-button[data-variant="ghost"]:hover {
     background: var(--ik-soft);
   }
 
-  .ikashita-field {
+  .egake-field {
     @apply grid min-w-0 flex-1 gap-1.5;
     flex-basis: 14rem;
   }
 
-  .ikashita-field label {
+  .egake-field label {
     @apply text-xs font-bold;
     color: var(--ik-ink);
   }
 
-  .ikashita-required {
+  .egake-required {
     @apply ml-1 text-[0.7rem] font-bold;
     color: var(--ik-danger);
   }
 
-  .ikashita-control {
+  .egake-control {
     @apply min-h-10 w-full rounded-xl border px-3 py-2 text-sm shadow-sm outline-none transition;
     border-color: var(--ik-line);
     background: var(--ik-panel);
     color: var(--ik-ink);
   }
 
-  .ikashita-control:hover {
+  .egake-control:hover {
     border-color: var(--ik-line-strong);
   }
 
-  .ikashita-control:focus {
+  .egake-control:focus {
     border-color: var(--ik-focus);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ik-focus) 14%, transparent);
   }
 
-  textarea.ikashita-control {
+  textarea.egake-control {
     @apply min-h-32 resize-y;
   }
 
-  .ikashita-table-wrap {
+  .egake-table-wrap {
     @apply overflow-hidden rounded-2xl border shadow-sm;
     border-color: var(--ik-line);
     background: var(--ik-panel);
   }
 
-  .ikashita-table-toolbar {
+  .egake-table-toolbar {
     @apply flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3;
     border-color: var(--ik-line);
     background: var(--ik-panel-soft);
   }
 
-  .ikashita-table-toolbar-label {
+  .egake-table-toolbar-label {
     @apply text-xs font-bold uppercase tracking-[0.1em];
     color: var(--ik-muted);
   }
 
-  .ikashita-table {
+  .egake-table {
     @apply min-w-full;
   }
 
-  .ikashita-table th,
-  .ikashita-table td {
+  .egake-table th,
+  .egake-table td {
     @apply border-b px-4 py-3 text-left align-middle;
     border-color: var(--ik-line);
     white-space: nowrap;
   }
 
-  .ikashita-table th {
+  .egake-table th {
     @apply text-[0.7rem] font-bold uppercase tracking-[0.1em];
     background: var(--ik-panel-soft);
     color: var(--ik-muted);
   }
 
-  .ikashita-table tbody tr:last-child td {
+  .egake-table tbody tr:last-child td {
     border-bottom: 0;
   }
 
-  .ikashita-table tbody tr[data-selectable="true"] {
+  .egake-table tbody tr[data-selectable="true"] {
     @apply cursor-pointer transition-colors;
   }
 
-  .ikashita-table tbody tr[data-selectable="true"]:hover,
-  .ikashita-table tbody tr[data-selected="true"] {
+  .egake-table tbody tr[data-selectable="true"]:hover,
+  .egake-table tbody tr[data-selected="true"] {
     background: color-mix(in srgb, var(--ik-focus) 7%, var(--ik-panel));
   }
 
-  .ikashita-table-empty {
+  .egake-table-empty {
     @apply px-4 py-12 text-center text-sm;
     color: var(--ik-muted);
   }
 
-  .ikashita-form {
+  .egake-form {
     @apply relative flex flex-col gap-4 rounded-2xl border p-5 shadow-sm;
     border-color: var(--ik-line);
     background: var(--ik-panel);
   }
 
-  .ikashita-form[data-mode="drawer"] {
+  .egake-form[data-mode="drawer"] {
     @apply fixed inset-y-0 right-0 z-50 max-h-screen overflow-y-auto rounded-none rounded-l-2xl border-y-0 border-r-0 sm:w-[min(34rem,calc(100vw-1rem))];
     width: min(100vw - 1rem, 34rem);
     box-shadow: var(--ik-shadow);
   }
 
-  .ikashita-form[data-mode="dialog"] {
+  .egake-form[data-mode="dialog"] {
     @apply fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto;
     box-shadow: var(--ik-shadow);
   }
 
-  .ikashita-form-head {
+  .egake-form-head {
     @apply flex items-start justify-between gap-4 border-b pb-4;
     border-color: var(--ik-line);
   }
 
-  .ikashita-form-title {
+  .egake-form-title {
     @apply m-0 text-lg font-extrabold tracking-tight;
   }
 
-  .ikashita-form-close {
+  .egake-form-close {
     @apply inline-flex size-9 shrink-0 items-center justify-center rounded-xl border text-lg leading-none transition;
     border-color: var(--ik-line);
     background: transparent;
     color: var(--ik-muted);
   }
 
-  .ikashita-form-close:hover {
+  .egake-form-close:hover {
     background: var(--ik-soft);
     color: var(--ik-ink);
   }
 
-  .ikashita-form-actions {
+  .egake-form-actions {
     @apply justify-end border-t pt-4;
     border-color: var(--ik-line);
   }
 
-  .ikashita-backdrop {
+  .egake-backdrop {
     @apply fixed inset-0 z-40 border-0;
     background: rgba(21, 21, 21, 0.32);
     backdrop-filter: blur(3px);
   }
 
-  .ikashita-error {
+  .egake-error {
     @apply rounded-xl border p-4;
     border-color: color-mix(in srgb, var(--ik-danger) 30%, var(--ik-line));
     background: color-mix(in srgb, var(--ik-danger) 7%, var(--ik-panel));
     color: var(--ik-danger);
   }
 
-  .ikashita-error strong {
+  .egake-error strong {
     @apply block text-sm font-extrabold;
   }
 
-  .ikashita-error-list {
+  .egake-error-list {
     @apply mt-2 grid gap-1 text-sm;
   }
 
-  .ikashita-toast {
+  .egake-toast {
     @apply fixed bottom-5 right-5 z-[70] max-w-[min(28rem,calc(100vw-2rem))] rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg;
     border-color: var(--ik-line-strong);
     background: var(--ik-ink);
     color: var(--ik-panel);
   }
 
-  .ikashita-toast[data-kind="error"] {
+  .egake-toast[data-kind="error"] {
     border-color: var(--ik-danger);
     background: var(--ik-danger);
     color: #fff;
   }
 
-  .ikashita-page.ikashita-shell {
+  .egake-page.egake-shell {
     @apply min-h-screen;
   }
 
-  .ikashita-page > .ikashita-page-header {
+  .egake-page > .egake-page-header {
     @apply mx-auto w-full max-w-7xl px-4 pt-8 sm:px-8 sm:pt-10;
   }
 
-  .ikashita-page > .ikashita-content {
+  .egake-page > .egake-content {
     @apply mx-auto w-full max-w-7xl px-4 pb-24 sm:px-8;
   }
 }
 
 @media (max-width: 640px) {
-  .ikashita-topbar {
+  .egake-topbar {
     @apply px-4;
   }
 
-  .ikashita-topbar-title {
+  .egake-topbar-title {
     @apply max-w-[42vw];
   }
 
-  .ikashita-shell-main {
+  .egake-shell-main {
     @apply px-3 pt-6;
   }
 
-  .ikashita-page-title {
+  .egake-page-title {
     @apply text-2xl;
   }
 
-  .ikashita-table-wrap {
+  .egake-table-wrap {
     @apply rounded-xl;
   }
 
-  .ikashita-table {
+  .egake-table {
     min-width: 42rem;
   }
 
-  .ikashita-form {
+  .egake-form {
     @apply rounded-xl p-4;
   }
 
-  .ikashita-form[data-mode="drawer"] {
+  .egake-form[data-mode="drawer"] {
     width: calc(100vw - 0.5rem);
   }
 }
