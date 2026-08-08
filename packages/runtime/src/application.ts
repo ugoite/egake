@@ -270,7 +270,7 @@ function textAttribute(
 }
 
 function fixedClass(kind: SerializedComponent["kind"]): string {
-  return `ikashita-${kind.replaceAll("-", "-")}`;
+  return `egake-${kind.replaceAll("-", "-")}`;
 }
 
 function safeDomId(value: string): string {
@@ -353,14 +353,14 @@ function renderComponent(
     element instanceof HTMLTextAreaElement ||
     element instanceof HTMLSelectElement;
   element.className = `${fixedClass(component.kind)}${
-    isNativeControl ? " ikashita-control" : ""
+    isNativeControl ? " egake-control" : ""
   }`;
   if (component.id) element.id = component.id;
   const label = attr(component, "label");
   const field = attr(component, "field");
   if (label) element.setAttribute("aria-label", label);
   if (isNativeControl && !element.id && field) {
-    element.id = `ikashita-field-${safeDomId(field)}`;
+    element.id = `egake-field-${safeDomId(field)}`;
   }
   if (
     field &&
@@ -405,7 +405,7 @@ function renderComponent(
     input.type = inputTypeForField(schemaField);
   } else if (component.kind === "data-table") {
     const table = element as HTMLTableElement;
-    table.classList.add("ikashita-table");
+    table.classList.add("egake-table");
     table.setAttribute("aria-busy", "true");
     table.setAttribute(
       "aria-label",
@@ -432,22 +432,22 @@ function renderComponent(
       table.setAttribute("aria-busy", "false");
       const row = body.insertRow();
       const cell = row.insertCell();
-      cell.className = "ikashita-table-empty";
+      cell.className = "egake-table-empty";
       cell.colSpan = Math.max(columns.length, 1);
       cell.textContent = "No records yet.";
     }
   } else if (component.kind === "form") {
     const form = element as HTMLDivElement;
-    form.classList.add("ikashita-form");
+    form.classList.add("egake-form");
     const mode = attr(component, "mode") ?? "inline";
     form.dataset.mode = mode;
     if (mode === "drawer" || mode === "dialog") {
       form.setAttribute("role", "dialog");
       form.setAttribute("aria-modal", "true");
       const header = document.createElement("div");
-      header.className = "ikashita-form-head";
+      header.className = "egake-form-head";
       const title = document.createElement("h2");
-      title.className = "ikashita-form-title";
+      title.className = "egake-form-title";
       title.textContent = label ?? "Editor";
       header.append(title);
       form.append(header);
@@ -455,7 +455,7 @@ function renderComponent(
     for (const child of component.children) {
       const childNode = renderComponent(child, document, options, application);
       if (child.kind === "row") {
-        childNode.classList.add("ikashita-form-actions");
+        childNode.classList.add("egake-form-actions");
       }
       form.append(childNode);
     }
@@ -465,13 +465,13 @@ function renderComponent(
 
   if (isNativeControl && label) {
     const fieldWrapper = document.createElement("div");
-    fieldWrapper.className = "ikashita-field";
+    fieldWrapper.className = "egake-field";
     const labelElement = document.createElement("label");
     labelElement.textContent = label;
     if (element.id) labelElement.htmlFor = element.id;
     if (schemaField?.required) {
       const required = document.createElement("span");
-      required.className = "ikashita-required";
+      required.className = "egake-required";
       required.setAttribute("aria-hidden", "true");
       required.textContent = "*";
       labelElement.append(required);
@@ -482,7 +482,7 @@ function renderComponent(
 
   if (component.kind === "data-table") {
     const tableWrapper = document.createElement("div");
-    tableWrapper.className = "ikashita-table-wrap";
+    tableWrapper.className = "egake-table-wrap";
     tableWrapper.append(element);
     return tableWrapper;
   }
@@ -497,7 +497,7 @@ async function hydrateTable(
   body.replaceChildren();
   const loadingRow = body.insertRow();
   const loadingCell = loadingRow.insertCell();
-  loadingCell.className = "ikashita-table-empty";
+  loadingCell.className = "egake-table-empty";
   loadingCell.dataset.state = "loading";
   loadingCell.colSpan = Math.max(columns.length, 1);
   loadingCell.textContent = "Loading records…";
@@ -508,7 +508,7 @@ async function hydrateTable(
     if (!page.items.length) {
       const row = body.insertRow();
       const cell = row.insertCell();
-      cell.className = "ikashita-table-empty";
+      cell.className = "egake-table-empty";
       cell.colSpan = Math.max(columns.length, 1);
       cell.textContent = "No records yet.";
     }
@@ -525,7 +525,7 @@ async function hydrateTable(
     body.parentElement?.setAttribute("aria-busy", "false");
     const row = body.insertRow();
     const cell = row.insertCell();
-    cell.className = "ikashita-table-empty";
+    cell.className = "egake-table-empty";
     cell.colSpan = Math.max(columns.length, 1);
     cell.textContent = "Records could not be loaded.";
   }
@@ -541,41 +541,41 @@ export function renderApplication(
   const fragment = document.createDocumentFragment();
   for (const page of application.pages) {
     const section = document.createElement("section");
-    section.className = "ikashita-page ikashita-shell";
+    section.className = "egake-page egake-shell";
     section.setAttribute("aria-label", page.title);
     const topbar = document.createElement("header");
-    topbar.className = "ikashita-topbar";
+    topbar.className = "egake-topbar";
     const brand = document.createElement("div");
-    brand.className = "ikashita-brand";
+    brand.className = "egake-brand";
     const brandMark = document.createElement("span");
-    brandMark.className = "ikashita-brand-mark";
+    brandMark.className = "egake-brand-mark";
     brandMark.setAttribute("aria-hidden", "true");
-    brandMark.textContent = "i";
-    brand.append(brandMark, document.createTextNode("ikashita"));
+    brandMark.textContent = "e";
+    brand.append(brandMark, document.createTextNode("egake"));
     topbar.append(brand);
     const topbarTitle = document.createElement("span");
-    topbarTitle.className = "ikashita-topbar-title";
+    topbarTitle.className = "egake-topbar-title";
     topbarTitle.textContent = page.title;
     topbar.append(topbarTitle);
     section.append(topbar);
     const main = document.createElement("div");
-    main.className = "ikashita-shell-main";
+    main.className = "egake-shell-main";
     const pageHeader = document.createElement("header");
-    pageHeader.className = "ikashita-page-header";
+    pageHeader.className = "egake-page-header";
     const pageHeading = document.createElement("div");
-    pageHeading.className = "ikashita-page-heading";
+    pageHeading.className = "egake-page-heading";
     const eyebrow = document.createElement("span");
-    eyebrow.className = "ikashita-eyebrow";
+    eyebrow.className = "egake-eyebrow";
     eyebrow.textContent = "Workspace";
     pageHeading.append(eyebrow);
     const heading = document.createElement("h1");
-    heading.className = "ikashita-page-title";
+    heading.className = "egake-page-title";
     heading.textContent = page.title;
     pageHeading.append(heading);
     pageHeader.append(pageHeading);
     main.append(pageHeader);
     const content = document.createElement("div");
-    content.className = "ikashita-content";
+    content.className = "egake-content";
     appendChildren(content, page.components, document, options, application);
     main.append(content);
     section.append(main);

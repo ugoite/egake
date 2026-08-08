@@ -43,7 +43,7 @@ function renderNode(
   ) => void,
 ): unknown {
   const props: Record<string, unknown> = {
-    className: `ikashita-${component.kind}`,
+    className: `egake-${component.kind}`,
   };
   if (component.id) props.id = component.id;
   const label = text(component.attributes.label);
@@ -115,7 +115,7 @@ export function createReactRenderer(
         "section",
         {
           key: page.name,
-          className: "ikashita-page",
+          className: "egake-page",
           "aria-label": page.title,
         },
         react.createElement("h1", null, page.title),
@@ -124,6 +124,6 @@ export function createReactRenderer(
         ),
       )
     );
-    return react.createElement("div", { className: "ikashita-app" }, ...pages);
+    return react.createElement("div", { className: "egake-app" }, ...pages);
   };
 }

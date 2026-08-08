@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 def load_example() -> ModuleType:
     path = pathlib.Path(__file__).parents[2] / "examples" / "python-fastapi" / "app.py"
-    spec = importlib.util.spec_from_file_location("ikashita_python_fastapi_example", path)
+    spec = importlib.util.spec_from_file_location("egake_python_fastapi_example", path)
     if spec is None or spec.loader is None:
         raise AssertionError(f"could not load example module from {path}")
     module = importlib.util.module_from_spec(spec)
@@ -49,13 +49,13 @@ class PythonExampleTest(unittest.TestCase):
     def test_stdlib_asgi_example_lists_and_invokes(self):
         module = load_example()
         app = module.create_asgi_app()
-        status, page = call(app, "GET", "/api/ikashita/v1/resources/contacts?q=Ada")
+        status, page = call(app, "GET", "/api/egake/v1/resources/contacts?q=Ada")
         self.assertEqual(status, 200)
         self.assertEqual(page["items"][0]["name"], "Ada")
         status, result = call(
             app,
             "POST",
-            "/api/ikashita/v1/resources/contacts/actions/health",
+            "/api/egake/v1/resources/contacts/actions/health",
             b'{"source":"test"}',
         )
         self.assertEqual(status, 200)

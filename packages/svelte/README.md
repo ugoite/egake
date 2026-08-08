@@ -1,4 +1,4 @@
-# `@ikashita/svelte`
+# `@egake/svelte`
 
 The package does not depend on the Svelte compiler or runtime. It exposes a
 small host callback boundary, which works from a Svelte action, a wrapper

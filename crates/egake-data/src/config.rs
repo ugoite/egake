@@ -7,7 +7,7 @@ use std::{
     str::FromStr,
 };
 
-use ikashita_resource::ResourceSchema;
+use egake_resource::ResourceSchema;
 
 /// The local file formats supported by the data provider.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

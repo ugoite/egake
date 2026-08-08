@@ -1,20 +1,20 @@
 ---
 title: Local data provider
-description: Use local CSV or Parquet resources with ikashita-cli.
+description: Use local CSV or Parquet resources with egake-cli.
 sidebar:
   label: Local data
 ---
 
-<!-- i18n-sync: id=guide/usage/csv digest=87d3eeca7d8bc8a13da235ea09e1ed684f6b79a4202a161b89663b3176cb5c7e -->
+<!-- i18n-sync: id=guide/usage/csv digest=15729b4cb9eed813e0c96dcc32a502b4d5f9a5c285efc30321e7c0afa6cd5af7 -->
 
-The local data provider is the smallest way to exercise the provider boundary. The checked-in [`examples/csv-readonly`](https://github.com/ugoite/ikashita/tree/main/examples/csv-readonly) shape contains `ikashita.toml`, `app.ui.kdl`, `resources.kdl`, schema JSON, and CSV data. A `.parquet` extension opens the same kind of resource as read-only Parquet.
+The local data provider is the smallest way to exercise the provider boundary. The checked-in [`examples/csv-readonly`](https://github.com/ugoite/egake/tree/main/examples/csv-readonly) shape contains `egake.toml`, `app.ui.kdl`, `resources.kdl`, schema JSON, and CSV data. A `.parquet` extension opens the same kind of resource as read-only Parquet.
 
 ## Minimal read-only layout
 
 ```text
 examples/csv-readonly/
 ├── app.ui.kdl
-├── ikashita.toml
+├── egake.toml
 ├── resources.kdl
 ├── schemas/catalog.schema.json
 └── data/catalog.csv
@@ -42,10 +42,10 @@ A read-only CSV without an `id` advertises only `schema` and `list`. Do not desc
 ## Commands
 
 ```sh
-cargo run -p ikashita-cli -- validate examples/csv-readonly
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
-cargo run -p ikashita-cli -- list examples/csv-readonly --resource catalog --json
-cargo run -p ikashita-cli -- test examples/csv-readonly
+cargo run -p egake-cli -- validate examples/csv-readonly
+cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada --sort title
+cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --json
+cargo run -p egake-cli -- test examples/csv-readonly
 ```
 
 Search is a case-insensitive substring match across fields. Sorting is stable lexicographic order. `--offset` and `--limit` follow the Resource Contract pagination rules.

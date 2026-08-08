@@ -5,9 +5,9 @@ sidebar:
   label: Framework adapters
 ---
 
-<!-- i18n-sync: id=guide/usage/framework-adapters digest=6ce5644f6c0c935263d44586f32b3a345f70b503284e08017a44c410614ec934 -->
+<!-- i18n-sync: id=guide/usage/framework-adapters digest=8882a03a29bcaf6830561af491fb3cb739e31f6077a39e8628c3c8b0c4f1be6f -->
 
-Framework adapters are thin layers that translate an Application Profile JSON value into a framework element or VNode. ikashita does not add the framework as a dependency; the host supplies render primitives.
+Framework adapters are thin layers that translate an Application Profile JSON value into a framework element or VNode. egake does not add the framework as a dependency; the host supplies render primitives.
 
 ## Current support
 

@@ -1,13 +1,13 @@
 # Third-party notices
 
-ikashita is distributed under the MIT License; see [`LICENSE`](LICENSE).
+egake is distributed under the MIT License; see [`LICENSE`](LICENSE).
 This file records the registry dependencies in the committed `Cargo.lock` for
 the standalone resource, data, and HTTP increments. Versions and license
 expressions below were obtained from Cargo package metadata after lockfile
 resolution on 2026-08-01. The lockfile remains authoritative for releases.
 
 All dependencies listed here use permissive licenses or a license option
-compatible with distribution under the ikashita MIT license. When distributing
+compatible with distribution under the egake MIT license. When distributing
 compiled binaries or source packages, retain the license and notice files
 shipped by each dependency. In particular, Apache-licensed packages require
 retaining their Apache-2.0 notice and license text; the standard texts are
@@ -18,19 +18,19 @@ available at <https://www.apache.org/licenses/LICENSE-2.0> and
 
 | Crate | Locked version | License expression | Used by |
 | --- | ---: | --- | --- |
-| axum | 0.8.9 | MIT | ikashita-server |
-| arrow-array | 59.1.0 | MIT OR Apache-2.0 | ikashita-data |
-| arrow-schema | 59.1.0 | MIT OR Apache-2.0 | ikashita-data |
-| clap | 4.6.4 | MIT OR Apache-2.0 | ikashita-cli |
-| csv | 1.4.0 | Unlicense/MIT | ikashita-data |
-| kdl | 6.5.0 | Apache-2.0 | ikashita-spec |
-| parquet | 59.1.0 | Apache-2.0 | ikashita-data |
-| serde | 1.0.229 | MIT OR Apache-2.0 | ikashita-resource |
+| axum | 0.8.9 | MIT | egake-server |
+| arrow-array | 59.1.0 | MIT OR Apache-2.0 | egake-data |
+| arrow-schema | 59.1.0 | MIT OR Apache-2.0 | egake-data |
+| clap | 4.6.4 | MIT OR Apache-2.0 | egake-cli |
+| csv | 1.4.0 | Unlicense/MIT | egake-data |
+| kdl | 6.5.0 | Apache-2.0 | egake-spec |
+| parquet | 59.1.0 | Apache-2.0 | egake-data |
+| serde | 1.0.229 | MIT OR Apache-2.0 | egake-resource |
 | serde_json | 1.0.151 | MIT OR Apache-2.0 | resource/data/server |
-| serde_urlencoded | 0.7.1 | MIT/Apache-2.0 | ikashita-resource |
+| serde_urlencoded | 0.7.1 | MIT/Apache-2.0 | egake-resource |
 | tempfile | 3.27.0 | MIT OR Apache-2.0 | data tests only |
-| toml | 0.9.12+spec-1.1.0 | MIT OR Apache-2.0 | ikashita-cli |
-| tokio | 1.53.1 | MIT | ikashita-server |
+| toml | 0.9.12+spec-1.1.0 | MIT OR Apache-2.0 | egake-cli |
+| tokio | 1.53.1 | MIT | egake-server |
 | tower | 0.5.3 | MIT | server tests only |
 
 ## Transitive dependencies
@@ -130,7 +130,7 @@ this file and pass the repository license policy before release.
 
 The host/runtime increment adds no npm, Deno, or Python runtime dependency.
 `packages/runtime`, `packages/react`, and `packages/vue` use TypeScript/Deno
-built-ins and host-supplied framework primitives. `python/ikashita` uses only
+built-ins and host-supplied framework primitives. `python/egake` uses only
 the Python standard library. FastAPI is an optional host dependency used only
-by `python/ikashita/fastapi.py` and the example; it is intentionally absent
+by `python/egake/fastapi.py` and the example; it is intentionally absent
 from core tests and the repository lockfiles.

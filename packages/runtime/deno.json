@@ -1,5 +1,5 @@
 {
-  "name": "@ikashita/runtime",
+  "name": "@egake/runtime",
   "version": "0.1.0",
   "exports": "./mod.ts",
   "compilerOptions": {

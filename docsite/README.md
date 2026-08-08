@@ -1,4 +1,4 @@
-# ikashita documentation site
+# egake documentation site
 
 This directory is the Astro Starlight build shell. The authored documentation
 lives in the repository-level [`../docs/`](../docs/) directory. The

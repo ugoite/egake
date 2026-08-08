@@ -23,3 +23,6 @@ mise run python:typecheck
 
 echo "pre-commit: checking documentation and locale pairs"
 mise run docs:check
+
+echo "pre-commit: checking product brand"
+mise run brand:check

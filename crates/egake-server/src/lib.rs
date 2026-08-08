@@ -19,7 +19,7 @@ use axum::{
     http::{HeaderValue, Method, Request, Response, StatusCode, header},
     routing::any,
 };
-use ikashita_resource::{
+use egake_resource::{
     Capability, JsonResourceProvider, ListQuery, ResourceError, ResourceErrorKind, ResourcePage,
     ResourceResult, require_object_patch,
 };
@@ -33,7 +33,7 @@ use self::swagger::{
 pub use bundle::StaticBundle;
 pub use config::ServerConfig;
 
-const API_PREFIX: &str = "/api/ikashita/v1";
+const API_PREFIX: &str = "/api/egake/v1";
 const MAX_JSON_BODY: usize = 2 * 1024 * 1024;
 const MAX_QUERY_BYTES: usize = 16 * 1024;
 const REQUEST_ID_HEADER: &str = "x-request-id";
@@ -342,7 +342,7 @@ fn require_capability(
 fn checked_schema(
     provider: &Arc<dyn JsonResourceProvider>,
     resource_name: &str,
-) -> ResourceResult<ikashita_resource::ResourceSchema> {
+) -> ResourceResult<egake_resource::ResourceSchema> {
     let schema = provider.schema()?;
     if schema.name != resource_name || schema.name.trim().is_empty() {
         return Err(ResourceError::new(
@@ -614,7 +614,7 @@ fn has_valid_percent_encoding(value: &str) -> bool {
 mod tests {
     use axum::body::to_bytes;
     use axum::http::Request;
-    use ikashita_resource::{
+    use egake_resource::{
         FieldSchema, FieldType, JsonResourceProvider, ListQuery, ResourceErrorKind, ResourcePage,
         ResourceSchema,
     };
@@ -686,7 +686,7 @@ mod tests {
             let item = items
                 .get_mut(id)
                 .ok_or_else(|| ResourceError::new(ResourceErrorKind::NotFound, "missing"))?;
-            *item = ikashita_resource::apply_merge_patch(item.clone(), &patch)?;
+            *item = egake_resource::apply_merge_patch(item.clone(), &patch)?;
             Ok(item.clone())
         }
 
@@ -749,7 +749,7 @@ mod tests {
             app.clone(),
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/ikashita/v1/resources/contacts/schema")
+                .uri("/api/egake/v1/resources/contacts/schema")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -760,7 +760,7 @@ mod tests {
         let (status, page) = request(
             app.clone(),
             Request::builder()
-                .uri("/api/ikashita/v1/resources/contacts?q=Ada&offset=0&limit=10")
+                .uri("/api/egake/v1/resources/contacts?q=Ada&offset=0&limit=10")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -772,7 +772,7 @@ mod tests {
             app.clone(),
             Request::builder()
                 .method(Method::POST)
-                .uri("/api/ikashita/v1/resources/contacts")
+                .uri("/api/egake/v1/resources/contacts")
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(r#"{"id":"2","name":"Grace"}"#))
                 .expect("request"),
@@ -784,7 +784,7 @@ mod tests {
         let (status, item) = request(
             app.clone(),
             Request::builder()
-                .uri("/api/ikashita/v1/resources/contacts/items/2")
+                .uri("/api/egake/v1/resources/contacts/items/2")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -796,7 +796,7 @@ mod tests {
             app.clone(),
             Request::builder()
                 .method(Method::PATCH)
-                .uri("/api/ikashita/v1/resources/contacts/items/2")
+                .uri("/api/egake/v1/resources/contacts/items/2")
                 .body(Body::from(r#"{"name":"Grace Hopper"}"#))
                 .expect("request"),
         )
@@ -808,7 +808,7 @@ mod tests {
             app.clone(),
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/ikashita/v1/resources/contacts/items/2")
+                .uri("/api/egake/v1/resources/contacts/items/2")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -820,7 +820,7 @@ mod tests {
             app,
             Request::builder()
                 .method(Method::POST)
-                .uri("/api/ikashita/v1/resources/contacts/actions/echo")
+                .uri("/api/egake/v1/resources/contacts/actions/echo")
                 .body(Body::from(r#"{"ok":true}"#))
                 .expect("request"),
         )
@@ -836,7 +836,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/api/ikashita/v1/openapi.json")
+                    .uri("/api/egake/v1/openapi.json")
                     .body(Body::empty())
                     .expect("request"),
             )
@@ -850,7 +850,7 @@ mod tests {
         )
         .expect("valid OpenAPI JSON");
         assert_eq!(document["openapi"], "3.0.3");
-        assert_eq!(document["info"]["title"], "ikashita Standalone API");
+        assert_eq!(document["info"]["title"], "egake Standalone API");
         assert!(document["components"]["schemas"]["ErrorResponse"].is_object());
 
         let paths = document["paths"].as_object().expect("OpenAPI paths object");
@@ -865,13 +865,13 @@ mod tests {
             }
         }
         let expected_operations: BTreeSet<_> = [
-            "get /api/ikashita/v1/resources/{resource}/schema",
-            "get /api/ikashita/v1/resources/{resource}",
-            "post /api/ikashita/v1/resources/{resource}",
-            "get /api/ikashita/v1/resources/{resource}/items/{id}",
-            "patch /api/ikashita/v1/resources/{resource}/items/{id}",
-            "delete /api/ikashita/v1/resources/{resource}/items/{id}",
-            "post /api/ikashita/v1/resources/{resource}/actions/{action}",
+            "get /api/egake/v1/resources/{resource}/schema",
+            "get /api/egake/v1/resources/{resource}",
+            "post /api/egake/v1/resources/{resource}",
+            "get /api/egake/v1/resources/{resource}/items/{id}",
+            "patch /api/egake/v1/resources/{resource}/items/{id}",
+            "delete /api/egake/v1/resources/{resource}/items/{id}",
+            "post /api/egake/v1/resources/{resource}/actions/{action}",
         ]
         .into_iter()
         .map(str::to_owned)
@@ -881,7 +881,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/api/ikashita/v1/swagger")
+                    .uri("/api/egake/v1/swagger")
                     .body(Body::empty())
                     .expect("request"),
             )
@@ -896,7 +896,7 @@ mod tests {
         .expect("UTF-8 HTML");
         assert!(html.contains("Swagger UI"));
         assert!(html.contains("OpenAPI 3.0.3"));
-        assert!(html.contains("/api/ikashita/v1/openapi.json"));
+        assert!(html.contains("/api/egake/v1/openapi.json"));
         for operation_id in ["schema", "list", "create", "get", "patch", "delete", "action"] {
             assert!(html.contains(&format!("\"operationId\":\"{operation_id}\"")));
         }
@@ -919,7 +919,7 @@ mod tests {
         let (status, error) = request(
             app.clone(),
             Request::builder()
-                .uri("/api/ikashita/v1/resources/missing")
+                .uri("/api/egake/v1/resources/missing")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -932,7 +932,7 @@ mod tests {
             app.clone(),
             Request::builder()
                 .method(Method::POST)
-                .uri("/api/ikashita/v1/resources/contacts")
+                .uri("/api/egake/v1/resources/contacts")
                 .body(Body::from("not json"))
                 .expect("request"),
         )
@@ -963,7 +963,7 @@ mod tests {
         let (status, item) = request(
             app.clone(),
             Request::builder()
-                .uri("/api/ikashita/v1/resources/contacts/items/%31")
+                .uri("/api/egake/v1/resources/contacts/items/%31")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -974,7 +974,7 @@ mod tests {
         let (status, error) = request(
             app,
             Request::builder()
-                .uri("/api/ikashita/v1/resources/contacts/items/%2e%2e")
+                .uri("/api/egake/v1/resources/contacts/items/%2e%2e")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -985,7 +985,7 @@ mod tests {
         let (status, error) = request(
             super::tests::app(),
             Request::builder()
-                .uri("/api/ikashita/v1/resources/contacts/items/%ZZ")
+                .uri("/api/egake/v1/resources/contacts/items/%ZZ")
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -1012,7 +1012,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri(format!("/api/ikashita/v1/resources/contacts?{oversized_query}"))
+                    .uri(format!("/api/egake/v1/resources/contacts?{oversized_query}"))
                     .body(Body::empty())
                     .expect("request"),
             )
@@ -1035,7 +1035,7 @@ mod tests {
         let (status, error) = request(
             router(state),
             Request::builder()
-                .uri("/api/ikashita/v1/resources/contacts/schema")
+                .uri("/api/egake/v1/resources/contacts/schema")
                 .body(Body::empty())
                 .expect("request"),
         )

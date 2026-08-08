@@ -1,6 +1,6 @@
 [package]
-name = "ikashita-resource"
-description = "Transport-neutral Resource Contract types for ikashita"
+name = "egake-resource"
+description = "Transport-neutral Resource Contract types for egake"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

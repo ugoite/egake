@@ -105,7 +105,7 @@ export async function runEmbeddedAction(
 }
 
 /** The host supplies providers; application JSON contains no data credentials. */
-export function startIkashitaHost(
+export function startEgakeHost(
   root: HTMLElement,
   application: SerializedApplication,
   providers: Readonly<Record<string, ResourceProvider<JsonObject>>>,
@@ -118,6 +118,6 @@ export function startIkashitaHost(
   });
 }
 
-// A real host can call startIkashitaHost(document.getElementById("app")!, json, {
+// A real host can call startEgakeHost(document.getElementById("app")!, json, {
 //   status: createEmbeddedProvider(),
 // }) after loading its own serialized application bundle and provider adapters.

@@ -4,9 +4,9 @@ set -euo pipefail
 repository_root=$(git rev-parse --show-toplevel)
 cd "$repository_root"
 
-source_file="crates/ikashita-cli/assets/runtime.css.src"
-generated_file="crates/ikashita-cli/assets/runtime.css"
-temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/ikashita-runtime-css.XXXXXX")
+source_file="crates/egake-cli/assets/runtime.css.src"
+generated_file="crates/egake-cli/assets/runtime.css"
+temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/egake-runtime-css.XXXXXX")
 trap 'rm -rf "$temporary_directory"' EXIT
 
 deno run --frozen --node-modules-dir=auto -A npm:@tailwindcss/cli@4.3.0 \

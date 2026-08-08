@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOCSITE_BASE: ikashita
+  DOCSITE_BASE: egake
   DOCSITE_ORIGIN: https://ugoite.github.io
 
 jobs:

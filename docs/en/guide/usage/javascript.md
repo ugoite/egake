@@ -1,11 +1,11 @@
 ---
 title: JavaScript embedding
-description: Inject a ResourceProvider from a Deno or TypeScript host and run ikashita.
+description: Inject a ResourceProvider from a Deno or TypeScript host and run egake.
 sidebar:
   label: JavaScript embedding
 ---
 
-<!-- i18n-sync: id=guide/usage/javascript digest=1f748430fd05b17370a7ecac5e060a1fda9a324dbc208995cd1d0bd84ec8ee52 -->
+<!-- i18n-sync: id=guide/usage/javascript digest=1ce6111c1978af1d492ea89ba89d8c7a4d5bc2da00340bafa5ca5b00f1a6bd68 -->
 
 JavaScript embedding separates the application definition from the provider. `packages/runtime` uses only Deno/TypeScript built-ins, while the host owns the provider map.
 
@@ -44,7 +44,7 @@ This is the provider boundary; the complete fixture is in `examples/js-embedded/
 The host loads the bundle and passes a root element plus provider map.
 
 ```ts
-startIkashitaHost(document.getElementById("app")!, application, {
+startEgakeHost(document.getElementById("app")!, application, {
   status: createEmbeddedProvider(),
 });
 ```

@@ -11,7 +11,7 @@ const markerPatterns = [
 ];
 const expectedTopics = new Set([
   "index",
-  "guide/what-is-ikashita",
+  "guide/what-is-egake",
   "guide/mental-model",
   "guide/quickstart",
   "guide/usage/index",

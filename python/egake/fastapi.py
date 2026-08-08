@@ -14,7 +14,7 @@ from .asgi import ResourceASGIApp
 from .resource import Resource
 
 
-def create_fastapi_app(resources: Mapping[str, Resource], title: str = "ikashita host") -> Any:
+def create_fastapi_app(resources: Mapping[str, Resource], title: str = "egake host") -> Any:
     """Create a FastAPI app that delegates the Resource Contract to ASGI.
 
     Authentication, authorization, and middleware remain the FastAPI host's

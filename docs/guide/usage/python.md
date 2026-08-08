@@ -5,9 +5,9 @@ sidebar:
   label: Python ASGI
 ---
 
-<!-- i18n-sync: id=guide/usage/python digest=6bcbdeb0e413e1409948e43aafce5bf6466e605411f1175f638359a7b4a68c0e -->
+<!-- i18n-sync: id=guide/usage/python digest=a65740996ce1cccb32f3e3e54fb1842c09034f92af87773a040b1b114c0c4177 -->
 
-Python hostでは、`python/ikashita`がResource ContractをASGI appとして公開します。coreは標準ライブラリだけで動き、FastAPIは`create_fastapi_app`を呼んだときだけ必要です。
+Python hostでは、`python/egake`がResource ContractをASGI appとして公開します。coreは標準ライブラリだけで動き、FastAPIは`create_fastapi_app`を呼んだときだけ必要です。
 
 ## 実行できるexample
 
@@ -19,7 +19,7 @@ PYTHONPATH=python python examples/python-fastapi/app.py
 exampleの`Contacts(ResourceBase)`は、`schema`、`list`、`get`、`create`、`update`、`delete`、`invoke`を実装しています。`update`は`apply_merge_patch`を使うため、既存値の一部だけを更新できます。
 
 ```python
-from ikashita import ResourceASGIApp
+from egake import ResourceASGIApp
 
 def create_asgi_app() -> ResourceASGIApp:
     return ResourceASGIApp({"contacts": Contacts()})

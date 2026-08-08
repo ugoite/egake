@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping build ikashita. Keep changes focused on the current
+Thanks for helping build egake. Keep changes focused on the current
 increment and preserve the adapter boundaries described in
 [`docs/spec.md`](docs/spec.md).
 
@@ -57,7 +57,7 @@ generated/local-only paths and high-confidence credential, private-key, and
 token patterns. The `Deploy documentation to GitHub Pages` workflow runs for
 each push to `main` (and on manual dispatch), builds `docs/` through
 `mise run docs:build`, and publishes the site at
-<https://ugoite.github.io/ikashita/>.
+<https://ugoite.github.io/egake/>.
 
 This repository intentionally has no release workflow. Releases, tags, and
 package publication remain explicit, separately reviewed operations.

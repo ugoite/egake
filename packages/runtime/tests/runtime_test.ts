@@ -74,7 +74,7 @@ Deno.test("client uses relative same-origin requests, capabilities, and request 
   assertEquals(page.total, 0);
   assertEquals(
     String(calls[0].input),
-    "/api/ikashita/v1/resources/contacts/schema",
+    "/api/egake/v1/resources/contacts/schema",
   );
   assertEquals(calls[0].init?.credentials, "same-origin");
   assertEquals(
@@ -117,7 +117,7 @@ Deno.test("client delegates provider-defined actions as JSON", async () => {
   assertEquals(result, { ok: true });
   assertEquals(
     String(calls[1].input),
-    "/api/ikashita/v1/resources/status/actions/health",
+    "/api/egake/v1/resources/status/actions/health",
   );
   assertEquals(calls[1].init?.method, "POST");
   assertEquals(calls[1].init?.body, JSON.stringify({ source: "test" }));

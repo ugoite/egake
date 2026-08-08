@@ -1,11 +1,11 @@
 ---
 title: JS埋め込み
-description: Deno/TypeScriptのhostがResourceProviderを注入してikashitaを動かす。
+description: Deno/TypeScriptのhostがResourceProviderを注入してegakeを動かす。
 sidebar:
   label: JS埋め込み
 ---
 
-<!-- i18n-sync: id=guide/usage/javascript digest=1f748430fd05b17370a7ecac5e060a1fda9a324dbc208995cd1d0bd84ec8ee52 -->
+<!-- i18n-sync: id=guide/usage/javascript digest=1ce6111c1978af1d492ea89ba89d8c7a4d5bc2da00340bafa5ca5b00f1a6bd68 -->
 
 JavaScript埋め込みでは、アプリケーション定義とproviderを分けます。`packages/runtime`はDeno/TypeScriptのbuilt-inだけで動き、hostがprovider mapを所有します。
 
@@ -44,12 +44,12 @@ const provider: ResourceProvider = {
 実行時にはhostがbundleをロードし、root elementとprovider mapを渡します。
 
 ```ts
-startIkashitaHost(document.getElementById("app")!, application, {
+startEgakeHost(document.getElementById("app")!, application, {
   status: createEmbeddedProvider(),
 });
 ```
 
-この呼び出しはexampleに定義された`startIkashitaHost`の形です。runtimeはDOM APIで要素を作り、値を`textContent`やDOM propertyへ渡します。任意のHTML文字列、`eval`、remote assetは使いません。
+この呼び出しはexampleに定義された`startEgakeHost`の形です。runtimeはDOM APIで要素を作り、値を`textContent`やDOM propertyへ渡します。任意のHTML文字列、`eval`、remote assetは使いません。
 
 ## HTTP providerを使う場合
 

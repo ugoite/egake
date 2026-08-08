@@ -5,9 +5,9 @@ sidebar:
   label: Python ASGI
 ---
 
-<!-- i18n-sync: id=guide/usage/python digest=6bcbdeb0e413e1409948e43aafce5bf6466e605411f1175f638359a7b4a68c0e -->
+<!-- i18n-sync: id=guide/usage/python digest=a65740996ce1cccb32f3e3e54fb1842c09034f92af87773a040b1b114c0c4177 -->
 
-The `python/ikashita` package exposes the Resource Contract as an ASGI application. The core uses only the standard library; FastAPI is imported only when `create_fastapi_app` is called.
+The `python/egake` package exposes the Resource Contract as an ASGI application. The core uses only the standard library; FastAPI is imported only when `create_fastapi_app` is called.
 
 ## Run the example
 
@@ -19,7 +19,7 @@ PYTHONPATH=python python examples/python-fastapi/app.py
 The example’s `Contacts(ResourceBase)` implements `schema`, `list`, `get`, `create`, `update`, `delete`, and `invoke`. Its `update` uses `apply_merge_patch`, so a caller can change only part of an existing record.
 
 ```python
-from ikashita import ResourceASGIApp
+from egake import ResourceASGIApp
 
 def create_asgi_app() -> ResourceASGIApp:
     return ResourceASGIApp({"contacts": Contacts()})

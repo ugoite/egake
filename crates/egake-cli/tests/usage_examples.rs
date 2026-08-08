@@ -12,15 +12,12 @@ fn example(name: &str) -> PathBuf {
 }
 
 fn run(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_ikashita"))
-        .args(args)
-        .output()
-        .expect("ikashita CLI should run")
+    Command::new(env!("CARGO_BIN_EXE_egake")).args(args).output().expect("egake CLI should run")
 }
 
 fn temporary_project() -> PathBuf {
     let suffix = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
-    std::env::temp_dir().join(format!("ikashita-cli-usage-{suffix}"))
+    std::env::temp_dir().join(format!("egake-cli-usage-{suffix}"))
 }
 
 #[test]

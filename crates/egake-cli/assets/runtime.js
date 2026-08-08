@@ -1,11 +1,11 @@
-/* ikashita's dependency-free, same-origin browser runtime. */
+/* egake's dependency-free, same-origin browser runtime. */
 (function () {
   "use strict";
 
-  var API = "/api/ikashita/v1";
+  var API = "/api/egake/v1";
   var requestCounter = 0;
   var model = { app: null, state: {}, records: {}, schemas: {}, selected: {}, loading: {}, errors: [], toast: null };
-  var root = document.getElementById("ikashita-root");
+  var root = document.getElementById("egake-root");
 
   function el(tag, text) {
     var node = document.createElement(tag);
@@ -312,13 +312,13 @@
 
   function renderText(component) {
     var text = el("p", component.text || componentAttr(component, "label") || "");
-    attr(text, "class", "ikashita-text");
+    attr(text, "class", "egake-text");
     return text;
   }
 
   function renderButton(component) {
     var button = el("button", component.text || componentAttr(component, "label") || "Action");
-    attr(button, "class", "ikashita-button");
+    attr(button, "class", "egake-button");
     attr(button, "type", "button");
     var variant = componentAttr(component, "variant");
     if (variant) attr(button, "data-variant", variant);
@@ -333,22 +333,22 @@
     var field = componentAttr(component, "field");
     var binding = componentAttr(component, "bind");
     var label = componentAttr(component, "label") || field || "Value";
-    var wrapper = el("div"); attr(wrapper, "class", "ikashita-field");
-    var inputId = component.id || "ikashita-field-" + safeId(field || label);
+    var wrapper = el("div"); attr(wrapper, "class", "egake-field");
+    var inputId = component.id || "egake-field-" + safeId(field || label);
     var labelNode = el("label");
     labelNode.textContent = label;
     attr(labelNode, "for", inputId);
     wrapper.appendChild(labelNode);
     var metadata = field ? schemaField(formResource, field) : null;
     var input = component.kind === "textarea" ? el("textarea") : component.kind === "select" ? el("select") : el("input");
-    attr(input, "class", "ikashita-control");
+    attr(input, "class", "egake-control");
     attr(input, "id", inputId);
     if (component.kind === "text-input") attr(input, "type", metadata && metadata.format === "email" ? "email" : metadata && metadata.format === "date" ? "date" : metadata && metadata.format === "date-time" ? "datetime-local" : "text");
     if (metadata && metadata.required) attr(input, "required", "required");
     if (field) attr(input, "name", field);
     if (metadata && metadata.required) {
       var required = el("span", "*");
-      attr(required, "class", "ikashita-required");
+      attr(required, "class", "egake-required");
       required.setAttribute("aria-hidden", "true");
       labelNode.appendChild(required);
     }
@@ -385,19 +385,19 @@
   }
 
   function renderTable(component) {
-    var resource = resourceName(component), tableWrap = el("div"); attr(tableWrap, "class", "ikashita-table-wrap");
+    var resource = resourceName(component), tableWrap = el("div"); attr(tableWrap, "class", "egake-table-wrap");
     var tableLabel = el("span", resource || "Records");
-    attr(tableLabel, "class", "ikashita-table-toolbar-label");
-    var toolbar = el("div"); attr(toolbar, "class", "ikashita-table-toolbar");
+    attr(tableLabel, "class", "egake-table-toolbar-label");
+    var toolbar = el("div"); attr(toolbar, "class", "egake-table-toolbar");
     toolbar.appendChild(tableLabel);
     var refreshButton = el("button", "Refresh");
-    attr(refreshButton, "class", "ikashita-button");
+    attr(refreshButton, "class", "egake-button");
     attr(refreshButton, "type", "button");
     refreshButton.addEventListener("click", function () { refresh(resource).catch(function () {}); });
     toolbar.appendChild(refreshButton);
     tableWrap.appendChild(toolbar);
     var table = el("table"), head = el("thead"), headRow = el("tr");
-    attr(table, "class", "ikashita-table");
+    attr(table, "class", "egake-table");
     attr(table, "aria-label", resource ? resource + " records" : "Records");
     attr(table, "aria-busy", model.loading[resource] ? "true" : "false");
     (component.children || []).forEach(function (column) { headRow.appendChild(el("th", componentAttr(column, "label") || componentAttr(column, "field"))); });
@@ -430,8 +430,8 @@
     });
     if (model.loading[resource] || !(model.records[resource] || []).length) {
       var emptyRow = el("tr"), emptyCell = el("td", model.loading[resource] ? "Loading records…" : "No records yet.");
-      attr(emptyRow, "class", "ikashita-table-empty-row");
-      attr(emptyCell, "class", "ikashita-table-empty");
+      attr(emptyRow, "class", "egake-table-empty-row");
+      attr(emptyCell, "class", "egake-table-empty");
       if (model.loading[resource]) attr(emptyCell, "data-state", "loading");
       attr(emptyCell, "colspan", Math.max((component.children || []).length, 1));
       emptyRow.appendChild(emptyCell);
@@ -443,25 +443,25 @@
 
   function renderComponent(component, formResource) {
     var node;
-    if (component.kind === "column") { node = el("div"); attr(node, "class", "ikashita-column"); }
-    else if (component.kind === "row") { node = el("div"); attr(node, "class", "ikashita-row"); attr(node, "data-align", componentAttr(component, "align") || "start"); }
+    if (component.kind === "column") { node = el("div"); attr(node, "class", "egake-column"); }
+    else if (component.kind === "row") { node = el("div"); attr(node, "class", "egake-row"); attr(node, "data-align", componentAttr(component, "align") || "start"); }
     else if (component.kind === "text") return renderText(component);
     else if (component.kind === "button") return renderButton(component);
     else if (["text-input", "select", "textarea"].indexOf(component.kind) >= 0) return renderInput(component, formResource);
     else if (component.kind === "data-table") return renderTable(component);
     else if (component.kind === "form") {
-      node = el("section"); attr(node, "class", "ikashita-form"); attr(node, "data-mode", componentAttr(component, "mode") || "inline");
+      node = el("section"); attr(node, "class", "egake-form"); attr(node, "data-mode", componentAttr(component, "mode") || "inline");
       if (!model.state.editorOpen) node.hidden = true;
       if (component.id) attr(node, "id", component.id);
       if (["drawer", "dialog"].indexOf(componentAttr(component, "mode")) >= 0) {
         attr(node, "role", "dialog");
         attr(node, "aria-modal", "true");
         var formTitle = el("h2", model.state.editorId === null || model.state.editorId === undefined ? "New record" : "Edit record");
-        attr(formTitle, "class", "ikashita-form-title");
-        var formHeading = el("div"); attr(formHeading, "class", "ikashita-form-head");
+        attr(formTitle, "class", "egake-form-title");
+        var formHeading = el("div"); attr(formHeading, "class", "egake-form-head");
         formHeading.appendChild(formTitle);
         var close = el("button", "×");
-        attr(close, "class", "ikashita-form-close");
+        attr(close, "class", "egake-form-close");
         attr(close, "type", "button");
         attr(close, "aria-label", "Close editor");
         close.addEventListener("click", closeEditor);
@@ -471,7 +471,7 @@
       var formResourceName = firstResource();
       (component.children || []).forEach(function (child) {
         var childNode = renderComponent(child, formResourceName);
-        if (child.kind === "row") attr(childNode, "class", "ikashita-row ikashita-form-actions");
+        if (child.kind === "row") attr(childNode, "class", "egake-row egake-form-actions");
         node.appendChild(childNode);
       });
       return node;
@@ -486,26 +486,26 @@
     if (!root || !model.app) return;
     while (root.firstChild) root.removeChild(root.firstChild);
     var page = model.app.pages[0];
-    var shell = el("main"); attr(shell, "class", "ikashita-shell");
-    var topbar = el("header"); attr(topbar, "class", "ikashita-topbar");
-    var brand = el("div"); attr(brand, "class", "ikashita-brand");
-    var brandMark = el("span", "i"); attr(brandMark, "class", "ikashita-brand-mark"); brandMark.setAttribute("aria-hidden", "true");
-    brand.appendChild(brandMark); brand.appendChild(el("span", "ikashita"));
+    var shell = el("main"); attr(shell, "class", "egake-shell");
+    var topbar = el("header"); attr(topbar, "class", "egake-topbar");
+    var brand = el("div"); attr(brand, "class", "egake-brand");
+    var brandMark = el("span", "e"); attr(brandMark, "class", "egake-brand-mark"); brandMark.setAttribute("aria-hidden", "true");
+    brand.appendChild(brandMark); brand.appendChild(el("span", "egake"));
     topbar.appendChild(brand);
-    var topbarTitle = el("span", page ? page.title : model.app.profile.name); attr(topbarTitle, "class", "ikashita-topbar-title");
+    var topbarTitle = el("span", page ? page.title : model.app.profile.name); attr(topbarTitle, "class", "egake-topbar-title");
     topbar.appendChild(topbarTitle);
     shell.appendChild(topbar);
-    var main = el("div"); attr(main, "class", "ikashita-shell-main");
-    var pageHeader = el("header"); attr(pageHeader, "class", "ikashita-page-header");
-    var pageHeading = el("div"); attr(pageHeading, "class", "ikashita-page-heading");
-    var eyebrow = el("span", "Workspace"); attr(eyebrow, "class", "ikashita-eyebrow");
+    var main = el("div"); attr(main, "class", "egake-shell-main");
+    var pageHeader = el("header"); attr(pageHeader, "class", "egake-page-header");
+    var pageHeading = el("div"); attr(pageHeading, "class", "egake-page-heading");
+    var eyebrow = el("span", "Workspace"); attr(eyebrow, "class", "egake-eyebrow");
     pageHeading.appendChild(eyebrow);
-    var title = el("h1", page ? page.title : model.app.profile.name); attr(title, "class", "ikashita-page-title");
+    var title = el("h1", page ? page.title : model.app.profile.name); attr(title, "class", "egake-page-title");
     pageHeading.appendChild(title); pageHeader.appendChild(pageHeading); main.appendChild(pageHeader);
-    var content = el("div"); attr(content, "class", "ikashita-content");
+    var content = el("div"); attr(content, "class", "egake-content");
     if (model.errors.length) {
-      var errors = el("div"); attr(errors, "class", "ikashita-error"); attr(errors, "role", "alert"); errors.appendChild(el("strong", "Runtime errors"));
-      var errorList = el("div"); attr(errorList, "class", "ikashita-error-list");
+      var errors = el("div"); attr(errors, "class", "egake-error"); attr(errors, "role", "alert"); errors.appendChild(el("strong", "Runtime errors"));
+      var errorList = el("div"); attr(errorList, "class", "egake-error-list");
       model.errors.forEach(function (message) { errorList.appendChild(el("div", message)); });
       errors.appendChild(errorList); content.appendChild(errors);
     }
@@ -513,19 +513,19 @@
     var form = formComponent();
     if (model.state.editorOpen && form && ["drawer", "dialog"].indexOf(componentAttr(form, "mode")) >= 0) {
       var backdrop = el("button");
-      attr(backdrop, "class", "ikashita-backdrop");
+      attr(backdrop, "class", "egake-backdrop");
       attr(backdrop, "type", "button");
       attr(backdrop, "aria-label", "Close editor");
       backdrop.addEventListener("click", closeEditor);
       content.appendChild(backdrop);
     }
     main.appendChild(content); shell.appendChild(main);
-    if (model.toast) { var toastNode = el("div", model.toast.message); attr(toastNode, "class", "ikashita-toast"); attr(toastNode, "data-kind", model.toast.kind); attr(toastNode, "role", "status"); attr(toastNode, "aria-live", "polite"); shell.appendChild(toastNode); }
+    if (model.toast) { var toastNode = el("div", model.toast.message); attr(toastNode, "class", "egake-toast"); attr(toastNode, "data-kind", model.toast.kind); attr(toastNode, "role", "status"); attr(toastNode, "aria-live", "polite"); shell.appendChild(toastNode); }
     root.appendChild(shell);
   }
 
   function load() {
-    var inline = document.getElementById("ikashita-application");
+    var inline = document.getElementById("egake-application");
     var application = inline
       ? Promise.resolve().then(function () {
         try { return JSON.parse(inline.textContent || ""); }

@@ -1,7 +1,7 @@
 [project]
-name = "ikashita-python-quality"
+name = "egake-python-quality"
 version = "0.1.0"
-description = "Reproducible quality tooling for ikashita's Python host adapter"
+description = "Reproducible quality tooling for egake's Python host adapter"
 requires-python = ">=3.13,<3.14"
 dependencies = []
 
