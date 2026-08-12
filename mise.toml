@@ -40,6 +40,10 @@ run = "deno run --frozen --node-modules-dir=auto -A npm:@tailwindcss/cli@4.3.0 -
 description = "Check that the checked-in Tailwind runtime stylesheet is reproducible"
 run = "bash scripts/check-runtime-ui.sh"
 
+[tasks."ui:test"]
+description = "Exercise essential runtime UI focus and refresh behavior"
+run = "node scripts/test-runtime-ui.js"
+
 [tasks.fmt]
 description = "Format Rust, Deno, and Python sources"
 depends = ["rust:fmt", "deno:fmt", "python:fmt"]
@@ -115,7 +119,10 @@ run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod
 
 [tasks."deno:test"]
 description = "Run deterministic TypeScript/Deno host tests"
-run = "deno test packages/runtime/tests packages/react/tests packages/vue/tests packages/solid/tests packages/svelte/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts"
+run = [
+    "node scripts/test-runtime-ui.js",
+    "deno test packages/runtime/tests packages/react/tests packages/vue/tests packages/solid/tests packages/svelte/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts",
+]
 
 [tasks."python:install"]
 description = "Install the locked Python type-checking environment"
