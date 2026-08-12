@@ -314,9 +314,20 @@ function appendChildren(
   document: Document,
   options: RenderOptions,
   application: SerializedApplication,
+  path = "root",
+  tableBodies?: TableBodyReuse,
 ): void {
-  for (const child of children) {
-    parent.append(renderComponent(child, document, options, application));
+  for (const [index, child] of children.entries()) {
+    parent.append(
+      renderComponent(
+        child,
+        document,
+        options,
+        application,
+        `${path}-${index}`,
+        tableBodies,
+      ),
+    );
   }
 }
 
@@ -328,11 +339,47 @@ function safeText(value: unknown): string {
     : String(value);
 }
 
+type FocusDescriptor = { id: string; focusKey: string };
+type TableBodyReuse = Map<string, HTMLTableSectionElement[]>;
+
+function captureFocus(root: HTMLElement): FocusDescriptor | undefined {
+  const active = root.ownerDocument?.activeElement;
+  if (!active || !root.contains(active)) return undefined;
+  const element = active as HTMLElement;
+  const descriptor = {
+    id: element.id ?? "",
+    focusKey: element.dataset.focusKey ?? "",
+  };
+  return descriptor.id || descriptor.focusKey ? descriptor : undefined;
+}
+
+function restoreFocus(
+  root: HTMLElement,
+  descriptor: FocusDescriptor | undefined,
+): void {
+  if (!descriptor) return;
+  const candidates = root.querySelectorAll<HTMLElement>(
+    "[id], [data-focus-key]",
+  );
+  for (const candidate of candidates) {
+    if (
+      (descriptor.id && candidate.id === descriptor.id) ||
+      (descriptor.focusKey &&
+        candidate.dataset.focusKey === descriptor.focusKey)
+    ) {
+      candidate.focus();
+      return;
+    }
+  }
+}
+
 function renderComponent(
   component: SerializedComponent,
   document: Document,
   options: RenderOptions,
   application: SerializedApplication,
+  path = "root",
+  tableBodies?: TableBodyReuse,
 ): Element {
   const element = document.createElement(
     component.kind === "text-input"
@@ -352,10 +399,16 @@ function renderComponent(
   const isNativeControl = element instanceof HTMLInputElement ||
     element instanceof HTMLTextAreaElement ||
     element instanceof HTMLSelectElement;
+  let tableStatus: HTMLSpanElement | undefined;
+  let formBackdrop: HTMLButtonElement | undefined;
   element.className = `${fixedClass(component.kind)}${
     isNativeControl ? " egake-control" : ""
   }`;
   if (component.id) element.id = component.id;
+  if (
+    path &&
+    (element instanceof HTMLButtonElement || isNativeControl)
+  ) element.dataset.focusKey = path;
   const label = attr(component, "label");
   const field = attr(component, "field");
   if (label) element.setAttribute("aria-label", label);
@@ -406,13 +459,19 @@ function renderComponent(
   } else if (component.kind === "data-table") {
     const table = element as HTMLTableElement;
     table.classList.add("egake-table");
+    table.setAttribute("data-resource", attr(component, "resource") ?? "");
     table.setAttribute("aria-busy", "true");
     table.setAttribute(
       "aria-label",
       attr(component, "resource") ?? "Resource records",
     );
     const head = table.createTHead().insertRow();
-    const body = table.createTBody();
+    const providerName = attr(component, "resource");
+    const reusedBodies = providerName
+      ? tableBodies?.get(providerName)
+      : undefined;
+    const body = reusedBodies?.shift() ?? table.createTBody();
+    if (body.parentElement !== table) table.append(body);
     const columns = component.children.filter((child) =>
       child.kind === "column"
     );
@@ -423,44 +482,102 @@ function renderComponent(
         column.text ?? "";
       head.append(cell);
     }
-    const providerName = attr(component, "resource");
     const provider = providerName
       ? options.providers?.[providerName]
       : undefined;
-    if (provider && columns.length) void hydrateTable(body, columns, provider);
-    else {
+    tableStatus = document.createElement("span");
+    tableStatus.className = "egake-table-status";
+    tableStatus.setAttribute("role", "status");
+    tableStatus.setAttribute("aria-live", "polite");
+    tableStatus.textContent = "Loading records…";
+    if (provider && columns.length) {
+      void hydrateTable(body, columns, provider, tableStatus);
+    } else {
       table.setAttribute("aria-busy", "false");
-      const row = body.insertRow();
-      const cell = row.insertCell();
-      cell.className = "egake-table-empty";
-      cell.colSpan = Math.max(columns.length, 1);
-      cell.textContent = "No records yet.";
+      tableStatus.hidden = true;
+      tableStatus.textContent = "";
+      if (!body.rows.length) {
+        const row = body.insertRow();
+        const cell = row.insertCell();
+        cell.className = "egake-table-empty";
+        cell.colSpan = Math.max(columns.length, 1);
+        cell.textContent = "No records yet.";
+      }
     }
   } else if (component.kind === "form") {
     const form = element as HTMLDivElement;
     form.classList.add("egake-form");
     const mode = attr(component, "mode") ?? "inline";
     form.dataset.mode = mode;
+    form.dataset.open = "true";
     if (mode === "drawer" || mode === "dialog") {
-      form.setAttribute("role", "dialog");
-      form.setAttribute("aria-modal", "true");
       const header = document.createElement("div");
       header.className = "egake-form-head";
       const title = document.createElement("h2");
       title.className = "egake-form-title";
       title.textContent = label ?? "Editor";
+      const titleId = `egake-form-title-${
+        safeDomId(component.id ?? mode)
+      }-${path}`;
+      title.id = titleId;
       header.append(title);
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "egake-form-close";
+      close.dataset.focusKey = `${path}-close`;
+      close.setAttribute("aria-label", "Close editor");
+      close.textContent = "×";
+      const closeEditor = () => {
+        form.hidden = true;
+        form.dataset.open = "false";
+        formBackdrop?.remove();
+      };
+      close.addEventListener("click", closeEditor);
+      header.append(close);
       form.append(header);
+      form.setAttribute("role", mode === "dialog" ? "dialog" : "region");
+      form.setAttribute("aria-labelledby", titleId);
+      if (mode === "dialog") {
+        form.setAttribute("aria-modal", "true");
+        const backdrop = document.createElement("button");
+        backdrop.type = "button";
+        backdrop.className = "egake-backdrop";
+        backdrop.dataset.focusKey = `${path}-backdrop`;
+        backdrop.setAttribute("aria-label", "Close editor");
+        backdrop.addEventListener("click", closeEditor);
+        formBackdrop = backdrop;
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && form.dataset.open === "true") {
+            event.preventDefault();
+            closeEditor();
+          }
+        });
+      }
     }
-    for (const child of component.children) {
-      const childNode = renderComponent(child, document, options, application);
+    for (const [index, child] of component.children.entries()) {
+      const childNode = renderComponent(
+        child,
+        document,
+        options,
+        application,
+        `${path}-${index}`,
+        tableBodies,
+      );
       if (child.kind === "row") {
         childNode.classList.add("egake-form-actions");
       }
       form.append(childNode);
     }
   } else {
-    appendChildren(element, component.children, document, options, application);
+    appendChildren(
+      element,
+      component.children,
+      document,
+      options,
+      application,
+      path,
+      tableBodies,
+    );
   }
 
   if (isNativeControl && label) {
@@ -483,8 +600,21 @@ function renderComponent(
   if (component.kind === "data-table") {
     const tableWrapper = document.createElement("div");
     tableWrapper.className = "egake-table-wrap";
-    tableWrapper.append(element);
+    const toolbar = document.createElement("div");
+    toolbar.className = "egake-table-toolbar";
+    const tableLabel = document.createElement("span");
+    tableLabel.className = "egake-table-toolbar-label";
+    tableLabel.textContent = attr(component, "resource") ?? "Records";
+    toolbar.append(tableLabel);
+    if (tableStatus) toolbar.append(tableStatus);
+    tableWrapper.append(toolbar, element);
     return tableWrapper;
+  }
+  if (component.kind === "form" && formBackdrop) {
+    const host = document.createElement("div");
+    host.className = "egake-form-host";
+    host.append(formBackdrop, element);
+    return host;
   }
   return element;
 }
@@ -493,18 +623,25 @@ async function hydrateTable(
   body: HTMLTableSectionElement,
   columns: readonly SerializedComponent[],
   provider: ResourceProvider,
+  status?: HTMLSpanElement,
 ): Promise<void> {
-  body.replaceChildren();
-  const loadingRow = body.insertRow();
-  const loadingCell = loadingRow.insertCell();
-  loadingCell.className = "egake-table-empty";
-  loadingCell.dataset.state = "loading";
-  loadingCell.colSpan = Math.max(columns.length, 1);
-  loadingCell.textContent = "Loading records…";
+  if (!body.rows.length || body.querySelector(".egake-table-empty")) {
+    body.replaceChildren();
+    const loadingRow = body.insertRow();
+    const loadingCell = loadingRow.insertCell();
+    loadingCell.className = "egake-table-empty";
+    loadingCell.dataset.state = "loading";
+    loadingCell.colSpan = Math.max(columns.length, 1);
+    loadingCell.textContent = "Loading records…";
+  }
   try {
     const page = await provider.list({ sort: [], offset: 0, limit: 50 });
     body.replaceChildren();
     body.parentElement?.setAttribute("aria-busy", "false");
+    if (status) {
+      status.hidden = true;
+      status.textContent = "";
+    }
     if (!page.items.length) {
       const row = body.insertRow();
       const cell = row.insertCell();
@@ -523,6 +660,10 @@ async function hydrateTable(
   } catch {
     body.replaceChildren();
     body.parentElement?.setAttribute("aria-busy", "false");
+    if (status) {
+      status.hidden = true;
+      status.textContent = "";
+    }
     const row = body.insertRow();
     const cell = row.insertCell();
     cell.className = "egake-table-empty";
@@ -536,10 +677,11 @@ export function renderApplication(
   document: Document,
   serialized: unknown,
   options: RenderOptions = {},
+  tableBodies?: TableBodyReuse,
 ): DocumentFragment {
   const application = parseApplication(serialized);
   const fragment = document.createDocumentFragment();
-  for (const page of application.pages) {
+  for (const [pageIndex, page] of application.pages.entries()) {
     const section = document.createElement("section");
     section.className = "egake-page egake-shell";
     section.setAttribute("aria-label", page.title);
@@ -576,7 +718,15 @@ export function renderApplication(
     main.append(pageHeader);
     const content = document.createElement("div");
     content.className = "egake-content";
-    appendChildren(content, page.components, document, options, application);
+    appendChildren(
+      content,
+      page.components,
+      document,
+      options,
+      application,
+      `page-${pageIndex}`,
+      tableBodies,
+    );
     main.append(content);
     section.append(main);
     fragment.append(section);
@@ -599,7 +749,22 @@ export function mountApplication(
         message: "mount root has no owner document",
       });
     }
-    root.replaceChildren(renderApplication(document, application, options));
+    const focus = captureFocus(root);
+    const tableBodies: TableBodyReuse = new Map();
+    for (
+      const table of root.querySelectorAll<HTMLTableElement>(".egake-table")
+    ) {
+      const resource = table.dataset.resource;
+      const body = table.tBodies[0];
+      if (!resource || !body) continue;
+      const bodies = tableBodies.get(resource) ?? [];
+      bodies.push(body);
+      tableBodies.set(resource, bodies);
+    }
+    root.replaceChildren(
+      renderApplication(document, application, options, tableBodies),
+    );
+    restoreFocus(root, focus);
   };
   render();
   return {

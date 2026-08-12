@@ -1956,14 +1956,24 @@ mod tests {
         assert!(runtime.contains("request_id"));
         assert!(runtime.contains("egake-backdrop"));
         assert!(runtime.contains("aria-modal"));
+        assert!(runtime.contains("aria-labelledby"));
+        assert!(runtime.contains("focusEditor"));
+        assert!(runtime.contains("data-resource"));
+        assert!(runtime.contains("Refreshing records"));
+        assert!(runtime.contains("event.key === \"Escape\""));
         assert!(runtime.contains("Loading records"));
         let stylesheet =
             String::from_utf8_lossy(bundle.assets().get("runtime.css").expect("style"));
         assert!(stylesheet.contains("tailwindcss v4.3.0"));
-        assert!(stylesheet.contains("--ik-bg"));
+        assert!(stylesheet.contains("--ikasue-canvas"));
+        assert!(stylesheet.contains("--ikasue-density-control"));
         assert!(stylesheet.contains("egake-form[data-mode=drawer]"));
         assert!(stylesheet.contains("prefers-color-scheme:dark"));
         assert!(stylesheet.contains("egake-table-empty"));
+        assert!(stylesheet.contains("border-radius:0"));
+        assert!(!stylesheet.contains("box-shadow:var"));
+        assert!(!stylesheet.contains("box-shadow:0 0"));
+        assert!(!stylesheet.contains("backdrop-filter"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 

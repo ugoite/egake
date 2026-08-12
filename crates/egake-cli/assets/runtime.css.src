@@ -4,71 +4,81 @@
 @source "../../../packages/runtime/src/application.ts";
 
 @theme {
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --color-canvas: #f7f7f4;
-  --color-panel: #ffffff;
-  --color-panel-soft: #fbfaf7;
-  --color-ink: #151515;
-  --color-muted: #74706a;
-  --color-line: #e4e1da;
-  --color-line-strong: #d3cfc5;
-  --color-focus: #5657e8;
-  --color-danger: #b3261e;
-  --color-success: #226b3a;
-  --radius-control: 0.7rem;
-  --radius-panel: 1rem;
-  --shadow-panel: 0 18px 56px rgba(0, 0, 0, 0.07);
+  --font-sans: Aptos, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-ink: #111111;
+  --color-muted: #666861;
+  --color-faint: #93958f;
+  --color-line: #dedfd9;
+  --color-line-strong: #a7aaa1;
+  --color-selection: #f0f1ed;
+  --color-selection-strong: #e8e9e4;
+  --color-error-fill: #fff0ef;
+  --color-error-ink: #a82e29;
+  --color-success: #2f7d4d;
+  --color-focus: #111111;
 }
 
 :root {
   color-scheme: light;
-  --ik-bg: #f7f7f4;
-  --ik-panel: #ffffff;
-  --ik-panel-soft: #fbfaf7;
-  --ik-ink: #151515;
-  --ik-muted: #74706a;
-  --ik-line: #e4e1da;
-  --ik-line-strong: #d3cfc5;
-  --ik-soft: #f0efea;
-  --ik-focus: #5657e8;
-  --ik-danger: #b3261e;
-  --ik-success: #226b3a;
-  --ik-shadow: 0 18px 56px rgba(0, 0, 0, 0.07);
+  --ikasue-canvas: #ffffff;
+  --ikasue-surface: #ffffff;
+  --ikasue-ink: #111111;
+  --ikasue-muted: #666861;
+  --ikasue-faint: #93958f;
+  --ikasue-line: #dedfd9;
+  --ikasue-line-strong: #a7aaa1;
+  --ikasue-selection: #f0f1ed;
+  --ikasue-selection-strong: #e8e9e4;
+  --ikasue-error-fill: #fff0ef;
+  --ikasue-error-ink: #a82e29;
+  --ikasue-success: #2f7d4d;
+  --ikasue-density-control: 38px;
+  --ikasue-density-block: 14px;
+  --ikasue-density-gap: 2px;
+  --ikasue-motion-fast: 150ms;
+  --ikasue-motion: 280ms;
+  --ikasue-motion-duration: var(--ikasue-motion-fast);
+  --ikasue-font-ja: "BIZ UDPGothic", "Yu Gothic UI", "Yu Gothic",
+    "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --ikasue-font-en: Aptos, "Segoe UI Variable", "Segoe UI", system-ui,
+    sans-serif;
+  --ikasue-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 :root[data-color-mode="dark"] {
   color-scheme: dark;
-  --ik-bg: #101114;
-  --ik-panel: #1b1d22;
-  --ik-panel-soft: #22252b;
-  --ik-ink: #f0f1f5;
-  --ik-muted: #b8bbc4;
-  --ik-line: #3a3d46;
-  --ik-line-strong: #50545f;
-  --ik-soft: #292c33;
-  --ik-focus: #9bb6ff;
-  --ik-danger: #ffaaa4;
-  --ik-success: #a6e0b6;
-  --ik-shadow: 0 18px 56px rgba(0, 0, 0, 0.3);
+  --ikasue-canvas: #111311;
+  --ikasue-surface: #111311;
+  --ikasue-ink: #f1f2ed;
+  --ikasue-muted: #b5b8ad;
+  --ikasue-faint: #8e9388;
+  --ikasue-line: #3c403a;
+  --ikasue-line-strong: #686e64;
+  --ikasue-selection: #292e28;
+  --ikasue-selection-strong: #353b33;
+  --ikasue-error-fill: #351e1c;
+  --ikasue-error-ink: #ffaaa4;
+  --ikasue-success: #9fdaa9;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-color-mode="light"]) {
     color-scheme: dark;
-    --ik-bg: #101114;
-    --ik-panel: #1b1d22;
-    --ik-panel-soft: #22252b;
-    --ik-ink: #f0f1f5;
-    --ik-muted: #b8bbc4;
-    --ik-line: #3a3d46;
-    --ik-line-strong: #50545f;
-    --ik-soft: #292c33;
-    --ik-focus: #9bb6ff;
-    --ik-danger: #ffaaa4;
-    --ik-success: #a6e0b6;
-    --ik-shadow: 0 18px 56px rgba(0, 0, 0, 0.3);
+    --ikasue-canvas: #111311;
+    --ikasue-surface: #111311;
+    --ikasue-ink: #f1f2ed;
+    --ikasue-muted: #b5b8ad;
+    --ikasue-faint: #8e9388;
+    --ikasue-line: #3c403a;
+    --ikasue-line-strong: #686e64;
+    --ikasue-selection: #292e28;
+    --ikasue-selection-strong: #353b33;
+    --ikasue-error-fill: #351e1c;
+    --ikasue-error-ink: #ffaaa4;
+    --ikasue-success: #9fdaa9;
   }
 }
 
@@ -77,10 +87,15 @@
   *::before,
   *::after {
     box-sizing: border-box;
+    border-radius: 0;
   }
 
   [hidden] {
     display: none !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 
   html,
@@ -90,8 +105,10 @@
 
   body {
     @apply m-0 min-w-80 font-sans text-sm antialiased;
-    background: var(--ik-bg);
-    color: var(--ik-ink);
+    background: var(--ikasue-canvas);
+    color: var(--ikasue-ink);
+    font-family: var(--ikasue-font-en), var(--ikasue-font-ja);
+    line-height: 1.58;
   }
 
   button,
@@ -115,54 +132,57 @@
   select:focus-visible,
   textarea:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid var(--ik-focus);
-    outline-offset: 3px;
+    outline: 2px solid var(--ikasue-ink);
+    outline-offset: 2px;
   }
 
   table {
     @apply w-full border-collapse;
   }
+
+  ::selection {
+    background: var(--ikasue-selection-strong);
+    color: var(--ikasue-ink);
+  }
 }
 
 @layer components {
-  #egake-root {
-    @apply min-h-screen;
+  #egake-root,
+  .egake-shell {
+    min-height: 100vh;
   }
 
   .egake-shell {
-    @apply min-h-screen;
-    background: var(--ik-bg);
-    color: var(--ik-ink);
+    background: var(--ikasue-canvas);
+    color: var(--ikasue-ink);
   }
 
   .egake-topbar {
-    @apply sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b px-5 sm:px-8;
-    border-color: color-mix(in srgb, var(--ik-line) 88%, transparent);
-    background: color-mix(in srgb, var(--ik-bg) 88%, transparent);
-    backdrop-filter: blur(16px);
+    @apply flex min-h-14 items-center justify-between gap-4 border-b px-4 sm:px-6;
+    border-color: var(--ikasue-line);
   }
 
   .egake-brand {
-    @apply inline-flex items-center gap-2.5 font-semibold tracking-tight;
+    @apply inline-flex items-center gap-2 font-semibold tracking-tight;
   }
 
   .egake-brand-mark {
-    @apply grid size-8 place-items-center rounded-xl text-sm font-black;
-    background: var(--ik-ink);
-    color: var(--ik-panel);
+    @apply grid size-8 place-items-center text-sm font-bold;
+    background: var(--ikasue-ink);
+    color: var(--ikasue-canvas);
   }
 
   .egake-topbar-title {
     @apply max-w-[min(55vw,34rem)] truncate text-xs font-medium;
-    color: var(--ik-muted);
+    color: var(--ikasue-muted);
   }
 
   .egake-shell-main {
-    @apply mx-auto w-full max-w-7xl px-4 pb-24 pt-8 sm:px-8 sm:pt-10;
+    @apply mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6 sm:pt-10;
   }
 
   .egake-page-header {
-    @apply mb-6 flex flex-wrap items-start justify-between gap-4;
+    @apply mb-7 flex flex-wrap items-start justify-between gap-4;
   }
 
   .egake-page-heading {
@@ -170,26 +190,30 @@
   }
 
   .egake-eyebrow {
-    @apply text-[0.7rem] font-bold uppercase tracking-[0.12em];
-    color: var(--ik-muted);
+    @apply text-[0.72rem] font-bold uppercase tracking-[0.12em];
+    color: var(--ikasue-muted);
   }
 
   .egake-page-title {
-    @apply m-0 text-3xl font-extrabold leading-tight tracking-[-0.045em] sm:text-4xl;
+    @apply m-0 text-3xl font-bold leading-tight tracking-[-0.035em] sm:text-4xl;
   }
 
-  .egake-page-subtitle {
-    @apply m-0 max-w-2xl text-sm;
-    color: var(--ik-muted);
+  .egake-page-subtitle,
+  .egake-text,
+  .egake-muted {
+    @apply m-0;
+    color: var(--ikasue-muted);
   }
 
   .egake-content,
   .egake-column {
-    @apply flex flex-col gap-4;
+    @apply flex min-w-0 flex-col;
+    gap: var(--ikasue-density-block);
   }
 
   .egake-row {
-    @apply flex flex-wrap items-end gap-3;
+    @apply flex min-w-0 flex-wrap items-end;
+    gap: var(--ikasue-density-gap);
   }
 
   .egake-row[data-align="center"] {
@@ -204,195 +228,203 @@
     @apply items-stretch;
   }
 
-  .egake-text,
-  .egake-muted {
-    @apply m-0;
-    color: var(--ik-muted);
-  }
-
   .egake-button {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm font-semibold shadow-sm transition;
-    border-color: var(--ik-line);
-    background: var(--ik-panel);
-    color: var(--ik-ink);
+    @apply inline-flex min-h-9 items-center justify-center gap-2 px-2 py-1 text-sm font-semibold;
+    border-inline-start: 2px solid transparent;
+    background: transparent;
+    color: var(--ikasue-muted);
+    transition:
+      background var(--ikasue-motion-fast),
+      color var(--ikasue-motion-fast),
+      transform var(--ikasue-motion-fast);
   }
 
-  .egake-button:hover {
-    border-color: var(--ik-line-strong);
-    background: var(--ik-panel-soft);
+  .egake-button:hover,
+  .egake-button:focus-visible,
+  .egake-button[data-variant="ghost"]:hover {
+    background: var(--ikasue-selection);
+    color: var(--ikasue-ink);
   }
 
   .egake-button[data-variant="primary"] {
-    border-color: var(--ik-ink);
-    background: var(--ik-ink);
-    color: var(--ik-panel);
-  }
-
-  .egake-button[data-variant="primary"]:hover {
-    background: color-mix(in srgb, var(--ik-ink) 86%, var(--ik-focus));
+    border-inline-start-color: var(--ikasue-ink);
+    background: var(--ikasue-selection);
+    color: var(--ikasue-ink);
+    font-weight: 700;
   }
 
   .egake-button[data-variant="danger"] {
-    border-color: color-mix(in srgb, var(--ik-danger) 28%, var(--ik-line));
-    background: color-mix(in srgb, var(--ik-danger) 7%, var(--ik-panel));
-    color: var(--ik-danger);
+    border-inline-start-color: var(--ikasue-error-ink);
+    color: var(--ikasue-error-ink);
   }
 
-  .egake-button[data-variant="ghost"] {
-    border-color: transparent;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .egake-button[data-variant="ghost"]:hover {
-    background: var(--ik-soft);
+  .egake-button[data-variant="danger"]:hover,
+  .egake-button[data-variant="danger"]:focus-visible {
+    background: var(--ikasue-error-fill);
+    color: var(--ikasue-error-ink);
   }
 
   .egake-field {
-    @apply grid min-w-0 flex-1 gap-1.5;
+    @apply grid min-w-0 flex-1 gap-1;
     flex-basis: 14rem;
   }
 
   .egake-field label {
-    @apply text-xs font-bold;
-    color: var(--ik-ink);
+    @apply text-[0.76rem] font-bold;
+    color: var(--ikasue-muted);
   }
 
   .egake-required {
     @apply ml-1 text-[0.7rem] font-bold;
-    color: var(--ik-danger);
+    color: var(--ikasue-error-ink);
   }
 
   .egake-control {
-    @apply min-h-10 w-full rounded-xl border px-3 py-2 text-sm shadow-sm outline-none transition;
-    border-color: var(--ik-line);
-    background: var(--ik-panel);
-    color: var(--ik-ink);
+    @apply min-h-9 w-full px-1 py-1 text-sm outline-none;
+    border: 0;
+    border-block-end: 1px solid var(--ikasue-line-strong);
+    background: transparent;
+    transition:
+      background var(--ikasue-motion-fast),
+      border-color var(--ikasue-motion-fast);
   }
 
   .egake-control:hover {
-    border-color: var(--ik-line-strong);
+    border-block-end-color: var(--ikasue-ink);
   }
 
   .egake-control:focus {
-    border-color: var(--ik-focus);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ik-focus) 14%, transparent);
+    border-block-end: 2px solid var(--ikasue-ink);
+    background: var(--ikasue-selection);
   }
 
   textarea.egake-control {
-    @apply min-h-32 resize-y;
+    @apply min-h-28 resize-y;
   }
 
   .egake-table-wrap {
-    @apply overflow-hidden rounded-2xl border shadow-sm;
-    border-color: var(--ik-line);
-    background: var(--ik-panel);
+    @apply min-w-0 overflow-x-auto;
+    border-block: 1px solid var(--ikasue-line);
+    background: var(--ikasue-surface);
   }
 
   .egake-table-toolbar {
-    @apply flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3;
-    border-color: var(--ik-line);
-    background: var(--ik-panel-soft);
+    @apply flex min-h-12 flex-wrap items-center justify-between gap-3 border-b px-2 py-2;
+    border-color: var(--ikasue-line);
   }
 
   .egake-table-toolbar-label {
     @apply text-xs font-bold uppercase tracking-[0.1em];
-    color: var(--ik-muted);
+    color: var(--ikasue-muted);
+  }
+
+  .egake-table-status {
+    @apply text-xs;
+    color: var(--ikasue-muted);
   }
 
   .egake-table {
-    @apply min-w-full;
+    min-width: 100%;
   }
 
   .egake-table th,
   .egake-table td {
-    @apply border-b px-4 py-3 text-left align-middle;
-    border-color: var(--ik-line);
+    @apply border-b px-2 py-2 text-left align-middle;
+    border-color: var(--ikasue-line);
     white-space: nowrap;
   }
 
   .egake-table th {
-    @apply text-[0.7rem] font-bold uppercase tracking-[0.1em];
-    background: var(--ik-panel-soft);
-    color: var(--ik-muted);
-  }
-
-  .egake-table tbody tr:last-child td {
-    border-bottom: 0;
+    @apply text-[0.72rem] font-bold uppercase tracking-[0.1em];
+    color: var(--ikasue-muted);
   }
 
   .egake-table tbody tr[data-selectable="true"] {
-    @apply cursor-pointer transition-colors;
+    @apply cursor-pointer;
+    transition:
+      background var(--ikasue-motion-fast),
+      color var(--ikasue-motion-fast);
   }
 
   .egake-table tbody tr[data-selectable="true"]:hover,
   .egake-table tbody tr[data-selected="true"] {
-    background: color-mix(in srgb, var(--ik-focus) 7%, var(--ik-panel));
+    background: var(--ikasue-selection);
+    color: var(--ikasue-ink);
+  }
+
+  .egake-table tbody tr[data-selected="true"] {
+    border-inline-start: 3px solid var(--ikasue-ink);
   }
 
   .egake-table-empty {
-    @apply px-4 py-12 text-center text-sm;
-    color: var(--ik-muted);
+    @apply px-2 py-8 text-center text-sm;
+    color: var(--ikasue-muted);
+  }
+
+  .egake-table-empty[data-state="loading"] {
+    color: var(--ikasue-ink);
   }
 
   .egake-form {
-    @apply relative flex flex-col gap-4 rounded-2xl border p-5 shadow-sm;
-    border-color: var(--ik-line);
-    background: var(--ik-panel);
+    @apply relative flex min-w-0 flex-col gap-4 px-0 py-4;
+    border-block: 1px solid var(--ikasue-line);
+    background: var(--ikasue-canvas);
   }
 
   .egake-form[data-mode="drawer"] {
-    @apply fixed inset-y-0 right-0 z-50 max-h-screen overflow-y-auto rounded-none rounded-l-2xl border-y-0 border-r-0 sm:w-[min(34rem,calc(100vw-1rem))];
-    width: min(100vw - 1rem, 34rem);
-    box-shadow: var(--ik-shadow);
+    position: static;
+    width: min(100%, 34rem);
+    max-height: none;
+    margin-inline-start: auto;
+    overflow-y: auto;
+    border-block-start: 2px solid var(--ikasue-line-strong);
   }
 
   .egake-form[data-mode="dialog"] {
-    @apply fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto;
-    box-shadow: var(--ik-shadow);
+    @apply fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto px-4 py-4;
+    border: 1px solid var(--ikasue-line-strong);
   }
 
   .egake-form-head {
-    @apply flex items-start justify-between gap-4 border-b pb-4;
-    border-color: var(--ik-line);
+    @apply flex items-start justify-between gap-4 border-b pb-3;
+    border-color: var(--ikasue-line);
   }
 
   .egake-form-title {
-    @apply m-0 text-lg font-extrabold tracking-tight;
+    @apply m-0 text-lg font-bold tracking-tight;
   }
 
   .egake-form-close {
-    @apply inline-flex size-9 shrink-0 items-center justify-center rounded-xl border text-lg leading-none transition;
-    border-color: var(--ik-line);
+    @apply inline-flex size-9 shrink-0 items-center justify-center text-lg leading-none;
     background: transparent;
-    color: var(--ik-muted);
+    color: var(--ikasue-muted);
   }
 
-  .egake-form-close:hover {
-    background: var(--ik-soft);
-    color: var(--ik-ink);
+  .egake-form-close:hover,
+  .egake-form-close:focus-visible {
+    background: var(--ikasue-selection);
+    color: var(--ikasue-ink);
   }
 
   .egake-form-actions {
-    @apply justify-end border-t pt-4;
-    border-color: var(--ik-line);
+    @apply justify-end border-t pt-3;
+    border-color: var(--ikasue-line);
   }
 
   .egake-backdrop {
     @apply fixed inset-0 z-40 border-0;
-    background: rgba(21, 21, 21, 0.32);
-    backdrop-filter: blur(3px);
+    background: rgb(17 17 17 / 0.28);
   }
 
   .egake-error {
-    @apply rounded-xl border p-4;
-    border-color: color-mix(in srgb, var(--ik-danger) 30%, var(--ik-line));
-    background: color-mix(in srgb, var(--ik-danger) 7%, var(--ik-panel));
-    color: var(--ik-danger);
+    @apply px-3 py-3;
+    border-inline-start: 3px solid var(--ikasue-error-ink);
+    background: var(--ikasue-error-fill);
+    color: var(--ikasue-error-ink);
   }
 
   .egake-error strong {
-    @apply block text-sm font-extrabold;
+    @apply block text-sm font-bold;
   }
 
   .egake-error-list {
@@ -400,32 +432,41 @@
   }
 
   .egake-toast {
-    @apply fixed bottom-5 right-5 z-[70] max-w-[min(28rem,calc(100vw-2rem))] rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg;
-    border-color: var(--ik-line-strong);
-    background: var(--ik-ink);
-    color: var(--ik-panel);
+    @apply fixed bottom-4 right-4 z-[70] max-w-[min(28rem,calc(100vw-2rem))] px-3 py-2 text-sm font-semibold;
+    border-inline-start: 3px solid var(--ikasue-ink);
+    background: var(--ikasue-selection);
+    color: var(--ikasue-ink);
   }
 
   .egake-toast[data-kind="error"] {
-    border-color: var(--ik-danger);
-    background: var(--ik-danger);
-    color: #fff;
+    border-inline-start-color: var(--ikasue-error-ink);
+    background: var(--ikasue-error-fill);
+    color: var(--ikasue-error-ink);
   }
 
   .egake-page.egake-shell {
-    @apply min-h-screen;
+    min-height: 100vh;
+  }
+
+  .egake-page > .egake-page-header,
+  .egake-page > .egake-content {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
   }
 
   .egake-page > .egake-page-header {
-    @apply mx-auto w-full max-w-7xl px-4 pt-8 sm:px-8 sm:pt-10;
+    @apply pt-8 sm:pt-10;
   }
 
   .egake-page > .egake-content {
-    @apply mx-auto w-full max-w-7xl px-4 pb-24 sm:px-8;
+    @apply pb-20;
   }
 }
 
 @media (max-width: 640px) {
+  :root {
+    --ikasue-density-block: 10px;
+  }
+
   .egake-topbar {
     @apply px-4;
   }
@@ -442,30 +483,32 @@
     @apply text-2xl;
   }
 
-  .egake-table-wrap {
-    @apply rounded-xl;
-  }
-
   .egake-table {
-    min-width: 42rem;
-  }
-
-  .egake-form {
-    @apply rounded-xl p-4;
+    min-width: 36rem;
   }
 
   .egake-form[data-mode="drawer"] {
-    width: calc(100vw - 0.5rem);
+    width: 100%;
+  }
+
+  .egake-form[data-mode="dialog"] {
+    width: calc(100vw - 1.5rem);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --ikasue-motion-duration: 0ms;
+    --ikasue-motion-fast: 0ms;
+    --ikasue-motion: 0ms;
+  }
+
   *,
   *::before,
   *::after {
     @apply scroll-auto;
-    animation-duration: 0.01ms !important;
+    animation-duration: 0ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0ms !important;
   }
 }

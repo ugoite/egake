@@ -4,7 +4,7 @@
 
   var API = "/api/egake/v1";
   var requestCounter = 0;
-  var model = { app: null, state: {}, records: {}, schemas: {}, selected: {}, loading: {}, errors: [], toast: null };
+  var model = { app: null, state: {}, records: {}, schemas: {}, selected: {}, loading: {}, errors: [], toast: null, editorOpener: null, editorFocusPending: null, editorFocusTimer: null, focusRestoreSkip: false, formTitleCounter: 0 };
   var root = document.getElementById("egake-root");
 
   function el(tag, text) {
@@ -20,6 +20,78 @@
 
   function valueOf(value) {
     return value === null || value === undefined ? "" : String(value);
+  }
+
+  function focusEditor() {
+    if (!root) return;
+    var editor = root.querySelector(".egake-form:not([hidden])");
+    if (!editor) return;
+    var focusable = editor.querySelector("input, select, textarea") || editor.querySelector("button");
+    if (focusable) window.setTimeout(function () { focusable.focus(); }, 0);
+  }
+
+  function rememberEditorOpener() {
+    model.focusRestoreSkip = true;
+    var active = document.activeElement;
+    if (!active || active === document.body) {
+      model.editorOpener = null;
+      return;
+    }
+    model.editorOpener = {
+      id: active.id || "",
+      focusKey: active.getAttribute("data-focus-key") || "",
+      action: active.getAttribute("data-action") || "",
+      resource: active.getAttribute("data-resource") || "",
+      recordKey: active.getAttribute("data-record-key") || ""
+    };
+  }
+
+  function restoreEditorFocus() {
+    var descriptor = model.editorFocusPending;
+    if (!descriptor || !root) return;
+    if (model.editorFocusTimer !== null) window.clearTimeout(model.editorFocusTimer);
+    model.editorFocusTimer = window.setTimeout(function () {
+      model.editorFocusTimer = null;
+      if (model.editorFocusPending !== descriptor || !root) return;
+      model.editorFocusPending = null;
+      var candidates = root.querySelectorAll("*");
+      var actionTarget = null;
+      var resourceRow = null;
+      var resourceTable = null;
+      for (var index = 0; index < candidates.length; index += 1) {
+        var candidate = candidates[index];
+        if (typeof candidate.focus !== "function") continue;
+        if (descriptor.id && candidate.id === descriptor.id) { candidate.focus(); return; }
+        if (descriptor.focusKey && candidate.getAttribute("data-focus-key") === descriptor.focusKey) { candidate.focus(); return; }
+        if (descriptor.resource && descriptor.recordKey &&
+          candidate.getAttribute("data-resource") === descriptor.resource &&
+          candidate.getAttribute("data-record-key") === descriptor.recordKey) { candidate.focus(); return; }
+        if (!actionTarget && descriptor.action && candidate.getAttribute("data-action") === descriptor.action) actionTarget = candidate;
+        if (!resourceRow && descriptor.resource && candidate.getAttribute("data-resource") === descriptor.resource && candidate.getAttribute("data-record-key")) resourceRow = candidate;
+        if (!resourceTable && descriptor.resource && candidate.getAttribute("data-resource") === descriptor.resource && (candidate.getAttribute("class") || "").split(/\s+/).indexOf("egake-table") >= 0) resourceTable = candidate;
+      }
+      if (actionTarget) { actionTarget.focus(); return; }
+      if (resourceRow) { resourceRow.focus(); return; }
+      if (resourceTable) resourceTable.focus();
+    }, 0);
+  }
+
+  function captureActiveFocus() {
+    if (model.focusRestoreSkip) {
+      model.focusRestoreSkip = false;
+      return;
+    }
+    if (model.editorFocusPending || !root) return;
+    var active = document.activeElement;
+    if (!active || active === document.body || !root.contains(active)) return;
+    var descriptor = {
+      id: active.id || "",
+      focusKey: active.getAttribute("data-focus-key") || "",
+      action: active.getAttribute("data-action") || "",
+      resource: active.getAttribute("data-resource") || "",
+      recordKey: active.getAttribute("data-record-key") || ""
+    };
+    if (descriptor.id || descriptor.focusKey || descriptor.action || descriptor.recordKey) model.editorFocusPending = descriptor;
   }
 
   function toast(message, kind) {
@@ -184,13 +256,15 @@
     if (!action) { toast("Unknown action: " + name, "error"); return Promise.resolve(); }
     context = context || {};
     if (name === "open-create" || name.indexOf("open-create") >= 0) {
-      setDraftFromRecord(null); model.state.editorOpen = true; model.state.editorId = null; render(); return Promise.resolve();
+      rememberEditorOpener();
+      setDraftFromRecord(null); model.state.editorOpen = true; model.state.editorId = null; render(); focusEditor(); return Promise.resolve();
     }
     if (name === "open-edit" || name.indexOf("open-edit") >= 0) {
       if (!context.record) { toast("Select a row first", "error"); return Promise.resolve(); }
+      rememberEditorOpener();
       setDraftFromRecord(context.record); model.state.editorOpen = true;
       model.state.editorId = context.id || context.record[resourceKey(context.resource || firstResource())];
-      render(); return Promise.resolve();
+      render(); focusEditor(); return Promise.resolve();
     }
     var steps = action.steps || [];
     var resourceForAction = context.resource || firstResource();
@@ -203,7 +277,7 @@
         var resource = attrs.resource || resourceForAction;
         if (step.kind === "refresh") return refresh(resource);
         if (step.kind === "toast") { toast(step.text || "Done", "ok"); return undefined; }
-        if (step.kind === "upsert") return save(resource).then(function () { model.state.editorOpen = false; });
+        if (step.kind === "upsert") return save(resource).then(function () { closeEditor(); });
         if (step.kind === "validate") return validateDraft(resource);
         if (step.kind === "invoke") {
           return invokeProviderAction(resource, attrs.action, actionInput(attrs.input, context));
@@ -212,9 +286,9 @@
       });
     });
     if (steps.length === 0 && (name.indexOf("save") >= 0 || name.indexOf("upsert") >= 0)) {
-      return save(resourceForAction).then(function () { model.state.editorOpen = false; });
+      return save(resourceForAction).then(function () { closeEditor(); });
     }
-    return chain.then(render);
+    return chain.then(function () { if (model.state.editorOpen) render(); });
   }
 
   function validateDraft(resource) {
@@ -261,7 +335,8 @@
     if (!resource || !id) { toast("Select a record first", "error"); return Promise.resolve(); }
     if (!window.confirm("Delete this record?")) return Promise.resolve();
     return request("/resources/" + encodeURIComponent(resource) + "/items/" + encodeURIComponent(id), { method: "DELETE" })
-      .then(function () { model.state.editorOpen = false; model.state.editorId = null; return refresh(resource); })
+      .then(function () { return refresh(resource); })
+      .then(function () { closeEditor(); })
       .then(function () { toast("Deleted", "ok"); })
       .catch(function (error) { rememberError(error); toast(error.message, "error"); });
   }
@@ -269,7 +344,7 @@
   function refresh(resource) {
     if (!resource) return Promise.resolve();
     model.loading[resource] = true;
-    render();
+    if (!updateTableLoading(resource)) render();
     var query = valueOf(model.state.query);
     var sort = componentTableSort(resource);
     var params = new URLSearchParams();
@@ -305,9 +380,37 @@
   }
 
   function closeEditor() {
+    if (model.editorOpener) model.editorFocusPending = model.editorOpener;
+    model.editorOpener = null;
     model.state.editorOpen = false;
     model.state.editorId = null;
     render();
+  }
+
+  function updateTableLoading(resource) {
+    if (!root) return false;
+    var tables = root.querySelectorAll(".egake-table");
+    var found = false;
+    for (var index = 0; index < tables.length; index += 1) {
+      var table = tables[index];
+      if (table.getAttribute("data-resource") !== valueOf(resource)) continue;
+      found = true;
+      var loading = model.loading[resource] === true;
+      attr(table, "aria-busy", String(loading));
+      var wrapper = table.parentNode;
+      var status = wrapper && wrapper.querySelector ? wrapper.querySelector(".egake-table-status") : null;
+      if (status) {
+        status.textContent = loading ? "Refreshing records…" : "";
+        status.hidden = !loading;
+      }
+      var empty = table.querySelector(".egake-table-empty");
+      if (empty && !(model.records[resource] || []).length) {
+        empty.textContent = loading ? "Loading records…" : "No records yet.";
+        if (loading) attr(empty, "data-state", "loading");
+        else empty.removeAttribute("data-state");
+      }
+    }
+    return found;
   }
 
   function renderText(component) {
@@ -316,15 +419,18 @@
     return text;
   }
 
-  function renderButton(component) {
+  function renderButton(component, path) {
     var button = el("button", component.text || componentAttr(component, "label") || "Action");
     attr(button, "class", "egake-button");
     attr(button, "type", "button");
     var variant = componentAttr(component, "variant");
+    var action = componentAttr(component, "action");
     if (variant) attr(button, "data-variant", variant);
+    if (action) attr(button, "data-action", action);
+    if (path) attr(button, "data-focus-key", path);
     if (component.id) attr(button, "id", component.id);
     button.addEventListener("click", function () {
-      runAction(componentAttr(component, "action"), {}).catch(function () {});
+      runAction(action, {}).catch(function () {});
     });
     return button;
   }
@@ -384,32 +490,43 @@
     return wrapper;
   }
 
-  function renderTable(component) {
+  function renderTable(component, path) {
     var resource = resourceName(component), tableWrap = el("div"); attr(tableWrap, "class", "egake-table-wrap");
     var tableLabel = el("span", resource || "Records");
     attr(tableLabel, "class", "egake-table-toolbar-label");
     var toolbar = el("div"); attr(toolbar, "class", "egake-table-toolbar");
     toolbar.appendChild(tableLabel);
+    var status = el("span", model.loading[resource] ? "Loading records…" : "");
+    attr(status, "class", "egake-table-status");
+    attr(status, "role", "status");
+    attr(status, "aria-live", "polite");
+    status.hidden = !model.loading[resource];
+    toolbar.appendChild(status);
     var refreshButton = el("button", "Refresh");
     attr(refreshButton, "class", "egake-button");
     attr(refreshButton, "type", "button");
+    attr(refreshButton, "data-focus-key", (path || "table") + "-refresh");
     refreshButton.addEventListener("click", function () { refresh(resource).catch(function () {}); });
     toolbar.appendChild(refreshButton);
     tableWrap.appendChild(toolbar);
     var table = el("table"), head = el("thead"), headRow = el("tr");
     attr(table, "class", "egake-table");
+    attr(table, "data-resource", resource || "");
+    attr(table, "tabindex", "-1");
     attr(table, "aria-label", resource ? resource + " records" : "Records");
-    attr(table, "aria-busy", model.loading[resource] ? "true" : "false");
+    attr(table, "aria-busy", String(model.loading[resource] === true));
     (component.children || []).forEach(function (column) { headRow.appendChild(el("th", componentAttr(column, "label") || componentAttr(column, "field"))); });
     head.appendChild(headRow); table.appendChild(head);
     var body = el("tbody");
     (model.records[resource] || []).forEach(function (record) {
       var row = el("tr"); attr(row, "data-selectable", "true"); attr(row, "tabindex", "0");
       var key = componentAttr(component, "key") || "id";
+      attr(row, "data-resource", resource || "");
+      attr(row, "data-record-key", valueOf(record[key]));
       var selected = model.state.editorId && valueOf(record[key]) === valueOf(model.state.editorId);
+      attr(row, "aria-selected", String(Boolean(selected)));
       if (selected) {
         attr(row, "data-selected", "true");
-        attr(row, "aria-selected", "true");
       }
       (component.children || []).forEach(function (column) { row.appendChild(el("td", valueOf(record[componentAttr(column, "field")]))); });
       function selectRow() {
@@ -417,7 +534,7 @@
         var event = (component.events || []).find(function (binding) { return binding.event === "select"; });
         var recordId = record[key];
         if (event) runAction(event.action, { resource: resource, record: record, id: recordId }).catch(function () {});
-        else { setDraftFromRecord(record); model.state.editorOpen = true; model.state.editorId = recordId; render(); }
+        else { rememberEditorOpener(); setDraftFromRecord(record); model.state.editorOpen = true; model.state.editorId = recordId; render(); focusEditor(); }
       }
       row.addEventListener("click", selectRow);
       row.addEventListener("keydown", function (event) {
@@ -428,7 +545,7 @@
       });
       body.appendChild(row);
     });
-    if (model.loading[resource] || !(model.records[resource] || []).length) {
+    if (!(model.records[resource] || []).length) {
       var emptyRow = el("tr"), emptyCell = el("td", model.loading[resource] ? "Loading records…" : "No records yet.");
       attr(emptyRow, "class", "egake-table-empty-row");
       attr(emptyCell, "class", "egake-table-empty");
@@ -441,42 +558,48 @@
     return tableWrap;
   }
 
-  function renderComponent(component, formResource) {
+  function renderComponent(component, formResource, path) {
     var node;
     if (component.kind === "column") { node = el("div"); attr(node, "class", "egake-column"); }
     else if (component.kind === "row") { node = el("div"); attr(node, "class", "egake-row"); attr(node, "data-align", componentAttr(component, "align") || "start"); }
     else if (component.kind === "text") return renderText(component);
-    else if (component.kind === "button") return renderButton(component);
+    else if (component.kind === "button") return renderButton(component, path);
     else if (["text-input", "select", "textarea"].indexOf(component.kind) >= 0) return renderInput(component, formResource);
-    else if (component.kind === "data-table") return renderTable(component);
+    else if (component.kind === "data-table") return renderTable(component, path);
     else if (component.kind === "form") {
-      node = el("section"); attr(node, "class", "egake-form"); attr(node, "data-mode", componentAttr(component, "mode") || "inline");
+      var mode = componentAttr(component, "mode") || "inline";
+      node = el("section"); attr(node, "class", "egake-form"); attr(node, "data-mode", mode); attr(node, "data-open", String(Boolean(model.state.editorOpen)));
       if (!model.state.editorOpen) node.hidden = true;
       if (component.id) attr(node, "id", component.id);
-      if (["drawer", "dialog"].indexOf(componentAttr(component, "mode")) >= 0) {
-        attr(node, "role", "dialog");
-        attr(node, "aria-modal", "true");
+      if (["drawer", "dialog"].indexOf(mode) >= 0) {
         var formTitle = el("h2", model.state.editorId === null || model.state.editorId === undefined ? "New record" : "Edit record");
         attr(formTitle, "class", "egake-form-title");
+        model.formTitleCounter += 1;
+        var formTitleId = "egake-form-title-" + safeId(component.id || mode) + "-" + model.formTitleCounter;
+        attr(formTitle, "id", formTitleId);
         var formHeading = el("div"); attr(formHeading, "class", "egake-form-head");
         formHeading.appendChild(formTitle);
         var close = el("button", "×");
         attr(close, "class", "egake-form-close");
         attr(close, "type", "button");
         attr(close, "aria-label", "Close editor");
+        attr(close, "data-focus-key", (path || "form") + "-close");
         close.addEventListener("click", closeEditor);
         formHeading.appendChild(close);
         node.appendChild(formHeading);
+        attr(node, "role", mode === "dialog" ? "dialog" : "region");
+        attr(node, "aria-labelledby", formTitleId);
+        if (mode === "dialog") attr(node, "aria-modal", "true");
       }
       var formResourceName = firstResource();
-      (component.children || []).forEach(function (child) {
-        var childNode = renderComponent(child, formResourceName);
+      (component.children || []).forEach(function (child, index) {
+        var childNode = renderComponent(child, formResourceName, (path || "root") + "-" + index);
         if (child.kind === "row") attr(childNode, "class", "egake-row egake-form-actions");
         node.appendChild(childNode);
       });
       return node;
     } else node = el("div");
-    (component.children || []).forEach(function (child) { node.appendChild(renderComponent(child, formResource)); });
+    (component.children || []).forEach(function (child, index) { node.appendChild(renderComponent(child, formResource, (path || "root") + "-" + index)); });
     return node;
   }
 
@@ -484,7 +607,9 @@
 
   function render() {
     if (!root || !model.app) return;
+    captureActiveFocus();
     while (root.firstChild) root.removeChild(root.firstChild);
+    model.formTitleCounter = 0;
     var page = model.app.pages[0];
     var shell = el("main"); attr(shell, "class", "egake-shell");
     var topbar = el("header"); attr(topbar, "class", "egake-topbar");
@@ -509,20 +634,29 @@
       model.errors.forEach(function (message) { errorList.appendChild(el("div", message)); });
       errors.appendChild(errorList); content.appendChild(errors);
     }
-    (page ? page.components : []).forEach(function (component) { content.appendChild(renderComponent(component, firstResource())); });
+    (page ? page.components : []).forEach(function (component, index) { content.appendChild(renderComponent(component, firstResource(), "page-" + index)); });
     var form = formComponent();
-    if (model.state.editorOpen && form && ["drawer", "dialog"].indexOf(componentAttr(form, "mode")) >= 0) {
+    if (model.state.editorOpen && form && componentAttr(form, "mode") === "dialog") {
       var backdrop = el("button");
       attr(backdrop, "class", "egake-backdrop");
       attr(backdrop, "type", "button");
       attr(backdrop, "aria-label", "Close editor");
+      attr(backdrop, "data-focus-key", ((form && form.id) || "form") + "-backdrop");
       backdrop.addEventListener("click", closeEditor);
       content.appendChild(backdrop);
     }
     main.appendChild(content); shell.appendChild(main);
     if (model.toast) { var toastNode = el("div", model.toast.message); attr(toastNode, "class", "egake-toast"); attr(toastNode, "data-kind", model.toast.kind); attr(toastNode, "role", "status"); attr(toastNode, "aria-live", "polite"); shell.appendChild(toastNode); }
     root.appendChild(shell);
+    if (model.editorFocusPending) restoreEditorFocus();
   }
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && model.state.editorOpen) {
+      event.preventDefault();
+      closeEditor();
+    }
+  });
 
   function load() {
     var inline = document.getElementById("egake-application");
@@ -547,5 +681,14 @@
     }).catch(function (error) { rememberError(error); });
   }
 
-  load();
+  if (window.__EGAKE_TEST__) {
+    window.__EGAKE_TEST__.model = model;
+    window.__EGAKE_TEST__.load = load;
+    window.__EGAKE_TEST__.render = render;
+    window.__EGAKE_TEST__.runAction = runAction;
+    window.__EGAKE_TEST__.refresh = refresh;
+    window.__EGAKE_TEST__.closeEditor = closeEditor;
+  }
+  var loadPromise = load();
+  if (window.__EGAKE_TEST__) window.__EGAKE_TEST__.ready = loadPromise;
 }());
