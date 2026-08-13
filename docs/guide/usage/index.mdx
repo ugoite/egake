@@ -5,7 +5,7 @@ sidebar:
   label: ジャンル別の使い方
 ---
 
-{/* i18n-sync: id=guide/usage/index digest=b7ceaf864b169306da6ae2551948f400a3fc3c6c30d4c2ea0a533d2389447ef6 */}
+{/* i18n-sync: id=guide/usage/index digest=b2d4b4049693383870b381c26efb022fd548538cbc3df85794d9a2cdc862ff6c */}
 
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
@@ -41,13 +41,12 @@ import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
 ## 選び方
 
-| やりたいこと                       | 入口                                   | チェックアウト済みの確認                            |
-| ---------------------------------- | -------------------------------------- | --------------------------------------------------- |
-| ファイルだけで一覧を作る           | local data                             | `cargo run -p egake-cli -- list ...`                |
-| ブラウザhostに自分のAPIを注入する  | `packages/runtime`                     | `deno test examples/js-embedded/main_test.ts`       |
-| Pythonの既存resourceを公開する     | `ResourceASGIApp`                      | `mise run python:test`                              |
-| Ugoite clientを再利用する          | `createUgoiteEntriesProvider`          | `deno test examples/ugoite-entries/adapter_test.ts` |
-| React/VueでVNode/elementを生成する | `packages/react` / `packages/vue`      | `mise run deno:check`                               |
-| Solid/Svelteを使う                 | generic runtimeまたは自前の薄いadapter | このcheckoutに専用packageは未提供                   |
+| やりたいこと                      | 入口                          | チェックアウト済みの確認                            |
+| --------------------------------- | ----------------------------- | --------------------------------------------------- |
+| ファイルだけで一覧を作る          | local data                    | `cargo run -p egake-cli -- list ...`                |
+| ブラウザhostに自分のAPIを注入する | `packages/runtime`            | `deno test examples/js-embedded/main_test.ts`       |
+| Pythonの既存resourceを公開する    | `ResourceASGIApp`             | `mise run python:test`                              |
+| Ugoite clientを再利用する         | `createUgoiteEntriesProvider` | `deno test examples/ugoite-entries/adapter_test.ts` |
+| Ikasue UIを使う                   | `packages/ikasue`             | `mise run ui:test`                                  |
 
 共通の細かい仕様（query、error、merge-patch、path safety）は[実行可能なMVP仕様](../../spec/)に集約しています。

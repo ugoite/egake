@@ -5,7 +5,7 @@ sidebar:
   label: What is egake?
 ---
 
-<!-- i18n-sync: id=guide/what-is-egake digest=82059ad20418ce24f035222b1ca0cd99ced19f898d1c6dac410ceabf6d90ccb7 -->
+<!-- i18n-sync: id=guide/what-is-egake digest=47adc2c2f12743b7b9891b1fed61948656cb3f83a27f4189d3e37b6d519c1061 -->
 
 egake is a Rust/WASM-oriented low-code UI runtime that keeps the **screen definition** separate from **how data is read and written**.
 
@@ -25,13 +25,13 @@ The separation keeps a UI definition independent of a database or authentication
 
 ## What is defined?
 
-| File / layer            | Responsibility                                 | Example                                       |
-| ----------------------- | ---------------------------------------------- | --------------------------------------------- |
-| `app.ui.kdl`            | KDL Application Profile v0.1                   | `page`, `data-table`, `action`                |
-| schema JSON             | Field types, required fields, enum, and format | `schemas/catalog.schema.json`                 |
-| `resources.kdl` or TOML | Provider connection configuration              | CSV path, `writable`                          |
-| provider                | Real data and operations                       | `list`, `get`, `update`                       |
-| `dist/`                 | `egake build` output                           | `index.html`, `runtime.js`, `app.bundle.json` |
+| File / layer            | Responsibility                                 | Example                                                                |
+| ----------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
+| `app.ui.kdl`            | KDL Application Profile v0.1                   | `page`, `data-table`, `action`                                         |
+| schema JSON             | Field types, required fields, enum, and format | `schemas/catalog.schema.json`                                          |
+| `resources.kdl` or TOML | Provider connection configuration              | CSV path, `writable`                                                   |
+| provider                | Real data and operations                       | `list`, `get`, `update`                                                |
+| `dist/`                 | `egake build` output                           | `index.html`, `ikasue.js`, `ikasue.css`, `egake.js`, `app.bundle.json` |
 
 ## What egake does not do
 

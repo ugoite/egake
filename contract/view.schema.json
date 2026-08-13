@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ugoite.github.io/egake/contract/view.schema.json",
+  "title": "Ikasue Web ABI view",
+  "type": "object",
+  "required": ["version", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": "ikasue-web/1" },
+    "kind": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "props": {
+      "type": "object",
+      "not": {
+        "anyOf": [
+          { "required": ["resource"] },
+          { "required": ["action"] },
+          { "required": ["provider"] }
+        ]
+      },
+      "additionalProperties": true
+    },
+    "children": { "type": "array", "items": { "$ref": "#" } },
+    "text": { "type": "string" }
+  }
+}

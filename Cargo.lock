@@ -505,6 +505,7 @@ name = "egake-spec"
 version = "0.1.0"
 dependencies = [
  "kdl",
+ "serde",
  "serde_json",
 ]
 

@@ -12,9 +12,8 @@ use serde_json::{Number, Value};
 use crate::{
     diagnostic::{Diagnostic, DiagnosticCode, Diagnostics, Severity, SourceLocation},
     ir::{
-        ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, Component,
-        ComponentKind, EventBinding, PageDefinition, ResourceCapability, ResourceDefinition,
-        StateDefinition,
+        ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, NodeEvent,
+        PageDefinition, ResourceCapability, ResourceDefinition, StateDefinition, ViewNode,
     },
     profile::{ApplicationProfile, MVP_PROFILE_VERSION, ProfileVersion},
 };
@@ -39,6 +38,7 @@ enum Reference {
     Binding(BindingTarget),
     Resource(String),
     Action(String),
+    Form(String),
 }
 
 #[derive(Clone, Debug)]
@@ -598,9 +598,9 @@ fn parse_page(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<PageDefi
             "page requires a children block",
             node_span(node),
         );
-        return Some(PageDefinition { name, title, components: Vec::new() });
+        return Some(PageDefinition { name, title, views: Vec::new() });
     };
-    let mut components = Vec::new();
+    let mut views = Vec::new();
     for child in children.nodes() {
         if child.name().value() == "on" {
             context.error(
@@ -610,11 +610,11 @@ fn parse_page(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<PageDefi
             );
             continue;
         }
-        if let Some(component) = parse_component(child, false, None, context) {
-            components.push(component);
+        if let Some(view) = parse_component(child, false, None, context) {
+            views.push(view);
         }
     }
-    Some(PageDefinition { name, title, components })
+    Some(PageDefinition { name, title, views })
 }
 
 fn parse_action(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<ActionDefinition> {
@@ -640,6 +640,13 @@ fn parse_action(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<Action
                     ActionStepKind::Upsert,
                     &["resource", "value"],
                     &["resource", "value"],
+                    context,
+                ),
+                "delete" => parse_action_step(
+                    child,
+                    ActionStepKind::Delete,
+                    &["resource"],
+                    &["resource"],
                     context,
                 ),
                 "refresh" => parse_action_step(
@@ -742,26 +749,24 @@ fn parse_component(
     table_child: bool,
     current_form: Option<usize>,
     context: &mut ParseContext<'_>,
-) -> Option<Component> {
+) -> Option<ViewNode> {
     if table_child && node.name().value() == "column" {
         return parse_table_column(node, context);
     }
     let (kind, allowed) = match node.name().value() {
-        "column" => (ComponentKind::Column, &["id", "gap", "align"][..]),
-        "row" => (ComponentKind::Row, &["id", "gap", "align"][..]),
-        "text" => (ComponentKind::Text, &["id", "variant", "align"][..]),
-        "text-input" => {
-            (ComponentKind::TextInput, &["id", "label", "field", "bind", "variant"][..])
-        }
-        "select" => (ComponentKind::Select, &["id", "label", "field", "bind", "variant"][..]),
-        "textarea" => (ComponentKind::Textarea, &["id", "label", "field", "bind", "variant"][..]),
-        "button" => (ComponentKind::Button, &["id", "label", "action", "variant", "align"][..]),
-        "data-table" => (ComponentKind::DataTable, &["id", "resource", "key", "bind"][..]),
-        "form" => (ComponentKind::Form, &["id", "bind", "mode"][..]),
+        "column" => ("column", &["id", "gap", "align"][..]),
+        "row" => ("row", &["id", "gap", "align"][..]),
+        "text" => ("text", &["id", "variant", "align"][..]),
+        "text-input" => ("text-input", &["id", "label", "field", "bind", "variant"][..]),
+        "select" => ("select", &["id", "label", "field", "bind", "variant"][..]),
+        "textarea" => ("textarea", &["id", "label", "field", "bind", "variant"][..]),
+        "button" => ("button", &["id", "label", "action", "form", "variant", "align"][..]),
+        "data-table" => ("data-table", &["id", "resource", "key", "bind", "form"][..]),
+        "form" => ("form", &["id", "bind", "mode"][..]),
         unknown => {
             context.error(
                 DiagnosticCode::UnknownNode,
-                format!("unknown component '{unknown}'"),
+                format!("unknown view node '{unknown}'"),
                 node_span(node),
             );
             return None;
@@ -777,13 +782,10 @@ fn parse_component(
     }
 
     for enum_attribute in match kind {
-        ComponentKind::Column | ComponentKind::Row => &["align"][..],
-        ComponentKind::Text
-        | ComponentKind::TextInput
-        | ComponentKind::Select
-        | ComponentKind::Textarea => &["variant"][..],
-        ComponentKind::Button => &["variant", "align"][..],
-        ComponentKind::Form => &["mode"][..],
+        "column" | "row" => &["align"][..],
+        "text" | "text-input" | "select" | "textarea" => &["variant"][..],
+        "button" => &["variant", "align"][..],
+        "form" => &["mode"][..],
         _ => &[][..],
     } {
         if let Some(value) = raw_attributes.get(*enum_attribute) {
@@ -797,7 +799,7 @@ fn parse_component(
     }
     if let Some(value) = raw_attributes.get("gap") {
         let Some(gap) = string_value(value, attributes_span(node, "gap"), context) else {
-            continue_component_after_attribute_error(kind, node, context);
+            continue_component_after_attribute_error(node, context);
             return None;
         };
         if !matches!(gap.as_str(), "xs" | "sm" | "md" | "lg" | "xl") {
@@ -814,12 +816,12 @@ fn parse_component(
         context.register_id(id, attributes_span(node, "id"));
     }
     let text = match kind {
-        ComponentKind::Text => {
+        "text" => {
             let text = string_argument(node, 0, context);
             check_argument_count(node, 1, 1, context);
             text
         }
-        ComponentKind::Button => {
+        "button" => {
             let argument = string_argument(node, 0, context);
             check_argument_count(node, 0, 1, context);
             let label = optional_string_attribute(&raw_attributes, node, "label", context);
@@ -871,11 +873,16 @@ fn parse_component(
     {
         context.reference(Reference::Action(value), attributes_span(node, "action"));
     }
-    if kind == ComponentKind::DataTable {
+    if let Some(value) = raw_attributes.get("form")
+        && let Some(value) = string_value(value, attributes_span(node, "form"), context)
+    {
+        context.reference(Reference::Form(value), attributes_span(node, "form"));
+    }
+    if kind == "data-table" {
         let _ = required_string_attribute(&raw_attributes, node, "resource", context);
         let _ = required_string_attribute(&raw_attributes, node, "key", context);
     }
-    let child_form = if kind == ComponentKind::Form {
+    let child_form = if kind == "form" {
         let scope = context.begin_form(id.clone());
         if let Some(form) = context.metadata.forms.get_mut(&scope) {
             form.id = id.clone();
@@ -895,43 +902,35 @@ fn parse_component(
                 continue;
             }
             let child_allowed = match kind {
-                ComponentKind::DataTable => child.name().value() == "column",
-                ComponentKind::Column | ComponentKind::Row | ComponentKind::Form => true,
+                "data-table" => child.name().value() == "column",
+                "column" | "row" | "form" => true,
                 _ => false,
             };
             if !child_allowed {
                 context.error(
                     DiagnosticCode::UnknownNode,
-                    format!(
-                        "component '{}' cannot contain '{}'",
-                        kind.as_str(),
-                        child.name().value()
-                    ),
+                    format!("component '{}' cannot contain '{}'", kind, child.name().value()),
                     node_span(child),
                 );
                 continue;
             }
             if let Some(component) =
-                parse_component(child, kind == ComponentKind::DataTable, child_form, context)
+                parse_component(child, kind == "data-table", child_form, context)
             {
                 children.push(component);
             }
         }
     }
 
-    Some(Component { kind, id, text, attributes, children, events })
+    Some(ViewNode { name: kind.to_owned(), id, text, attributes, children, events })
 }
 
-fn continue_component_after_attribute_error(
-    _kind: ComponentKind,
-    _node: &KdlNode,
-    _context: &mut ParseContext<'_>,
-) {
+fn continue_component_after_attribute_error(_node: &KdlNode, _context: &mut ParseContext<'_>) {
     // The caller only uses this helper to make the control flow explicit when
     // a required scalar attribute already produced a diagnostic.
 }
 
-fn parse_table_column(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<Component> {
+fn parse_table_column(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<ViewNode> {
     let raw_attributes = attributes(node, &["id", "field", "label"], context);
     check_argument_count(node, 0, 0, context);
     if node.children().is_some() {
@@ -952,8 +951,8 @@ fn parse_table_column(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<
             attributes.insert(name, value);
         }
     }
-    Some(Component {
-        kind: ComponentKind::TableColumn,
+    Some(ViewNode {
+        name: "column".to_owned(),
         id,
         text: field,
         attributes,
@@ -962,8 +961,8 @@ fn parse_table_column(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<
     })
 }
 
-fn parse_event(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<EventBinding> {
-    let raw_attributes = attributes(node, &["action"], context);
+fn parse_event(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<NodeEvent> {
+    let raw_attributes = attributes(node, &["action", "form"], context);
     let event = string_argument(node, 0, context)?;
     check_argument_count(node, 1, 1, context);
     let action = required_string_attribute(&raw_attributes, node, "action", context)?;
@@ -975,7 +974,13 @@ fn parse_event(node: &KdlNode, context: &mut ParseContext<'_>) -> Option<EventBi
         );
     }
     context.reference(Reference::Action(action.clone()), attributes_span(node, "action"));
-    Some(EventBinding { event, action })
+    let form = raw_attributes
+        .get("form")
+        .and_then(|value| string_value(value, attributes_span(node, "form"), context));
+    if let Some(form) = &form {
+        context.reference(Reference::Form(form.clone()), attributes_span(node, "form"));
+    }
+    Some(NodeEvent { event, action, form })
 }
 
 fn parse_binding(value: &str, span: Span, context: &mut ParseContext<'_>) -> Option<BindingTarget> {
@@ -1050,6 +1055,14 @@ fn validate_reference_sites(
                 );
             }
             Reference::Action(_) => {}
+            Reference::Form(name) if !forms.contains_key(name.as_str()) => {
+                context.error(
+                    DiagnosticCode::InvalidBinding,
+                    format!("action references undeclared form '{name}'"),
+                    site.span,
+                );
+            }
+            Reference::Form(_) => {}
         }
     }
 }
@@ -1115,18 +1128,23 @@ pub(crate) fn validate(definition: &ApplicationDefinition) -> Result<(), Diagnos
         definition.states.iter().map(|state| state.name.clone()).collect();
     let actions: BTreeSet<String> =
         definition.actions.iter().map(|action| action.name.clone()).collect();
+    let mut form_ids = BTreeSet::new();
+    for page in &definition.pages {
+        collect_form_ids(&page.views, &mut form_ids);
+    }
     let mut ids = BTreeSet::new();
     let mut forms = BTreeMap::new();
     {
-        let mut validator = ComponentValidator {
+        let mut validator = ViewValidator {
             resources: &resources,
             actions: &actions,
+            form_ids: &form_ids,
             ids: &mut ids,
             forms: &mut forms,
             diagnostics: &mut diagnostics,
         };
         for page in &definition.pages {
-            validate_components(&page.components, None, &mut validator);
+            validate_views(&page.views, None, &mut validator);
         }
     }
     for action in &definition.actions {
@@ -1177,21 +1195,47 @@ fn validate_unique_names<'a>(
     }
 }
 
-struct ComponentValidator<'a> {
+struct ViewValidator<'a> {
     resources: &'a BTreeSet<String>,
     actions: &'a BTreeSet<String>,
+    form_ids: &'a BTreeSet<String>,
     ids: &'a mut BTreeSet<String>,
     forms: &'a mut BTreeMap<String, BTreeSet<String>>,
     diagnostics: &'a mut Diagnostics,
 }
 
-fn validate_components(
-    components: &[Component],
-    form: Option<&str>,
-    validator: &mut ComponentValidator<'_>,
-) {
-    for component in components {
-        if let Some(id) = &component.id
+fn collect_form_ids(views: &[ViewNode], form_ids: &mut BTreeSet<String>) {
+    for view in views {
+        if view.name == "form"
+            && let Some(id) = view.string_attribute("id")
+        {
+            form_ids.insert(id.to_owned());
+        }
+        collect_form_ids(&view.children, form_ids);
+    }
+}
+
+fn validate_views(views: &[ViewNode], form: Option<&str>, validator: &mut ViewValidator<'_>) {
+    for view in views {
+        if !matches!(
+            view.name.as_str(),
+            "column"
+                | "row"
+                | "text"
+                | "text-input"
+                | "select"
+                | "textarea"
+                | "button"
+                | "data-table"
+                | "form"
+        ) {
+            validator.diagnostics.push(Diagnostic::new(
+                DiagnosticCode::UnknownNode,
+                Severity::Error,
+                format!("unknown view node '{}'", view.name),
+            ));
+        }
+        if let Some(id) = &view.id
             && !validator.ids.insert(id.clone())
         {
             validator.diagnostics.push(Diagnostic::new(
@@ -1200,15 +1244,14 @@ fn validate_components(
                 format!("component ID '{id}' is declared more than once"),
             ));
         }
-        if component.kind == ComponentKind::DataTable && component.string_attribute("key").is_none()
-        {
+        if view.name == "data-table" && view.string_attribute("key").is_none() {
             validator.diagnostics.push(Diagnostic::new(
                 DiagnosticCode::MissingAttribute,
                 Severity::Error,
                 "data-table requires key=...",
             ));
         }
-        if let Some(resource) = component.string_attribute("resource")
+        if let Some(resource) = view.string_attribute("resource")
             && !validator.resources.contains(resource)
         {
             validator.diagnostics.push(Diagnostic::new(
@@ -1217,7 +1260,7 @@ fn validate_components(
                 format!("component references undeclared resource '{resource}'"),
             ));
         }
-        if let Some(action) = component.string_attribute("action")
+        if let Some(action) = view.string_attribute("action")
             && !validator.actions.contains(action)
         {
             validator.diagnostics.push(Diagnostic::new(
@@ -1226,7 +1269,16 @@ fn validate_components(
                 format!("component references undeclared action '{action}'"),
             ));
         }
-        if let Some(field) = component.string_attribute("field") {
+        if let Some(form) = view.string_attribute("form")
+            && !validator.form_ids.contains(form)
+        {
+            validator.diagnostics.push(Diagnostic::new(
+                DiagnosticCode::InvalidBinding,
+                Severity::Error,
+                format!("action references undeclared form '{form}'"),
+            ));
+        }
+        if let Some(field) = view.string_attribute("field") {
             if form.is_none() {
                 validator.diagnostics.push(Diagnostic::new(
                     DiagnosticCode::InvalidBinding,
@@ -1248,15 +1300,15 @@ fn validate_components(
                 }
             }
         }
-        let next_form = if component.kind == ComponentKind::Form {
-            let form_id = component.string_attribute("id").unwrap_or("").to_owned();
+        let next_form = if view.name == "form" {
+            let form_id = view.string_attribute("id").unwrap_or("").to_owned();
             validator.forms.entry(form_id.clone()).or_default();
             Some(form_id)
         } else {
             form.map(str::to_owned)
         };
-        validate_components(&component.children, next_form.as_deref(), validator);
-        for event in &component.events {
+        validate_views(&view.children, next_form.as_deref(), validator);
+        for event in &view.events {
             if !validator.actions.contains(event.action.as_str()) {
                 validator.diagnostics.push(Diagnostic::new(
                     DiagnosticCode::UnknownAction,
@@ -1265,6 +1317,15 @@ fn validate_components(
                         "event '{}' references undeclared action '{}'",
                         event.event, event.action
                     ),
+                ));
+            }
+            if let Some(form) = &event.form
+                && !validator.form_ids.contains(form)
+            {
+                validator.diagnostics.push(Diagnostic::new(
+                    DiagnosticCode::InvalidBinding,
+                    Severity::Error,
+                    format!("action references undeclared form '{form}'"),
                 ));
             }
         }
@@ -1278,13 +1339,13 @@ fn validate_bindings_against_forms(
     diagnostics: &mut Diagnostics,
 ) {
     fn visit(
-        components: &[Component],
+        views: &[ViewNode],
         states: &BTreeSet<String>,
         forms: &BTreeMap<String, BTreeSet<String>>,
         diagnostics: &mut Diagnostics,
     ) {
-        for component in components {
-            if let Some(binding) = component.string_attribute("bind") {
+        for view in views {
+            if let Some(binding) = view.string_attribute("bind") {
                 match parse_binding_text(binding) {
                     Some(BindingTarget::State(name)) if !states.contains(name.as_str()) => {
                         diagnostics.push(Diagnostic::new(
@@ -1310,11 +1371,11 @@ fn validate_bindings_against_forms(
                     _ => {}
                 }
             }
-            visit(&component.children, states, forms, diagnostics);
+            visit(&view.children, states, forms, diagnostics);
         }
     }
     for page in pages {
-        visit(&page.components, states, forms, diagnostics);
+        visit(&page.views, states, forms, diagnostics);
     }
 }
 

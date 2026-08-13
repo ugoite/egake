@@ -1,70 +1,30 @@
 ---
-title: React / Vue / Solid / Svelte adapter
-description: 実装済みのReact/Vue adapterと、Solid/Svelteで守るべきgeneric runtime境界。
-sidebar:
-  label: Framework adapters
+title: Ikasue Web ABI
+description: EgakeのUI runtimeとResourceProviderの境界。
 ---
 
-<!-- i18n-sync: id=guide/usage/framework-adapters digest=8882a03a29bcaf6830561af491fb3cb739e31f6077a39e8628c3c8b0c4f1be6f -->
+<!-- i18n-sync: id=guide/usage/framework-adapters digest=79dc23a8f35831c4958462d5992e8e8eae54d98b63cc1887988138b036d11ec3 -->
 
-framework adapterは、Application Profile JSONをそのframeworkのelement/VNodeへ変換する薄い層です。framework本体をegakeが依存に追加せず、hostからrender primitiveを受け取る設計です。
+EgakeはUIを描画する別のframework adapterを持ちません。KDLを検証し、
+Ikasueの`IkaView`とEgakeの`bindings`へlowerします。Ikasueは
+`ikasue-web/1`のCustom Elementsとして同じviewを描画します。
 
-## 現在の対応状況
+## 境界
 
-| Framework | このcheckoutの状態 | 公開識別子                                            |
-| --------- | ------------------ | ----------------------------------------------------- |
-| React     | adapter実装済み    | `createReactRenderer` / `createReactResourceProvider` |
-| Vue       | adapter実装済み    | `createVueRenderer` / `createVueResourceProvider`     |
-| Solid     | 専用adapter未提供  | `packages/runtime`をDOM lifecycleへ接続する           |
-| Svelte    | 専用adapter未提供  | `packages/runtime`をDOM lifecycleへ接続する           |
+Egakeが持つものはKDL、state、action、schema、ResourceProvider、CRUDと
+bindingです。Ikasueが持つものはUI vocabulary、DOM rendering、keyboard、
+accessibility、theme、DataGridのgeometryです。
 
-Solid/Svelteについては、存在しないnpm package名やimportを案内しません。専用adapterが必要なら、既存のruntimeの`SerializedApplication`、`SerializedComponent`、`ResourceProvider`の契約を使って、各frameworkの正式なmount lifecycleに薄い変換層を実装してください。
+`IkaView.props`には`resource`、`action`、provider、fetch clientを入れません。
+それらはbundleの`bindings`に残し、Egake hostがDOM eventを処理します。
 
-## React
+## Controlled DataGrid
 
-Reactはhostから`createElement`を渡します。adapter自身はReactをimportしません。
+`ika-data-grid`は`columns`、`rows`、`total`、`loading`、`error`を受け取り、
+`ika-query`、`ika-select`、`ika-edit`をemitします。`ika-query`は
+`{ offset, limit, sort, filter? }`、`ika-edit`は`{ rowId, columnId, value }`
+です。IkasueはResourceProviderやDataSourceを知りません。
 
-```ts
-import {
-  createReactRenderer,
-  createReactResourceProvider,
-} from "./packages/react/mod.ts";
-
-const contacts = createReactResourceProvider(client, "contacts");
-const renderApplication = createReactRenderer(React, {
-  onAction: (action) => void contacts.invoke(action, null),
-});
-const element = renderApplication(applicationJson);
-```
-
-実際のadapterは`packages/react/src/index.ts`、READMEは`packages/react/README.md`です。childrenは通常のReact childrenで渡され、`dangerouslySetInnerHTML`は使いません。
-
-## Vue
-
-Vueはhostから`h`を渡します。
-
-```ts
-import {
-  createVueRenderer,
-  createVueResourceProvider,
-} from "./packages/vue/mod.ts";
-
-const contacts = createVueResourceProvider(client, "contacts");
-const renderApplication = createVueRenderer(Vue, {
-  onAction: (action) => void contacts.invoke(action, null),
-});
-const vnode = renderApplication(applicationJson);
-```
-
-ここで`Vue`は`h`を実装するhostの値です。adapter packageはVueを依存に含めません。実装のsourceは`packages/vue/src/index.ts`です。
-
-## Solid / Svelteでの考え方
-
-このincrementで提供するのは専用adapterではなく、generic runtimeとの境界です。
-
-1. `application.json`またはCLIが作ったdata-only bundleをhostで読み込む。
-2. `ResourceProvider`を作り、Solid/Svelteのstore・load関数・API clientをそこへ写像する。
-3. DOM rootの生成・破棄をframeworkのlifecycleで所有する。
-4. providerの`capabilities`とstructured errorを維持し、HTML文字列へ変換しない。
-
-この段階で必要な安全性と契約の詳細は[TypeScript/Deno browser runtime](../../../spec/#typescriptdeno-browser-runtime)にあります。専用adapterの追加は、実装とtestを同じcommitに含めてから、この表と仕様を更新します。
+hostは`ika-query`をResourceProvider.listへ渡し、返ったpageをpropertiesへ
+戻します。virtual scrollのoffset/limit計算はIkasue、データ取得とstale/error
+処理はEgakeです。

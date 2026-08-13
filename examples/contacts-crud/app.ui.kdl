@@ -15,7 +15,7 @@ app "contacts-admin" version="0.1" {
     action "open-create"
     action "open-edit"
     action "delete-contact" {
-        refresh resource="contacts"
+        delete resource="contacts"
     }
     action "save-contact" {
         upsert resource="contacts" value="$state.draft"
@@ -26,9 +26,9 @@ app "contacts-admin" version="0.1" {
         column gap="md" {
             row align="end" {
                 text-input label="Search" bind="state.query"
-                button "Add" action="open-create" variant="primary"
+                button "Add" action="open-create" form="editor" variant="primary"
             }
-            data-table resource="contacts" key="id" {
+            data-table resource="contacts" key="id" form="editor" {
                 column field="name" label="Name"
                 column field="email" label="Email"
                 column field="department" label="Department"

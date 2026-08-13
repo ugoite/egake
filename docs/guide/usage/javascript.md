@@ -5,9 +5,9 @@ sidebar:
   label: JS埋め込み
 ---
 
-<!-- i18n-sync: id=guide/usage/javascript digest=1ce6111c1978af1d492ea89ba89d8c7a4d5bc2da00340bafa5ca5b00f1a6bd68 -->
+<!-- i18n-sync: id=guide/usage/javascript digest=448b1304a1f2741f457958683337027568407bf11bd9d08cfe18ab8393d3f2c9 -->
 
-JavaScript埋め込みでは、アプリケーション定義とproviderを分けます。`packages/runtime`はDeno/TypeScriptのbuilt-inだけで動き、hostがprovider mapを所有します。
+JavaScript埋め込みでは、アプリケーション定義とproviderを分けます。`packages/runtime`はResource Contractだけを提供し、hostがprovider mapとEgake action loopを所有します。UIを使う場合、`packages/ikasue`がIkaViewをCustom Elementsへlowerし、hostはsemantic DOM eventを処理します。
 
 ## チェックアウト済みexampleを確認する
 
@@ -16,7 +16,7 @@ deno check examples/js-embedded/main.ts
 deno test examples/js-embedded/main_test.ts
 ```
 
-`examples/js-embedded/main.ts`の`createEmbeddedProvider()`は`status` resourceに`schema`、`list`、`invoke`だけを広告します。`runEmbeddedAction()`はApplication Profileの`invoke` stepを読み、注入されたproviderの`invoke`だけを呼びます。
+`examples/js-embedded/main.ts`の`createEmbeddedProvider()`は`status` resourceに`schema`、`list`、`invoke`だけを広告します。providerはデータアクセスとprovider actionだけを担当し、アプリケーション側のaction loopはhostが担当します。
 
 ```ts
 const capabilities: readonly Capability[] = ["schema", "list", "invoke"];
@@ -39,17 +39,11 @@ const provider: ResourceProvider = {
 
 上はproviderの責任範囲を示す実装の一部です。実際の完全なfixtureは`examples/js-embedded/main.ts`にあります。
 
-## DOMへmountする
+## UI runtimeへ接続する
 
-実行時にはhostがbundleをロードし、root elementとprovider mapを渡します。
+ブラウザでは、hostが生成済みbundleをロードします。Egakeはprovider、state、action loopを所有し、IkasueへIkaViewとbindingを渡します。Ikasueは同じIkaViewをCustom Elementsへlowerし、`ika-query`、`ika-select`、`ika-edit`、`ika-action`などのsemantic DOM eventをhostへ返します。
 
-```ts
-startEgakeHost(document.getElementById("app")!, application, {
-  status: createEmbeddedProvider(),
-});
-```
-
-この呼び出しはexampleに定義された`startEgakeHost`の形です。runtimeはDOM APIで要素を作り、値を`textContent`やDOM propertyへ渡します。任意のHTML文字列、`eval`、remote assetは使いません。
+独自hostからIkasueを使う場合は、`packages/ikasue`の`renderIkaView`とCustom Element propertiesを利用してください。DOM ABIはWeb Platformそのものであり、Egake専用のUI adapterやSerializedComponentはありません。
 
 ## HTTP providerを使う場合
 

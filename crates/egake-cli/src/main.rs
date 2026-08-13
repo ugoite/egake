@@ -17,8 +17,8 @@ use egake_resource::{
 };
 use egake_server::{ServerConfig, ServerState, StaticBundle};
 use egake_spec::{
-    ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, Component, Diagnostic,
-    EventBinding, ResourceCapability,
+    ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, Diagnostic,
+    ResourceCapability, ViewNode, lower_application,
 };
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 use serde::{Deserialize, Serialize};
@@ -32,17 +32,19 @@ const INDEX_HTML: &str = r##"<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'">
   <title>egake application</title>
-  <link rel="stylesheet" href="runtime.css">
+  <link rel="stylesheet" href="ikasue.css">
 </head>
 <body>
   <div id="egake-root" aria-live="polite"></div>
-  <script src="runtime.js" defer></script>
+  <script src="ikasue.js" defer></script>
+  <script src="egake.js" defer></script>
 </body>
 </html>
 "##;
 
-const RUNTIME_JS: &str = include_str!("../assets/runtime.js");
-const RUNTIME_CSS: &str = include_str!("../assets/runtime.css");
+const IKASUE_JS: &str = include_str!("../../../packages/ikasue/src/runtime.js");
+const IKASUE_CSS: &str = include_str!("../../../packages/ikasue/src/style.css");
+const EGAKE_JS: &str = include_str!("../../../packages/egake-browser/src/runtime.js");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum BuildFormat {
@@ -396,7 +398,11 @@ fn command_validate(args: ProjectArgs) -> Result<(), CliError> {
 
 fn command_inspect(args: ProjectArgs) -> Result<(), CliError> {
     let validated = load_validated(args.directory(), args.json, true)?;
-    let value = definition_to_value(&validated.definition, Some(&validated.resource_schemas));
+    let value = definition_to_value(
+        &validated.definition,
+        Some(&validated.resource_schemas),
+        Some(&validated.project.resources),
+    );
     if args.json {
         print_json(json!({ "ok": true, "project": validated.project.root, "application": value }));
     } else {
@@ -412,8 +418,12 @@ fn command_build(args: BuildArgs) -> Result<(), CliError> {
         BuildFormat::Directory => {
             let output = safe_project_join(&validated.project.root, &args.output, "build output")
                 .map_err(|error| error.with_json(args.project.json))?;
-            let bundle = static_bundle(&validated.definition, &validated.resource_schemas)
-                .map_err(|error| error.with_json(args.project.json))?;
+            let bundle = static_bundle(
+                &validated.definition,
+                &validated.resource_schemas,
+                &validated.project.resources,
+            )
+            .map_err(|error| error.with_json(args.project.json))?;
             let files = write_bundle(&output, &bundle)
                 .map_err(|error| error.with_json(args.project.json))?;
             (output, files)
@@ -421,9 +431,12 @@ fn command_build(args: BuildArgs) -> Result<(), CliError> {
         BuildFormat::SingleHtml => {
             let output = single_html_output_path(&validated.project.root, &args.output)
                 .map_err(|error| error.with_json(args.project.json))?;
-            let application =
-                application_bundle(&validated.definition, &validated.resource_schemas)
-                    .map_err(|error| error.with_json(args.project.json))?;
+            let application = application_bundle(
+                &validated.definition,
+                &validated.resource_schemas,
+                &validated.project.resources,
+            )
+            .map_err(|error| error.with_json(args.project.json))?;
             let html =
                 single_html(&application).map_err(|error| error.with_json(args.project.json))?;
             write_single_html(&output, &html)
@@ -464,11 +477,19 @@ fn command_test(args: ProjectArgs) -> Result<(), CliError> {
             .map(|resource| format!("resource:{}", resource.name)),
     );
     checks.push("static-bundle".to_owned());
-    let _ = static_bundle(&validated.definition, &validated.resource_schemas)
-        .map_err(|error| error.with_json(args.json))?;
+    let _ = static_bundle(
+        &validated.definition,
+        &validated.resource_schemas,
+        &validated.project.resources,
+    )
+    .map_err(|error| error.with_json(args.json))?;
     checks.push("single-html".to_owned());
-    let application = application_bundle(&validated.definition, &validated.resource_schemas)
-        .map_err(|error| error.with_json(args.json))?;
+    let application = application_bundle(
+        &validated.definition,
+        &validated.resource_schemas,
+        &validated.project.resources,
+    )
+    .map_err(|error| error.with_json(args.json))?;
     let _ = single_html(&application).map_err(|error| error.with_json(args.json))?;
     if args.json {
         let tests: Vec<Value> =
@@ -553,7 +574,11 @@ fn command_list(args: ListArgs) -> Result<(), CliError> {
 
 fn command_serve(args: ServeArgs, dev: bool) -> Result<(), CliError> {
     let validated = load_validated(args.directory(), false, true)?;
-    let bundle = static_bundle(&validated.definition, &validated.resource_schemas)?;
+    let bundle = static_bundle(
+        &validated.definition,
+        &validated.resource_schemas,
+        &validated.project.resources,
+    )?;
     let host = args
         .host
         .parse::<IpAddr>()
@@ -1599,11 +1624,13 @@ fn resource_config_diagnostic(resource: &str, message: String) -> CliDiagnostic 
 fn static_bundle(
     definition: &ApplicationDefinition,
     resource_schemas: &BTreeMap<String, ResourceSchema>,
+    resource_configs: &BTreeMap<String, ResourceConfig>,
 ) -> Result<StaticBundle, CliError> {
-    let application = application_bundle(definition, resource_schemas)?;
+    let application = application_bundle(definition, resource_schemas, resource_configs)?;
     let mut bundle = StaticBundle::new(INDEX_HTML);
-    bundle.insert_asset("runtime.js", RUNTIME_JS.as_bytes().to_vec());
-    bundle.insert_asset("runtime.css", RUNTIME_CSS.as_bytes().to_vec());
+    bundle.insert_asset("ikasue.js", IKASUE_JS.as_bytes().to_vec());
+    bundle.insert_asset("ikasue.css", IKASUE_CSS.as_bytes().to_vec());
+    bundle.insert_asset("egake.js", EGAKE_JS.as_bytes().to_vec());
     bundle.insert_asset("app.bundle.json", application);
     Ok(bundle)
 }
@@ -1611,9 +1638,14 @@ fn static_bundle(
 fn application_bundle(
     definition: &ApplicationDefinition,
     resource_schemas: &BTreeMap<String, ResourceSchema>,
+    resource_configs: &BTreeMap<String, ResourceConfig>,
 ) -> Result<Vec<u8>, CliError> {
-    serde_json::to_vec_pretty(&definition_to_value(definition, Some(resource_schemas)))
-        .map_err(|_| CliError::message("could not serialize the validated application bundle"))
+    serde_json::to_vec_pretty(&definition_to_value(
+        definition,
+        Some(resource_schemas),
+        Some(resource_configs),
+    ))
+    .map_err(|_| CliError::message("could not serialize the validated application bundle"))
 }
 
 fn single_html_output_path(root: &Path, output: &Path) -> Result<PathBuf, CliError> {
@@ -1636,17 +1668,25 @@ fn write_single_html(output: &Path, html: &str) -> Result<(), CliError> {
         fs::create_dir_all(parent).map_err(|error| {
             CliError::message(format!("could not create single-html output directory: {error}"))
         })?;
-        remove_directory_bundle_assets(parent, output)?;
+        remove_directory_bundle_assets(parent, Some(output))?;
     }
     fs::write(output, html).map_err(|error| {
         CliError::message(format!("could not write {}: {error}", output.display()))
     })
 }
 
-fn remove_directory_bundle_assets(directory: &Path, output: &Path) -> Result<(), CliError> {
-    for name in ["index.html", "runtime.js", "runtime.css", "app.bundle.json"] {
+fn remove_directory_bundle_assets(directory: &Path, output: Option<&Path>) -> Result<(), CliError> {
+    for name in [
+        "index.html",
+        "ikasue.js",
+        "ikasue.css",
+        "egake.js",
+        "app.bundle.json",
+        "runtime.js",
+        "runtime.css",
+    ] {
         let candidate = directory.join(name);
-        if candidate == output {
+        if output.is_some_and(|output| candidate == output) {
             continue;
         }
         let metadata = match fs::symlink_metadata(&candidate) {
@@ -1677,10 +1717,11 @@ fn remove_directory_bundle_assets(directory: &Path, output: &Path) -> Result<(),
 
 fn single_html(application: &[u8]) -> Result<String, CliError> {
     let application = escape_json_for_html_script(application)?;
-    let runtime_hash = csp_hash(RUNTIME_JS.as_bytes());
-    let style_hash = csp_hash(RUNTIME_CSS.as_bytes());
+    let ikasue_hash = csp_hash(IKASUE_JS.as_bytes());
+    let egake_hash = csp_hash(EGAKE_JS.as_bytes());
+    let style_hash = csp_hash(IKASUE_CSS.as_bytes());
     Ok(format!(
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src {runtime_hash}; style-src {style_hash}; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'\">\n  <title>egake application</title>\n  <style>{RUNTIME_CSS}</style>\n</head>\n<body>\n  <div id=\"egake-root\" aria-live=\"polite\"></div>\n  <script id=\"egake-application\" type=\"application/json\">{application}</script>\n  <script>{RUNTIME_JS}</script>\n</body>\n</html>\n"
+        "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src {ikasue_hash} {egake_hash}; style-src {style_hash}; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'\">\n  <title>egake application</title>\n  <style>{IKASUE_CSS}</style>\n</head>\n<body>\n  <div id=\"egake-root\" aria-live=\"polite\"></div>\n  <script id=\"egake-application\" type=\"application/json\">{application}</script>\n  <script>{IKASUE_JS}</script>\n  <script>{EGAKE_JS}</script>\n</body>\n</html>\n"
     ))
 }
 
@@ -1710,6 +1751,7 @@ fn write_bundle(output: &Path, bundle: &StaticBundle) -> Result<Vec<String>, Cli
     fs::create_dir_all(output).map_err(|error| {
         CliError::message(format!("could not create {}: {error}", output.display()))
     })?;
+    remove_directory_bundle_assets(output, None)?;
     fs::write(output.join("index.html"), bundle.index_html())
         .map_err(|error| CliError::message(format!("could not write index.html: {error}")))?;
     for (name, contents) in bundle.assets() {
@@ -1740,15 +1782,15 @@ fn write_bundle(output: &Path, bundle: &StaticBundle) -> Result<Vec<String>, Cli
 fn definition_to_value(
     definition: &ApplicationDefinition,
     resource_schemas: Option<&BTreeMap<String, ResourceSchema>>,
+    resource_configs: Option<&BTreeMap<String, ResourceConfig>>,
 ) -> Value {
     let mut resources = definition.resources.clone();
     resources.sort_by(|left, right| left.name.cmp(&right.name));
     let mut states = definition.states.clone();
     states.sort_by(|left, right| left.name.cmp(&right.name));
-    let mut pages = definition.pages.clone();
-    pages.sort_by(|left, right| left.name.cmp(&right.name));
     let mut actions = definition.actions.clone();
     actions.sort_by(|left, right| left.name.cmp(&right.name));
+    let lowered = lower_application(definition);
     json!({
         "profile": {
             "name": definition.profile.name,
@@ -1765,34 +1807,19 @@ fn definition_to_value(
                 "capabilities": capabilities,
                 "required_capabilities": capabilities,
             });
+            if let Some(config) = resource_configs.and_then(|configs| configs.get(&resource.name)) {
+                value["key"] = Value::String(config.key.clone());
+            }
             if let Some(schema) = resource_schemas.and_then(|schemas| schemas.get(&resource.name)) {
                 value["fields"] = serde_json::to_value(&schema.fields).expect("schema fields are JSON");
             }
             value
         }).collect::<Vec<_>>(),
         "states": states.iter().map(|state| json!({ "name": state.name, "value": state.value })).collect::<Vec<_>>(),
-        "pages": pages.iter().map(|page| json!({
-            "name": page.name,
-            "title": page.title,
-            "components": page.components.iter().map(component_to_value).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>(),
+        "views": lowered.views,
+        "bindings": lowered.bindings,
         "actions": actions.iter().map(action_to_value).collect::<Vec<_>>(),
     })
-}
-
-fn component_to_value(component: &Component) -> Value {
-    json!({
-        "kind": component.kind.as_str(),
-        "id": component.id,
-        "text": component.text,
-        "attributes": component.attributes,
-        "children": component.children.iter().map(component_to_value).collect::<Vec<_>>(),
-        "events": component.events.iter().map(event_to_value).collect::<Vec<_>>(),
-    })
-}
-
-fn event_to_value(event: &EventBinding) -> Value {
-    json!({ "event": event.event, "action": event.action })
 }
 
 fn action_to_value(action: &ActionDefinition) -> Value {
@@ -1810,6 +1837,7 @@ fn action_step_kind_name(kind: ActionStepKind) -> &'static str {
     match kind {
         ActionStepKind::Validate => "validate",
         ActionStepKind::Upsert => "upsert",
+        ActionStepKind::Delete => "delete",
         ActionStepKind::Refresh => "refresh",
         ActionStepKind::Toast => "toast",
         ActionStepKind::Invoke => "invoke",
@@ -1836,14 +1864,14 @@ fn print_inspect(project: &Project, definition: &ApplicationDefinition) {
     let mut pages = definition.pages.clone();
     pages.sort_by(|left, right| left.name.cmp(&right.name));
     for page in pages {
-        let component_count = page.components.iter().map(component_count).sum::<usize>();
-        println!("  {} title={:?} components={component_count}", page.name, page.title);
+        let view_count = page.views.iter().map(view_count).sum::<usize>();
+        println!("  {} title={:?} views={view_count}", page.name, page.title);
     }
     println!("actions: {}", definition.actions.len());
 }
 
-fn component_count(component: &Component) -> usize {
-    1 + component.children.iter().map(component_count).sum::<usize>()
+fn view_count(view: &ViewNode) -> usize {
+    1 + view.children.iter().map(view_count).sum::<usize>()
 }
 
 fn default_project_name(path: &Path) -> Option<String> {
@@ -1890,6 +1918,12 @@ fn scaffold_project(path: &Path, name: &str) -> Result<(), CliError> {
         &path.join("app.ui.kdl"),
         &format!(
             "/- kdl-version 2\napp \"{escaped}\" version=\"0.1\" {{\n    resource \"contacts\" schema=\"schemas/contacts.schema.json\" {{\n        require \"list\"\n        require \"get\"\n        require \"create\"\n        require \"update\"\n        require \"delete\"\n    }}\n    state \"query\" value=\"\"\n    state \"draft\" value=#null\n    action \"open-create\"\n    action \"open-edit\"\n    action \"delete-contact\" {{ refresh resource=\"contacts\" }}\n    action \"save-contact\" {{\n        upsert resource=\"contacts\" value=\"$state.draft\"\n        refresh resource=\"contacts\"\n    }}\n    page \"main\" title=\"Contacts\" {{\n        column gap=\"md\" {{\n            row align=\"end\" {{\n                text-input label=\"Search\" bind=\"state.query\"\n                button \"Add\" action=\"open-create\" variant=\"primary\"\n            }}\n            data-table resource=\"contacts\" key=\"id\" {{\n                column field=\"name\" label=\"Name\"\n                column field=\"email\" label=\"Email\"\n                on \"select\" action=\"open-edit\"\n            }}\n            form id=\"editor\" bind=\"state.draft\" mode=\"drawer\" {{\n                text-input field=\"name\" label=\"Name\"\n                text-input field=\"email\" label=\"Email\"\n                textarea field=\"note\" label=\"Note\"\n                row {{\n                    button \"Delete\" variant=\"danger\" action=\"delete-contact\"\n                    button \"Save\" variant=\"primary\" action=\"save-contact\"\n                }}\n            }}\n        }}\n    }}\n}}\n"
+        ).replace(
+            "action \"delete-contact\" { refresh resource=\"contacts\" }",
+            "action \"delete-contact\" { delete resource=\"contacts\" }",
+        ).replace(
+            "button \"Add\" action=\"open-create\" variant=\"primary\"",
+            "button \"Add\" action=\"open-create\" form=\"editor\" variant=\"primary\"",
         ),
     )?;
     write_new_file(
@@ -1940,40 +1974,27 @@ mod tests {
     fn scaffold_is_valid_and_builds_a_self_contained_bundle() {
         let path = temp_project();
         scaffold_project(&path, "test-app").expect("scaffold");
+        let source = fs::read_to_string(path.join("app.ui.kdl")).expect("scaffold source");
+        assert!(source.contains("action \"delete-contact\" { delete resource=\"contacts\" }"));
         let validated = load_validated(&path, false, true).expect("validation");
-        let bundle =
-            static_bundle(&validated.definition, &validated.resource_schemas).expect("bundle");
+        let bundle = static_bundle(
+            &validated.definition,
+            &validated.resource_schemas,
+            &validated.project.resources,
+        )
+        .expect("bundle");
         assert!(bundle.index_html().contains("Content-Security-Policy"));
         assert!(bundle.assets().contains_key("app.bundle.json"));
-        let runtime = String::from_utf8_lossy(bundle.assets().get("runtime.js").expect("runtime"));
+        let runtime = String::from_utf8_lossy(bundle.assets().get("ikasue.js").expect("runtime"));
         assert!(!runtime.contains("eval("));
         assert!(!runtime.contains("innerHTML"));
-        assert!(runtime.contains("/api/egake/v1"));
-        assert!(runtime.contains("method: \"PATCH\""));
-        assert!(runtime.contains("invokeProviderAction"));
-        assert!(runtime.contains("/actions/"));
-        assert!(runtime.contains("window.confirm"));
-        assert!(runtime.contains("request_id"));
-        assert!(runtime.contains("egake-backdrop"));
-        assert!(runtime.contains("aria-modal"));
-        assert!(runtime.contains("aria-labelledby"));
-        assert!(runtime.contains("focusEditor"));
-        assert!(runtime.contains("data-resource"));
-        assert!(runtime.contains("Refreshing records"));
-        assert!(runtime.contains("event.key === \"Escape\""));
-        assert!(runtime.contains("Loading records"));
-        let stylesheet =
-            String::from_utf8_lossy(bundle.assets().get("runtime.css").expect("style"));
-        assert!(stylesheet.contains("tailwindcss v4.3.0"));
-        assert!(stylesheet.contains("--ikasue-canvas"));
-        assert!(stylesheet.contains("--ikasue-density-control"));
-        assert!(stylesheet.contains("egake-form[data-mode=drawer]"));
-        assert!(stylesheet.contains("prefers-color-scheme:dark"));
-        assert!(stylesheet.contains("egake-table-empty"));
-        assert!(stylesheet.contains("border-radius:0"));
-        assert!(!stylesheet.contains("box-shadow:var"));
-        assert!(!stylesheet.contains("box-shadow:0 0"));
-        assert!(!stylesheet.contains("backdrop-filter"));
+        assert!(runtime.contains("ikasue-web/1"));
+        assert!(runtime.contains("ika-query"));
+        assert!(runtime.contains("ika-edit"));
+        assert!(runtime.contains("ika-data-grid"));
+        let stylesheet = String::from_utf8_lossy(bundle.assets().get("ikasue.css").expect("style"));
+        assert!(stylesheet.contains("--ika-canvas"));
+        assert!(stylesheet.contains("ika-data-grid"));
         fs::remove_dir_all(path).expect("cleanup");
     }
 
@@ -1993,8 +2014,8 @@ mod tests {
             .expect("application script body");
         let decoded: Value = serde_json::from_str(second_script).expect("embedded JSON");
 
-        assert!(!html.contains("runtime.js"));
-        assert!(!html.contains("runtime.css"));
+        assert!(!html.contains("ikasue.js"));
+        assert!(!html.contains("ikasue.css"));
         assert!(!html.contains("app.bundle.json"));
         assert!(!html.contains(" href="));
         assert!(!html.contains(" src="));
@@ -2118,8 +2139,12 @@ mod tests {
         fs::write(path.join("data/contacts.csv"), "id,email,status\n1,ada@example.com,active\n")
             .expect("data");
         let validated = load_validated(&path, false, true).expect("validation");
-        let bundle =
-            static_bundle(&validated.definition, &validated.resource_schemas).expect("bundle");
+        let bundle = static_bundle(
+            &validated.definition,
+            &validated.resource_schemas,
+            &validated.project.resources,
+        )
+        .expect("bundle");
         let application: Value =
             serde_json::from_slice(bundle.assets()["app.bundle.json"].as_slice())
                 .expect("application JSON");
@@ -2131,9 +2156,11 @@ mod tests {
         let status = fields.iter().find(|field| field["name"] == "status").expect("status");
         assert_eq!(email["format"], "email");
         assert_eq!(status["enum"][1], "paused");
-        let runtime = String::from_utf8_lossy(bundle.assets()["runtime.js"].as_slice());
-        assert!(runtime.contains("datetime-local"));
-        assert!(runtime.contains("field.enum"));
+        let application_json =
+            String::from_utf8_lossy(bundle.assets()["app.bundle.json"].as_slice());
+        assert!(application_json.contains("\"views\""));
+        assert!(application_json.contains("\"bindings\""));
+        assert!(!application_json.contains("\"components\""));
 
         fs::remove_dir_all(path).expect("cleanup");
     }

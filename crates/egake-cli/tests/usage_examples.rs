@@ -53,7 +53,7 @@ fn build_preserves_directory_output_and_can_emit_one_html_file() {
 
     let multi_default = run(&["build", project_string, "--output", "dist", "--json"]);
     assert!(multi_default.status.success(), "{}", String::from_utf8_lossy(&multi_default.stderr));
-    assert_eq!(fs::read_dir(project.join("dist")).expect("initial dist").count(), 4);
+    assert_eq!(fs::read_dir(project.join("dist")).expect("initial dist").count(), 5);
 
     let single = run(&[
         "build",
@@ -87,7 +87,7 @@ fn build_preserves_directory_output_and_can_emit_one_html_file() {
         .expect("multi output")
         .map(|entry| entry.expect("entry").file_name())
         .collect::<std::collections::BTreeSet<_>>();
-    let expected = ["index.html", "runtime.js", "runtime.css", "app.bundle.json"]
+    let expected = ["index.html", "ikasue.js", "ikasue.css", "egake.js", "app.bundle.json"]
         .into_iter()
         .map(std::ffi::OsString::from)
         .collect::<std::collections::BTreeSet<_>>();

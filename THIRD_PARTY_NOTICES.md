@@ -129,7 +129,7 @@ this file and pass the repository license policy before release.
 ## Host packages
 
 The host/runtime increment adds no npm, Deno, or Python runtime dependency.
-`packages/runtime`, `packages/react`, and `packages/vue` use TypeScript/Deno
+`packages/runtime` and `packages/ikasue` use TypeScript/Deno
 built-ins and host-supplied framework primitives. `python/egake` uses only
 the Python standard library. FastAPI is an optional host dependency used only
 by `python/egake/fastapi.py` and the example; it is intentionally absent

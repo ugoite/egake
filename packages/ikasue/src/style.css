@@ -1,0 +1,231 @@
+:root {
+  color-scheme: light;
+  --ika-canvas: #fff;
+  --ika-surface: #fff;
+  --ika-ink: #171916;
+  --ika-muted: #676b63;
+  --ika-line: #dfe1da;
+  --ika-selection: #eef0ea;
+  --ika-error: #a82e29;
+  --ika-density-control: 38px;
+  --ika-data-grid-row-height: 41px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 20rem;
+  background: var(--ika-canvas);
+  color: var(--ika-ink);
+  font: 0.875rem/1.55 system-ui, sans-serif;
+}
+[data-egake-status] {
+  display: block;
+  padding: 0.65rem 0.9rem;
+  color: var(--ika-muted);
+}
+[data-egake-status][data-kind="error"] {
+  color: var(--ika-error);
+}
+button, input, textarea {
+  font: inherit;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ika-ink);
+  outline-offset: 2px;
+}
+ika-stack, ika-flex, ika-form, ika-field, ika-theme-root {
+  display: flex;
+  gap: 0.875rem;
+  min-width: 0;
+}
+ika-stack[gap="xs"],
+ika-flex[gap="xs"],
+ika-form[gap="xs"],
+ika-field[gap="xs"],
+ika-theme-root[gap="xs"] {
+  gap: 0.25rem;
+}
+ika-stack[gap="sm"],
+ika-flex[gap="sm"],
+ika-form[gap="sm"],
+ika-field[gap="sm"],
+ika-theme-root[gap="sm"] {
+  gap: 0.5rem;
+}
+ika-stack[gap="lg"],
+ika-flex[gap="lg"],
+ika-form[gap="lg"],
+ika-field[gap="lg"],
+ika-theme-root[gap="lg"] {
+  gap: 1.25rem;
+}
+ika-stack[gap="xl"],
+ika-flex[gap="xl"],
+ika-form[gap="xl"],
+ika-field[gap="xl"],
+ika-theme-root[gap="xl"] {
+  gap: 1.75rem;
+}
+ika-stack, ika-form, ika-field, ika-theme-root {
+  flex-direction: column;
+}
+ika-flex {
+  flex-wrap: wrap;
+  align-items: center;
+}
+ika-stack[align="start"],
+ika-flex[align="start"],
+ika-form[align="start"],
+ika-field[align="start"],
+ika-theme-root[align="start"] {
+  align-items: flex-start;
+}
+ika-stack[align="center"],
+ika-flex[align="center"],
+ika-form[align="center"],
+ika-field[align="center"],
+ika-theme-root[align="center"] {
+  align-items: center;
+}
+ika-stack[align="end"],
+ika-flex[align="end"],
+ika-form[align="end"],
+ika-field[align="end"],
+ika-theme-root[align="end"] {
+  align-items: flex-end;
+}
+ika-stack[align="stretch"],
+ika-flex[align="stretch"],
+ika-form[align="stretch"],
+ika-field[align="stretch"],
+ika-theme-root[align="stretch"] {
+  align-items: stretch;
+}
+ika-text {
+  display: block;
+}
+ika-form[data-open="true"][mode="drawer"],
+ika-form[data-open="true"][mode="dialog"] {
+  z-index: 21;
+  background: var(--ika-surface);
+  border: 1px solid var(--ika-line);
+  padding: 1rem;
+}
+ika-form[data-open="true"][mode="drawer"] {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: min(30rem, 100vw);
+  overflow: auto;
+  box-shadow: -1rem 0 3rem rgb(23 25 22 / 14%);
+}
+ika-form[data-open="true"][mode="dialog"] {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1rem 3rem rgb(23 25 22 / 18%);
+}
+.ika-surface-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  background: rgb(23 25 22 / 28%);
+}
+ika-text-field {
+  display: block;
+}
+ika-text-field label,
+ika-select label {
+  display: grid;
+  gap: 0.3rem;
+}
+ika-select {
+  display: block;
+}
+ika-select select {
+  width: 100%;
+  min-height: var(--ika-density-control);
+  border: 0;
+  border-bottom: 1px solid var(--ika-line);
+  background: transparent;
+  color: inherit;
+  padding: 0.45rem;
+}
+ika-text-field input, ika-text-field textarea {
+  width: 100%;
+  min-height: var(--ika-density-control);
+  border: 0;
+  border-bottom: 1px solid var(--ika-line);
+  background: transparent;
+  color: inherit;
+  padding: 0.45rem;
+}
+ika-icon-button button {
+  min-height: var(--ika-density-control);
+  border: 0;
+  border-inline-start: 2px solid var(--ika-ink);
+  background: var(--ika-selection);
+  color: inherit;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+ika-icon-button[variant="primary"] button {
+  border-inline-start-color: var(--ika-ink);
+  background: var(--ika-selection);
+  color: var(--ika-ink);
+  font-weight: 700;
+}
+ika-icon-button[variant="danger"] button {
+  border-inline-start-color: var(--ika-error);
+  background: transparent;
+  color: var(--ika-error);
+}
+ika-icon-button[variant="ghost"] button {
+  border-inline-start-color: transparent;
+  background: transparent;
+  color: var(--ika-muted);
+}
+ika-icon-button button:hover,
+ika-icon-button button:focus-visible {
+  background: var(--ika-selection);
+  color: var(--ika-ink);
+}
+ika-data-grid {
+  display: block;
+  min-height: 12rem;
+  height: min(60vh, 36rem);
+  overflow: auto;
+  border-block: 1px solid var(--ika-line);
+}
+ika-data-grid table {
+  width: 100%;
+  border-collapse: collapse;
+}
+ika-data-grid th, ika-data-grid td {
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--ika-line);
+  text-align: start;
+  white-space: nowrap;
+}
+ika-data-grid th {
+  color: var(--ika-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+ika-data-grid tr:focus-visible, ika-data-grid tr:hover {
+  background: var(--ika-selection);
+}
+ika-data-grid caption {
+  padding: 0.8rem;
+  color: var(--ika-muted);
+  text-align: start;
+}

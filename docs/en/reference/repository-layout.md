@@ -5,12 +5,12 @@ sidebar:
   label: Repository layout
 ---
 
-<!-- i18n-sync: id=reference/repository-layout digest=8eac5f5a9756d816c2836bfe2246b941ffcd00bee2b84853109cbf6f73f82885 -->
+<!-- i18n-sync: id=reference/repository-layout digest=65c58e2105cf7da99e53e17c2835ef0db59afdf8428f71914d9a6d0c24a8a837 -->
 
 ```text
 .
 ├── crates/                 Rust Resource / spec / CSV / server / CLI
-├── packages/               Deno runtime and React/Vue adapters
+├── packages/               Ikasue UI runtime and Egake host runtime
 ├── python/                 stdlib Resource and ASGI/FastAPI bridge
 ├── examples/               Offline fixtures
 ├── docs/                   Canonical documentation read by GitHub and the site
