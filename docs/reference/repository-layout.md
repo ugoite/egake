@@ -5,12 +5,12 @@ sidebar:
   label: リポジトリ構成
 ---
 
-<!-- i18n-sync: id=reference/repository-layout digest=8eac5f5a9756d816c2836bfe2246b941ffcd00bee2b84853109cbf6f73f82885 -->
+<!-- i18n-sync: id=reference/repository-layout digest=65c58e2105cf7da99e53e17c2835ef0db59afdf8428f71914d9a6d0c24a8a837 -->
 
 ```text
 .
 ├── crates/                 RustのResource / spec / CSV / server / CLI
-├── packages/               Deno runtimeとReact/Vue adapter
+├── packages/               Ikasue UI runtimeとEgake host runtime
 ├── python/                 stdlib ResourceとASGI/FastAPI bridge
 ├── examples/               オフラインで実行できるfixture
 ├── docs/                   正本。GitHubとdocsiteが直接読む

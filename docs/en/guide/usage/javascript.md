@@ -5,9 +5,9 @@ sidebar:
   label: JavaScript embedding
 ---
 
-<!-- i18n-sync: id=guide/usage/javascript digest=1ce6111c1978af1d492ea89ba89d8c7a4d5bc2da00340bafa5ca5b00f1a6bd68 -->
+<!-- i18n-sync: id=guide/usage/javascript digest=448b1304a1f2741f457958683337027568407bf11bd9d08cfe18ab8393d3f2c9 -->
 
-JavaScript embedding separates the application definition from the provider. `packages/runtime` uses only Deno/TypeScript built-ins, while the host owns the provider map.
+JavaScript embedding separates the application definition from the provider. `packages/runtime` provides the Resource Contract, while the host owns the provider map and Egake action loop. When UI is needed, `packages/ikasue` lowers IkaView values to Custom Elements and the host handles semantic DOM events.
 
 ## Check the checked-in example
 
@@ -16,7 +16,7 @@ deno check examples/js-embedded/main.ts
 deno test examples/js-embedded/main_test.ts
 ```
 
-`createEmbeddedProvider()` in `examples/js-embedded/main.ts` advertises only `schema`, `list`, and `invoke` for the `status` resource. `runEmbeddedAction()` reads the Application Profile `invoke` step and calls only the injected provider’s `invoke` method.
+`createEmbeddedProvider()` in `examples/js-embedded/main.ts` advertises only `schema`, `list`, and `invoke` for the `status` resource. The provider owns data access and provider actions; the host owns the application action loop.
 
 ```ts
 const capabilities: readonly Capability[] = ["schema", "list", "invoke"];
@@ -39,17 +39,11 @@ const provider: ResourceProvider = {
 
 This is the provider boundary; the complete fixture is in `examples/js-embedded/main.ts`.
 
-## Mount into the DOM
+## Connect to the UI runtime
 
-The host loads the bundle and passes a root element plus provider map.
+In the browser, the host loads the generated bundle. Egake owns providers, state, and the action loop, then passes IkaView values and bindings to Ikasue. Ikasue lowers the same IkaView values to Custom Elements and sends semantic DOM events such as `ika-query`, `ika-select`, `ika-edit`, and `ika-action` back to the host.
 
-```ts
-startEgakeHost(document.getElementById("app")!, application, {
-  status: createEmbeddedProvider(),
-});
-```
-
-The runtime creates DOM nodes and writes values through `textContent` or DOM properties. It does not use arbitrary HTML strings, `eval`, or remote assets.
+For a custom host, use `renderIkaView` and the Custom Element properties from `packages/ikasue`. The DOM ABI is the Web Platform itself; there is no Egake-specific UI adapter or SerializedComponent layer.
 
 ## Use an HTTP provider
 

@@ -5,7 +5,7 @@ sidebar:
   label: メンタルモデル
 ---
 
-{/* i18n-sync: id=guide/mental-model digest=a502c22a9fdf81837cccb4b64de6e5a3e5652f82e0c7537dc7e7f05b9abbaf8a */}
+{/* i18n-sync: id=guide/mental-model digest=566fbadd2d8503f014a01ee815d4a75fce03aafc54083df24d291a44c42f9620 */}
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
@@ -23,7 +23,7 @@ app.ui.kdl + schema JSON + resources.kdl
              build
                 │ データを含まない
                 ▼
-     app.bundle.json + runtime.js/css
+     app.bundle.json + egake.js + ikasue.js/css
                 │
       ┌─────────┴─────────┐
       ▼                   ▼
@@ -33,7 +33,7 @@ app.ui.kdl + schema JSON + resources.kdl
       └──── Resource Contract ────┘
 ```
 
-`run`と`dev`はbundleをメモリ上で配信し、`/api/egake/v1`のHTTP routeにlocal data providerを接続します。埋め込みJavaScriptでは、hostが`ResourceProvider`のmapを作って`mountApplication`に渡します。どちらも画面側が保存先の詳細を直接知る必要はありません。
+`run`と`dev`はbundleをメモリ上で配信し、`/api/egake/v1`のHTTP routeにlocal data providerを接続します。Egake hostは`ika-query`をResourceProviderへ渡し、結果をIkasue DataGridのpropertiesへ戻します。Ikasueは保存先を知りません。
 
 ## 契約は操作の集合
 

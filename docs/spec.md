@@ -5,7 +5,7 @@ sidebar:
   label: 実行可能なMVP仕様
 ---
 
-<!-- i18n-sync: id=spec digest=b70f34fcb192659870e29206083200a2d7a2cb7c3e7bbf4ab01e4d8c0f258b4a -->
+<!-- i18n-sync: id=spec digest=fb787ad4fdcc21bfd863e8fe26767b7370ff8c265079a43b7823084579e03f14 -->
 
 This page is the executable contract. Beginner-oriented explanations live in
 the guide pages; when an explanation and this page disagree, this page and the
@@ -54,15 +54,15 @@ The v0.1 IR contains:
 - `ResourceDefinition` (resource name, schema identifier, and a sorted set of
   `list`, `get`, `create`, `update`, `delete`, or `invoke` requirements);
 - `StateDefinition` (name and an owned `serde_json::Value`);
-- `PageDefinition` and a recursive `Component` tree with a closed
-  `ComponentKind` set: `column`, `row`, `text`, `text-input`, `select`,
-  `textarea`, `button`, `data-table`, `form`, and table `column` declarations;
+- `PageDefinition` and recursive Application Profile view nodes. These parser
+  nodes are lowered to Ikasue `IkaView` values; Egake does not expose a second
+  renderer enum;
 - `ActionDefinition` and the known declarative steps `validate`, `upsert`,
-  `refresh`, `toast`, and `invoke`; and
-- `EventBinding` pairs attached to component nodes.
+  `delete`, `refresh`, `toast`, and `invoke`; and
+- Egake-owned event/action binding metadata attached to view nodes.
 
-Known component attributes are retained in an owned JSON-valued map for a
-renderer. The parser type-checks the scalar values and rejects unknown
+Known Application Profile attributes are retained in an owned JSON-valued map
+for lowering. The parser type-checks the scalar values and rejects unknown
 attributes. The MVP recognizes `label`, `field`, `bind`, `action`, `resource`,
 `key`, `mode`, `variant`, `align`, `gap`, and `id` where they are valid for the
 specific component. `mode` is `inline`, `drawer`, or `dialog`; `variant` is
@@ -238,10 +238,11 @@ error details.
 ## Build output
 
 `egake build` emits a self-contained static bundle by default. The output
-contains `index.html`, `runtime.js`, `runtime.css`, and `app.bundle.json`; it
-does not load runtime code from a CDN or require the source KDL file at
-runtime. A host may inject Resource Providers at the documented adapter
-boundary; provider data and credentials are not embedded in the static output.
+contains `index.html`, `ikasue.js`, `ikasue.css`, `egake.js`, and
+`app.bundle.json`; the JSON contains `views` (`IkaView`) and Egake-owned
+`bindings`, never resource/action metadata inside view props. It does not load
+UI code from a CDN or require the source KDL file at runtime. Provider data and
+credentials are not embedded in the static output.
 
 `egake build --format single-html` (also `--single-html`) selects the
 standalone artifact format. `--output dist` writes one file at
@@ -318,7 +319,7 @@ development server with an in-memory generated bundle; file watching is
 intentionally outside this increment.
 
 The generated browser runtime uses only local JavaScript/CSS and DOM APIs. It
-renders the validated component tree, searches and refreshes tables, opens
+renders validated IkaView pages through Ikasue, searches and refreshes tables, opens
 create/edit forms, uses provider/bundle schema metadata for select and native
 date/email controls, saves with POST/PATCH, deletes after `confirm`, invokes a
 declared provider action with JSON input, and shows structured provider
@@ -331,55 +332,18 @@ injection, CDN assets, remote URLs, or embedded resource records.
 `actions.rhai` documentation placeholder. The placeholder is never executed;
 the CLI does not provide an OS command or Rhai execution boundary.
 
-## Framework host adapters
+## Ikasue UI runtime
 
-The framework packages are deliberately thin. They import only the shared
-runtime types and accept host primitives, so a project owns its Solid/Svelte/
-React/Vue version and dependency graph. All adapters parse the Application
-Profile before rendering and pass strings as text/children or ordinary
-attributes; none uses `innerHTML`, template HTML, or script injection.
+`packages/ikasue` owns the UI vocabulary, Custom Elements, DOM rendering,
+keyboard behavior, accessibility, geometry, virtualization, and theme. Its
+native ABI is `ikasue-web/1`: properties in, semantic DOM events out. Egake
+owns KDL, state, actions, ResourceProvider/CRUD, schema, and binding execution.
 
-For Solid, import `createSolidRenderer` and pass `createElement`,
-`createComponent`, `insert`, plus host callbacks for attributes and events:
-
-```ts
-import { createElement, createComponent, insert } from "solid-js/web";
-import { createSolidRenderer } from "./packages/solid/mod.ts";
-
-const renderer = createSolidRenderer({
-  createElement,
-  createComponent,
-  insert,
-  setAttribute: (node, name, value) => node.setAttribute(name, value),
-  listen: (node, event, listener) => node.addEventListener(event, listener),
-});
-const applicationTree = renderer(applicationJson);
-```
-
-For Svelte, import `createSvelteRenderer`, implement the small element/text/
-append/clear/listener boundary, and mount it from an action or wrapper:
-
-```ts
-import { createSvelteRenderer } from "./packages/svelte/mod.ts";
-
-const renderer = createSvelteRenderer({
-  createElement: (type) => document.createElement(type),
-  createText: (value) => document.createTextNode(value),
-  append: (parent, child) => parent.appendChild(child),
-  clear: (parent) => parent.replaceChildren(),
-  setAttribute: (node, name, value) => node.setAttribute(name, value),
-  listen: (node, event, listener) => {
-    node.addEventListener(event, listener);
-    return () => node.removeEventListener(event, listener);
-  },
-});
-const mounted = renderer(document.querySelector("#app"), applicationJson);
-```
-
-Use `createSolidResourceProvider` or `createSvelteResourceProvider` with a
-runtime `ResourceClient` when an action needs a host provider. The Svelte mount
-has `update` and `destroy`; the Solid result is handed to the host's normal
-`render` lifecycle.
+The controlled DataGrid receives `columns`, `rows`, `total`, `loading`, and
+`error`. It emits `ika-query` with `{ offset, limit, sort, filter? }`,
+`ika-select`, and `ika-edit` with stable row/column IDs. It never fetches,
+knows a ResourceProvider, or exposes a data-source/model interface. Egake
+handles the event, calls the provider, and writes the next properties.
 
 ## Ugoite integration boundary
 
@@ -482,16 +446,12 @@ schema before each operation.
 updates require an object patch; object members merge recursively, `null`
 removes a member, and arrays/scalars replace values.
 
-`parseApplication`, `renderApplication`, and `mountApplication` consume
-serialized Application Profile v0.1 JSON with this top-level shape:
-`{profile:{name,version:"0.1"},resources,states,pages,actions}`. The renderer
-has a closed component/attribute allowlist, creates nodes with
-`document.createElement`, writes user values with `textContent` or DOM
-properties, and attaches named callbacks. It does not accept HTML/script
-attributes, evaluate expressions, load remote assets, or use `innerHTML`.
-React and Vue adapters pass safe children/VNodes through host-provided
-`createElement`/`h` primitives and do not pull either framework into this
-repository.
+Egake emits a data-only UI bundle with top-level `views` and `bindings`.
+`packages/ikasue` consumes the `IkaView` values (`version: "ikasue-web/1"`)
+and lowers them to its Custom Elements. `packages/runtime` remains the
+Egake-side ResourceProvider/client boundary. Ikasue never receives a provider,
+fetches data, interprets actions, or imports a framework; it receives element
+properties and emits semantic DOM events.
 
 ### Python host boundary
 
@@ -524,15 +484,12 @@ built site on the same files.
 
 The host adapter surface currently shipped in this checkout is:
 
-| Host                 | Shipped entry point                  | Contract                                                 |
-| -------------------- | ------------------------------------ | -------------------------------------------------------- |
-| Browser / JavaScript | `packages/runtime/mod.ts`            | `ResourceProvider`, `ResourceClient`, `mountApplication` |
-| Solid                | `packages/solid/mod.ts`              | `createSolidRenderer`, `createSolidResourceProvider`     |
-| Svelte               | `packages/svelte/mod.ts`             | `createSvelteRenderer`, `createSvelteResourceProvider`   |
-| React                | `packages/react/mod.ts`              | `createReactRenderer`, `createReactResourceProvider`     |
-| Vue                  | `packages/vue/mod.ts`                | `createVueRenderer`, `createVueResourceProvider`         |
-| Python ASGI          | `python/egake`                       | `ResourceASGIApp`, `ResourceBase`                        |
-| Ugoite               | `examples/ugoite-entries/adapter.ts` | example adapter around a host-owned client               |
+| Host            | Shipped entry point                  | Contract                                           |
+| --------------- | ------------------------------------ | -------------------------------------------------- |
+| Ikasue UI       | `packages/ikasue/mod.ts`             | `IkaView`, Custom Elements, `ika-query`/`ika-edit` |
+| Egake data host | `packages/runtime/mod.ts`            | `ResourceProvider`, `ResourceClient`               |
+| Python ASGI     | `python/egake`                       | `ResourceASGIApp`, `ResourceBase`                  |
+| Ugoite          | `examples/ugoite-entries/adapter.ts` | example adapter around a host-owned client         |
 
-Solid and Svelte adapters follow the same serialized-application and
-`ResourceProvider` contracts as the other framework packages.
+There are no framework-specific renderer packages. Hosts use the Web Platform
+ABI directly and keep their ResourceProvider implementation on the Egake side.

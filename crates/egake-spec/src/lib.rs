@@ -10,15 +10,17 @@ pub mod parser;
 pub mod profile;
 #[cfg(test)]
 mod tests;
+pub mod view;
 
 pub use diagnostic::{Diagnostic, DiagnosticCode, Diagnostics, Severity, SourceLocation};
 pub use ir::{
-    ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, Component, ComponentKind,
-    EventBinding, PageDefinition, ResourceCapability, ResourceDefinition, StateDefinition,
+    ActionDefinition, ActionStep, ActionStepKind, ApplicationDefinition, NodeEvent, PageDefinition,
+    ResourceCapability, ResourceDefinition, StateDefinition, ViewNode,
 };
 pub use profile::{
     ApplicationProfile, KDL_APPLICATION_PROFILE, MVP_PROFILE_VERSION, ProfileVersion,
 };
+pub use view::{IKASUE_ABI_VERSION, IkaPage, IkaView, LoweredUi, UiBinding, lower_application};
 
 /// Parses a KDL source string into an owned application definition.
 pub fn parse(source: &str) -> Result<ApplicationDefinition, Diagnostics> {

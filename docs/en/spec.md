@@ -5,7 +5,7 @@ sidebar:
   label: Executable MVP specification
 ---
 
-<!-- i18n-sync: id=spec digest=b70f34fcb192659870e29206083200a2d7a2cb7c3e7bbf4ab01e4d8c0f258b4a -->
+<!-- i18n-sync: id=spec digest=fb787ad4fdcc21bfd863e8fe26767b7370ff8c265079a43b7823084579e03f14 -->
 
 This page is the executable contract. Beginner-oriented explanations live in the guide pages; when an explanation and this page disagree, this page and the implementation take precedence.
 
@@ -37,7 +37,7 @@ let definition = ApplicationDefinition::parse_and_validate_file("app.ui.kdl")?;
 
 `parse` checks KDL syntax and profile shape. `parse_and_validate` additionally checks references, while `ApplicationDefinition::validate()` validates an IR constructed by another agent. File entry points attach the file path to diagnostics; named string entry points are useful when a CLI already owns the display name.
 
-The v0.1 IR contains an application profile, resource definitions with sorted transport-neutral requirements, JSON-valued state, recursive pages and components, declared actions, and event bindings. The closed component set is `column`, `row`, `text`, `text-input`, `select`, `textarea`, `button`, `data-table`, `form`, and table `column` declarations. Known attributes include `label`, `field`, `bind`, `action`, `resource`, `key`, `mode`, `variant`, `align`, `gap`, and `id` where valid.
+The v0.1 IR contains an application profile, resource definitions with sorted transport-neutral requirements, JSON-valued state, recursive Application Profile view nodes, declared actions, and Egake-owned event/action bindings. View nodes are lowered to Ikasue `IkaView` values; Egake does not expose a parallel renderer enum. Known attributes include `label`, `field`, `bind`, `action`, `resource`, `key`, `mode`, `variant`, `align`, `gap`, and `id` where valid.
 
 State values accept KDL strings, booleans, numbers, and `#null`. A string beginning with a valid JSON object or array is decoded as structured state. The editor-friendly `state "x" { value { ... } }` form is also accepted: `-` children form arrays and named children form objects.
 
@@ -101,7 +101,7 @@ Writes use a process-local lock shared by providers opened for the same canonica
 
 ## Build output
 
-`egake build` emits a self-contained static bundle by default: `index.html`, `runtime.js`, `runtime.css`, and `app.bundle.json`. It does not load runtime code from a CDN or require the source KDL at runtime. Provider data and credentials are not embedded.
+`egake build` emits a self-contained static bundle by default: `index.html`, `ikasue.js`, `ikasue.css`, `egake.js`, and `app.bundle.json`. The JSON contains `views` (`IkaView`) and Egake-owned `bindings`; resource/action metadata is never placed in view props. It does not load UI code from a CDN or require the source KDL at runtime. Provider data and credentials are not embedded.
 
 `--format single-html` (also `--single-html`) writes one HTML document. CSS and JavaScript are inline, validated metadata is in a non-executable JSON script block, and the document has no external runtime/application assets. Its CSP uses `default-src 'none'`, same-origin API `connect-src`, and hashes for the exact inline contents. Script-sensitive characters are escaped in serialized application data.
 
@@ -113,9 +113,9 @@ Resource configuration selects `resources.kdl` when present, otherwise the TOML 
 
 `run` and `dev` construct data providers, attach a generated `StaticBundle` to the server state, and serve same-origin `/api/egake/v1` routes on loopback by default. A non-loopback host requires `--allow-external` and an explicit warning. `dev` is a local server with an in-memory bundle; watching is outside this increment.
 
-## Framework host adapters
+## Ikasue UI runtime
 
-Framework adapters are thin translation layers. The host supplies render primitives and the adapter does not add the framework as a dependency. React and Vue packages are shipped in this checkout. Solid and Svelte use the generic runtime boundary unless a host supplies its own thin adapter. Each adapter must preserve serialized strings as text, recurse safely through children, and keep provider ownership outside rendering.
+`packages/ikasue` owns the UI vocabulary, Custom Elements, DOM rendering, keyboard behavior, accessibility, geometry, virtualization, and theme. Its native ABI is `ikasue-web/1`: properties in, semantic DOM events out. Egake owns KDL, state, actions, ResourceProvider/CRUD, schema, and binding execution. The controlled DataGrid receives `columns`, `rows`, `total`, `loading`, and `error`, then emits `ika-query`, `ika-select`, and `ika-edit`. It never fetches or exposes a data-source/model interface.
 
 ## Ugoite integration boundary
 
@@ -132,9 +132,9 @@ OpenAPI document, and never loads a CDN, external asset, font, or remote data.
 
 ## Host/runtime adapters
 
-### TypeScript/Deno browser runtime
+### TypeScript/Deno host runtime
 
-The browser runtime uses local JavaScript, CSS, and DOM APIs. It renders the validated component tree, searches and refreshes tables, opens forms, uses schema metadata for select and native date/email controls, saves with POST/PATCH, deletes only after `confirm`, and invokes declared provider actions. A host injects providers through `mountApplication`; runtime code never receives credentials or evaluates arbitrary code.
+`packages/runtime` contains only the Egake-side ResourceProvider/client and merge-patch boundary. `packages/ikasue` is the UI runtime. The browser host handles `ika-query`/`ika-edit`, calls the provider, and writes the next DataGrid properties; Ikasue never receives credentials or evaluates arbitrary code.
 
 ### Python host boundary
 

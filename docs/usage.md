@@ -5,7 +5,7 @@ sidebar:
   label: 受け入れマトリクス
 ---
 
-<!-- i18n-sync: id=usage digest=0c644a34fad941b108e4c60e8960a789587788c21a4405c1de27eb4f03a9157c -->
+<!-- i18n-sync: id=usage digest=686ef04f2eb0cf364a9ac90b54dc24a4b007a4e443d9b3a32a179d1b3a3f9346 -->
 
 This page is the repository's executable usage and acceptance reference. For
 the beginner path, start with [最短クイックスタート](../guide/quickstart/).
@@ -18,16 +18,16 @@ commands, JavaScript, or remote code.
 
 ## Acceptance matrix
 
-| Workflow                       | Example or implementation                                                                                                                                    | Offline acceptance command                                                            | Covered behavior                                                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Read-only data list/search     | [`examples/csv-readonly`](https://github.com/ugoite/egake/tree/main/examples/csv-readonly)                                                                   | `cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada` | CSV without an `id`, schema/list-only capabilities, case-insensitive search, sorting, pagination                                      |
-| Multi-resource project         | [`examples/multi-resource`](https://github.com/ugoite/egake/tree/main/examples/multi-resource)                                                               | `cargo run -p egake-cli -- test examples/multi-resource`                              | Two declared resources, two schemas/data files, deterministic bundle and validation                                                   |
-| Standalone HTML build          | CLI integration test                                                                                                                                         | `cargo test -p egake-cli --test usage_examples`                                       | `--format single-html`/`--single-html`, one generated HTML file, no external runtime/application assets, default four-file regression |
-| Browser/JS embedded provider   | [`examples/js-embedded`](https://github.com/ugoite/egake/tree/main/examples/js-embedded)                                                                     | `deno test examples/js-embedded/main_test.ts`                                         | Host-owned provider injection, list/search, declared provider action invoke                                                           |
-| Solid/Svelte host adapters     | [`packages/solid`](https://github.com/ugoite/egake/tree/main/packages/solid), [`packages/svelte`](https://github.com/ugoite/egake/tree/main/packages/svelte) | `mise run deno:test`                                                                  | Safe recursive children, host primitive boundaries, provider helpers, lifecycle                                                       |
-| Python ASGI/FastAPI provider   | [`examples/python-fastapi`](https://github.com/ugoite/egake/tree/main/examples/python-fastapi)                                                               | `mise run python:test`                                                                | Standard-library ASGI routes and optional FastAPI bridge, including invoke                                                            |
-| Ugoite client adapter          | [`examples/ugoite-entries`](https://github.com/ugoite/egake/tree/main/examples/ugoite-entries)                                                               | `deno test examples/ugoite-entries/adapter_test.ts`                                   | Host-owned Ugoite client protocol and transparent CRUD/action delegation                                                              |
-| Provider-defined action invoke | Rust server, JS, and Python adapters                                                                                                                         | `cargo test -p egake-server && mise run deno:test && mise run python:test`            | `/actions/:action`, safe browser invoke step, and deterministic host adapters                                                         |
+| Workflow                       | Example or implementation                                                                      | Offline acceptance command                                                            | Covered behavior                                                                                                                  |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only data list/search     | [`examples/csv-readonly`](https://github.com/ugoite/egake/tree/main/examples/csv-readonly)     | `cargo run -p egake-cli -- list examples/csv-readonly --resource catalog --query ada` | CSV without an `id`, schema/list-only capabilities, case-insensitive search, sorting, pagination                                  |
+| Multi-resource project         | [`examples/multi-resource`](https://github.com/ugoite/egake/tree/main/examples/multi-resource) | `cargo run -p egake-cli -- test examples/multi-resource`                              | Two declared resources, two schemas/data files, deterministic bundle and validation                                               |
+| Standalone HTML build          | CLI integration test                                                                           | `cargo test -p egake-cli --test usage_examples`                                       | `--format single-html`/`--single-html`, one generated HTML file, no external runtime/application assets, five-file Web ABI bundle |
+| Browser/JS embedded provider   | [`examples/js-embedded`](https://github.com/ugoite/egake/tree/main/examples/js-embedded)       | `deno test examples/js-embedded/main_test.ts`                                         | Host-owned provider injection, list/search, declared provider action invoke                                                       |
+| Ikasue Web ABI                 | [`packages/ikasue`](https://github.com/ugoite/egake/tree/main/packages/ikasue)                 | `mise run ui:test`                                                                    | Versioned `IkaView`, Custom Elements, semantic DOM events, controlled DataGrid                                                    |
+| Python ASGI/FastAPI provider   | [`examples/python-fastapi`](https://github.com/ugoite/egake/tree/main/examples/python-fastapi) | `mise run python:test`                                                                | Standard-library ASGI routes and optional FastAPI bridge, including invoke                                                        |
+| Ugoite client adapter          | [`examples/ugoite-entries`](https://github.com/ugoite/egake/tree/main/examples/ugoite-entries) | `deno test examples/ugoite-entries/adapter_test.ts`                                   | Host-owned Ugoite client protocol and transparent CRUD/action delegation                                                          |
+| Provider-defined action invoke | Rust server, JS, and Python adapters                                                           | `cargo test -p egake-server && mise run deno:test && mise run python:test`            | `/actions/:action`, safe browser invoke step, and deterministic host adapters                                                     |
 
 The complete local acceptance suite is:
 
@@ -71,14 +71,14 @@ cargo run -p egake-cli -- test examples/multi-resource
 page object (`items`, `total`, `offset`, and `limit`) for scripts; the default
 output emits one JSON record per line after a short page summary.
 
-The default build is directory-style and produces four files. Use
+The default build is directory-style and produces five files: `index.html`,
+`ikasue.js`, `ikasue.css`, `egake.js`, and `app.bundle.json`. Use
 `--format single-html` or `--single-html` when a deployment accepts only one
 file; `--output dist` writes `dist/index.html`, while `--output dist/app.html`
-writes that exact file. The standalone document has inline CSS, runtime JS, and
-application JSON, with no `runtime.js`, `runtime.css`, or `app.bundle.json`
-fetch/link/script reference. The JSON data block is non-executable and escapes
-script-sensitive characters; the inline executable/style blocks are protected
-by CSP hashes.
+writes that exact file. The standalone document has inline Ikasue UI runtime,
+Egake host runtime, and application JSON, with no external asset reference. The
+JSON data block is non-executable and escapes script-sensitive characters; the
+inline executable/style blocks are protected by CSP hashes.
 
 To exercise the HTTP server locally, use a loopback address and query the same
 contract routes with a browser or `curl`:
@@ -130,26 +130,11 @@ providers easy to review. `writable` defaults to false and the conventional
 `id` key is optional for read-only CSVs; a CSV with no `id` advertises only
 schema/list capabilities.
 
-### Solid and Svelte host connections
+### Ikasue host boundary
 
-The optional framework adapters are `packages/solid` and `packages/svelte`.
-They have no Solid, Svelte, compiler, or runtime dependency. Import the
-renderer and connect the host primitives explicitly:
-
-```ts
-import { createSolidRenderer } from "./packages/solid/mod.ts";
-// Pass Solid's createElement/createComponent/insert and safe attribute/event callbacks.
-const tree = createSolidRenderer(solidHost)(applicationJson);
-```
-
-```ts
-import { createSvelteRenderer } from "./packages/svelte/mod.ts";
-// A Svelte action can provide createElement/createText/append/clear/listen.
-const mounted = createSvelteRenderer(svelteHost)(target, applicationJson);
-mounted.destroy();
-```
-
-Both adapters recurse through children using host primitives and preserve
-serialized strings as text. Add `createSolidResourceProvider` or
-`createSvelteResourceProvider` when the host needs a `ResourceClient` provider;
-the provider remains outside the adapter and owns authentication/data access.
+`packages/ikasue` owns the UI runtime. Egake emits `views` containing only
+`IkaView` values and `bindings` containing resources, state, and actions. A
+host passes data to `ika-data-grid` through `columns`, `rows`, `total`,
+`loading`, and `error`; the element emits `ika-query`, `ika-select`, and
+`ika-edit` as composed DOM events. ResourceProvider, CRUD, authentication, and
+action execution remain in Egake.

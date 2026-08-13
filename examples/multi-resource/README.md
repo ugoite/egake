@@ -13,5 +13,6 @@ cargo run -p egake-cli -- build examples/multi-resource
 cargo run -p egake-cli -- test examples/multi-resource
 ```
 
-The generated bundle contains the application definition only; data records are
-opened by the local host and are not embedded in `dist/`.
+The generated bundle contains the Application Profile, IkaView pages, Egake
+bindings, and schema metadata; data records are opened by the local host and
+are not embedded in `dist/`.

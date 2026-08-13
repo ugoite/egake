@@ -68,66 +68,25 @@ pub struct StateDefinition {
     pub value: Value,
 }
 
-/// A page and its component tree.
+/// A page and its Application Profile view tree.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PageDefinition {
     /// Stable page name.
     pub name: String,
     /// Human-readable page title.
     pub title: String,
-    /// Top-level components rendered on this page.
-    pub components: Vec<Component>,
+    /// Top-level KDL view nodes. These are compiler input, not renderer types.
+    pub views: Vec<ViewNode>,
 }
 
-/// The known component kinds in the v0.1 MVP.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum ComponentKind {
-    /// Vertical layout container.
-    Column,
-    /// Horizontal layout container.
-    Row,
-    /// Static text.
-    Text,
-    /// Single-line text input.
-    TextInput,
-    /// Select input.
-    Select,
-    /// Multiline text input.
-    Textarea,
-    /// User-triggered action button.
-    Button,
-    /// Resource-backed table.
-    DataTable,
-    /// A field-editing form.
-    Form,
-    /// A column declaration inside a data table.
-    TableColumn,
-}
-
-impl ComponentKind {
-    /// Returns the KDL node name for this component kind.
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Column => "column",
-            Self::Row => "row",
-            Self::Text => "text",
-            Self::TextInput => "text-input",
-            Self::Select => "select",
-            Self::Textarea => "textarea",
-            Self::Button => "button",
-            Self::DataTable => "data-table",
-            Self::Form => "form",
-            Self::TableColumn => "column",
-        }
-    }
-}
-
-/// One component in a page's owned tree.
+/// One KDL view node in a page's owned tree.
+///
+/// The node name is only parser input. It is lowered to Ikasue's `IkaView` by
+/// [`crate::view`]; Egake does not expose a parallel renderer vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Component {
-    /// Known renderer component kind.
-    pub kind: ComponentKind,
+pub struct ViewNode {
+    /// KDL Application Profile node name.
+    pub name: String,
     /// Optional stable component ID.
     pub id: Option<String>,
     /// Optional positional text, such as a button label.
@@ -136,12 +95,12 @@ pub struct Component {
     pub attributes: BTreeMap<String, Value>,
     /// Nested components.
     pub children: Vec<Self>,
-    /// Event/action pairs declared below this component.
-    pub events: Vec<EventBinding>,
+    /// Egake action bindings declared below this node.
+    pub events: Vec<NodeEvent>,
 }
 
-impl Component {
-    /// Returns a component attribute by its profile name.
+impl ViewNode {
+    /// Returns a view node attribute by its profile name.
     #[must_use]
     pub fn attribute(&self, name: &str) -> Option<&Value> {
         self.attributes.get(name)
@@ -154,13 +113,15 @@ impl Component {
     }
 }
 
-/// One event/action pair attached to a component.
+/// One application event/action binding attached to a view node.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EventBinding {
+pub struct NodeEvent {
     /// Event name, for example `select`.
     pub event: String,
     /// Top-level action name to invoke.
     pub action: String,
+    /// Optional explicit form target for the action.
+    pub form: Option<String>,
 }
 
 /// One declared action known to the application.
@@ -179,6 +140,8 @@ pub enum ActionStepKind {
     Validate,
     /// Create or update a resource value.
     Upsert,
+    /// Delete the selected resource value.
+    Delete,
     /// Refresh a resource list.
     Refresh,
     /// Display a message.

@@ -1,68 +1,31 @@
 ---
-title: React / Vue / Solid / Svelte adapters
-description: Shipped React/Vue adapters and the generic runtime boundary for Solid/Svelte.
-sidebar:
-  label: Framework adapters
+title: Ikasue Web ABI
+description: The boundary between the Egake application runtime and ResourceProvider.
 ---
 
-<!-- i18n-sync: id=guide/usage/framework-adapters digest=8882a03a29bcaf6830561af491fb3cb739e31f6077a39e8628c3c8b0c4f1be6f -->
+<!-- i18n-sync: id=guide/usage/framework-adapters digest=79dc23a8f35831c4958462d5992e8e8eae54d98b63cc1887988138b036d11ec3 -->
 
-Framework adapters are thin layers that translate an Application Profile JSON value into a framework element or VNode. egake does not add the framework as a dependency; the host supplies render primitives.
+Egake has no framework-specific UI renderer adapters. It validates KDL and
+lowers it to Ikasue `IkaView` values plus Egake-owned `bindings`. Ikasue renders
+the same view through Custom Elements under `ikasue-web/1`.
 
-## Current support
+## Boundary
 
-| Framework | Status in this checkout | Public identifier                                     |
-| --------- | ----------------------- | ----------------------------------------------------- |
-| React     | Adapter shipped         | `createReactRenderer` / `createReactResourceProvider` |
-| Vue       | Adapter shipped         | `createVueRenderer` / `createVueResourceProvider`     |
-| Solid     | No dedicated adapter    | Connect `packages/runtime` to the DOM lifecycle       |
-| Svelte    | No dedicated adapter    | Connect `packages/runtime` to the DOM lifecycle       |
+Egake owns KDL, state, actions, schema, ResourceProvider, CRUD, and bindings.
+Ikasue owns UI vocabulary, DOM rendering, keyboard behavior, accessibility,
+theme, and DataGrid geometry.
 
-Do not document an npm package or import that this checkout does not ship. If a dedicated adapter is needed, build a thin translation layer around `SerializedApplication`, `SerializedComponent`, and `ResourceProvider`, and add its implementation and tests in the same change.
+`IkaView.props` never contains `resource`, `action`, a provider, or a fetch
+client. Those values stay in bundle `bindings`; the Egake browser host handles
+the semantic DOM events.
 
-## React
+## Controlled DataGrid
 
-React receives `createElement` from the host. The adapter itself does not import React.
+`ika-data-grid` receives `columns`, `rows`, `total`, `loading`, and `error`, and
+emits `ika-query`, `ika-select`, and `ika-edit`. `ika-query` is
+`{ offset, limit, sort, filter? }`; `ika-edit` is
+`{ rowId, columnId, value }`. Ikasue knows no ResourceProvider or DataSource.
 
-```ts
-import {
-  createReactRenderer,
-  createReactResourceProvider,
-} from "./packages/react/mod.ts";
-
-const contacts = createReactResourceProvider(client, "contacts");
-const renderApplication = createReactRenderer(React, {
-  onAction: (action) => void contacts.invoke(action, null),
-});
-const element = renderApplication(applicationJson);
-```
-
-The implementation is in `packages/react/src/index.ts`; its README is `packages/react/README.md`. Children use normal React children and never `dangerouslySetInnerHTML`.
-
-## Vue
-
-Vue receives `h` from the host.
-
-```ts
-import {
-  createVueRenderer,
-  createVueResourceProvider,
-} from "./packages/vue/mod.ts";
-
-const contacts = createVueResourceProvider(client, "contacts");
-const renderApplication = createVueRenderer(Vue, {
-  onAction: (action) => void contacts.invoke(action, null),
-});
-const vnode = renderApplication(applicationJson);
-```
-
-Here `Vue` is the host value that implements `h`; the adapter does not depend on Vue.
-
-## Solid / Svelte as a generic boundary
-
-1. Load `application.json` or a data-only CLI bundle in the host.
-2. Create a `ResourceProvider` that maps the framework store, loader, or API client.
-3. Let the framework own creation and destruction of the DOM root.
-4. Preserve provider capabilities and structured errors; do not turn them into HTML strings.
-
-The safety and contract details are in the [TypeScript/Deno browser runtime specification](../../../spec/#typescriptdeno-browser-runtime).
+The host sends `ika-query` to `ResourceProvider.list` and writes the returned
+page back as properties. Ikasue calculates virtual-scroll offset/limit;
+Egake owns data access, stale responses, and error handling.

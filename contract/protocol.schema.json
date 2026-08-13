@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ugoite.github.io/egake/contract/protocol.schema.json",
+  "title": "Ikasue DOM event details",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/query" },
+    { "$ref": "#/$defs/select" },
+    { "$ref": "#/$defs/edit" },
+    { "$ref": "#/$defs/action" }
+  ],
+  "$defs": {
+    "query": { "type": "object", "required": ["offset", "limit", "sort"], "properties": { "offset": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1 }, "sort": { "type": "array" }, "filter": { "type": "string" } }, "additionalProperties": false },
+    "select": { "type": "object", "required": ["rowId"], "properties": { "rowId": { "type": "string" }, "columnId": { "type": "string" } }, "additionalProperties": false },
+    "edit": { "type": "object", "required": ["rowId", "columnId", "value"], "properties": { "rowId": { "type": "string" }, "columnId": { "type": "string" }, "value": {} }, "additionalProperties": false },
+    "action": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } }, "additionalProperties": false }
+  }
+}

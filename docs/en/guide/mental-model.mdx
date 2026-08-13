@@ -5,7 +5,7 @@ sidebar:
   label: Mental model
 ---
 
-{/* i18n-sync: id=guide/mental-model digest=a502c22a9fdf81837cccb4b64de6e5a3e5652f82e0c7537dc7e7f05b9abbaf8a */}
+{/* i18n-sync: id=guide/mental-model digest=566fbadd2d8503f014a01ee815d4a75fce03aafc54083df24d291a44c42f9620 */}
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
@@ -23,7 +23,7 @@ app.ui.kdl + schema JSON + resources.kdl
              build
                 │ no records are embedded
                 ▼
-             app.bundle.json + runtime.js/css
+             app.bundle.json + egake.js + ikasue.js/css
                 │
       ┌─────────┴─────────┐
       ▼                   ▼
@@ -33,7 +33,7 @@ app.ui.kdl + schema JSON + resources.kdl
       └──── Resource Contract ────┘
 ```
 
-`run` and `dev` serve a bundle from memory and connect a local data provider to `/api/egake/v1`. Embedded JavaScript creates a `ResourceProvider` map and passes it to `mountApplication`. In both cases, the screen does not need to know where records are stored.
+`run` and `dev` serve a bundle from memory and connect a local data provider to `/api/egake/v1`. The Egake host sends `ika-query` to the ResourceProvider and writes the result back as Ikasue DataGrid properties. Ikasue never needs to know where records are stored.
 
 ## A contract is a set of operations
 

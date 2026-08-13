@@ -5,7 +5,7 @@ sidebar:
   label: Usage by host
 ---
 
-{/* i18n-sync: id=guide/usage/index digest=b7ceaf864b169306da6ae2551948f400a3fc3c6c30d4c2ea0a533d2389447ef6 */}
+{/* i18n-sync: id=guide/usage/index digest=b2d4b4049693383870b381c26efb022fd548538cbc3df85794d9a2cdc862ff6c */}
 
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
@@ -41,13 +41,12 @@ The same Resource Contract can be used according to where the provider and host 
 
 ## Choosing a path
 
-| Goal                                | Entry point                       | Checked-out verification                            |
-| ----------------------------------- | --------------------------------- | --------------------------------------------------- |
-| Build a table from files only       | Standalone CSV                    | `cargo run -p egake-cli -- list ...`                |
-| Inject your API into a browser host | `packages/runtime`                | `deno test examples/js-embedded/main_test.ts`       |
-| Expose an existing Python resource  | `ResourceASGIApp`                 | `mise run python:test`                              |
-| Reuse a Ugoite client               | `createUgoiteEntriesProvider`     | `deno test examples/ugoite-entries/adapter_test.ts` |
-| Create React/Vue VNodes or elements | `packages/react` / `packages/vue` | `mise run deno:check`                               |
-| Use Solid or Svelte                 | Generic runtime or a thin adapter | This checkout has no dedicated package              |
+| Goal                                | Entry point                   | Checked-out verification                            |
+| ----------------------------------- | ----------------------------- | --------------------------------------------------- |
+| Build a table from files only       | Standalone CSV                | `cargo run -p egake-cli -- list ...`                |
+| Inject your API into a browser host | `packages/runtime`            | `deno test examples/js-embedded/main_test.ts`       |
+| Expose an existing Python resource  | `ResourceASGIApp`             | `mise run python:test`                              |
+| Reuse a Ugoite client               | `createUgoiteEntriesProvider` | `deno test examples/ugoite-entries/adapter_test.ts` |
+| Use the Ikasue UI runtime           | `packages/ikasue`             | `mise run ui:test`                                  |
 
 The [executable MVP specification](../../spec/) contains shared details about queries, errors, merge-patch, and path safety.

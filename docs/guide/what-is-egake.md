@@ -5,7 +5,7 @@ sidebar:
   label: egakeとは何か
 ---
 
-<!-- i18n-sync: id=guide/what-is-egake digest=82059ad20418ce24f035222b1ca0cd99ced19f898d1c6dac410ceabf6d90ccb7 -->
+<!-- i18n-sync: id=guide/what-is-egake digest=47adc2c2f12743b7b9891b1fed61948656cb3f83a27f4189d3e37b6d519c1061 -->
 
 egakeは、**画面の定義**と**データを読む・書く方法**を別々に扱う、Rust/WASM志向のlow-code UI runtimeです。
 
@@ -25,13 +25,13 @@ egakeは、**画面の定義**と**データを読む・書く方法**を別々�
 
 ## 何を定義するのか
 
-| ファイル / 層               | 役割                                 | 例                                            |
-| --------------------------- | ------------------------------------ | --------------------------------------------- |
-| `app.ui.kdl`                | Application Profile v0.1             | `page`、`data-table`、`action`                |
-| schema JSON                 | フィールド型、required、enum、format | `schemas/catalog.schema.json`                 |
-| `resources.kdl` または TOML | providerの接続設定                   | CSV path、`writable`                          |
-| provider                    | 実データと操作                       | `list`、`get`、`update`                       |
-| `dist/`                     | `egake build`の生成物                | `index.html`、`runtime.js`、`app.bundle.json` |
+| ファイル / 層               | 役割                                 | 例                                                                     |
+| --------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
+| `app.ui.kdl`                | Application Profile v0.1             | `page`、`data-table`、`action`                                         |
+| schema JSON                 | フィールド型、required、enum、format | `schemas/catalog.schema.json`                                          |
+| `resources.kdl` または TOML | providerの接続設定                   | CSV path、`writable`                                                   |
+| provider                    | 実データと操作                       | `list`、`get`、`update`                                                |
+| `dist/`                     | `egake build`の生成物                | `index.html`、`ikasue.js`、`ikasue.css`、`egake.js`、`app.bundle.json` |
 
 ## egakeがしないこと
 

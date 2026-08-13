@@ -11,10 +11,10 @@ checks the advertised capability before each operation. Updates require an
 object-shaped RFC 7396 merge patch; use `applyMergePatch` when an embedded
 provider needs the shared merge behavior.
 
-`parseApplication`, `renderApplication`, and `mountApplication` consume
-serialized Application Profile v0.1 JSON. Rendering creates an allowlisted DOM
-tree and uses `textContent`, properties, and event listeners. Application data
-cannot provide HTML, scripts, remote assets, or executable expressions.
+This package is the Egake-side data runtime only. It exports `ResourceProvider`,
+`ResourceClient`, structured errors, and merge-patch helpers. It does not parse
+or render UI JSON.
 
-The runtime has no framework or network dependency. React and Vue applications
-can use the thin adapters in `../react` and `../vue`.
+For UI, use [`../ikasue`](../ikasue), whose `IkaView` and Custom Elements are
+the single browser UI runtime. It receives properties and emits semantic DOM
+events; ResourceProvider remains here on the Egake side.

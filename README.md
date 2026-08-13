@@ -15,12 +15,10 @@ usable local CLI/runtime:
 - `egake-server` provides the localhost HTTP router, provider registry, and
   static-bundle configuration.
 - `egake-cli` provides the versioned command-line entry point.
-- `packages/runtime` provides the dependency-free Deno/TypeScript browser
-  client, provider types, merge-patch helper, and safe JSON renderer.
-- `packages/react` and `packages/vue` provide framework-thin element/VNode
-  adapters without installing either framework.
-- `packages/solid` and `packages/svelte` provide dependency-free host-primitive
-  adapters without installing either framework or compiler.
+- `packages/runtime` provides the Egake-side dependency-free Deno/TypeScript
+  ResourceProvider client and merge-patch helper.
+- `packages/ikasue` is the UI runtime: the versioned `IkaView` contract,
+  Custom Elements, semantic DOM events, geometry, interaction, and theme.
 - `python/egake` provides the standard-library Resource protocol/base class,
   ASGI adapter, and optional FastAPI bridge.
 - `egake-cli` provides project scaffolding, deterministic validation,
@@ -33,9 +31,10 @@ loads it directly and does not contain a copied content tree.
 
 For the executable contract, see [`docs/spec.md`](docs/spec.md). For the
 offline acceptance matrix and repository workflows, see
-[`docs/usage.md`](docs/usage.md). The CLI and host adapters remain dependency
-free at runtime; Ugoite integration is an adapter boundary, not a workspace
-dependency.
+[`docs/usage.md`](docs/usage.md). Egake owns application/data behavior and
+lowers KDL to `IkaView + bindings`; Ikasue owns UI vocabulary, rendering,
+geometry, interaction, accessibility, and theme. Ugoite remains a host
+boundary.
 
 The shortest path for a new user is the site's
 [quick start](docs/guide/quickstart.mdx). It uses the checked-in
@@ -83,8 +82,8 @@ no-watch development server; restart it after editing source files.
 `actions.rhai` is emitted
 by `new` as a documentation placeholder only; this CLI does not execute Rhai,
 shell commands, or arbitrary JavaScript. `build` writes `dist/index.html`,
-`runtime.js`, `runtime.css`, and `app.bundle.json`. The bundle contains the
-validated application definition, not provider data or credentials.
+`ikasue.js`, `ikasue.css`, `egake.js`, and `app.bundle.json`. The bundle
+contains `views` and Egake-owned `bindings`, not provider data or credentials.
 
 Use `build --format single-html` (or `build --single-html`) for a one-file
 artifact. With the default `--output dist`, it writes `dist/index.html`; when

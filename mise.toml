@@ -24,25 +24,13 @@ run = [
     "uv run --locked ty --version",
 ]
 
-[tasks."ui:build"]
-description = "Build the checked-in Tailwind v4 browser runtime stylesheet"
-sources = [
-    "crates/egake-cli/assets/runtime.css.src",
-    "crates/egake-cli/assets/runtime.js",
-    "packages/runtime/src/application.ts",
-    "package.json",
-    "deno.lock",
-]
-outputs = ["crates/egake-cli/assets/runtime.css"]
-run = "deno run --frozen --node-modules-dir=auto -A npm:@tailwindcss/cli@4.3.0 --input crates/egake-cli/assets/runtime.css.src --output crates/egake-cli/assets/runtime.css --minify"
-
 [tasks."ui:check"]
-description = "Check that the checked-in Tailwind runtime stylesheet is reproducible"
-run = "bash scripts/check-runtime-ui.sh"
+description = "Check the versioned Ikasue Web ABI and browser assets"
+run = ["deno check packages/ikasue/mod.ts", "test -s packages/ikasue/src/runtime.js", "test -s packages/ikasue/src/style.css"]
 
 [tasks."ui:test"]
-description = "Exercise essential runtime UI focus and refresh behavior"
-run = "node scripts/test-runtime-ui.js"
+description = "Exercise the essential Ikasue contract"
+run = "deno test packages/ikasue/tests"
 
 [tasks.fmt]
 description = "Format Rust, Deno, and Python sources"
@@ -111,18 +99,15 @@ run = "deno fmt --check packages examples/js-embedded examples/ugoite-entries"
 
 [tasks."deno:lint"]
 description = "Lint TypeScript/Deno host packages and examples"
-run = "deno lint packages examples/js-embedded examples/ugoite-entries"
+run = "deno lint packages/ikasue packages/runtime examples/js-embedded examples/ugoite-entries"
 
 [tasks."deno:check"]
 description = "Type-check the TypeScript/Deno host packages and examples"
-run = "deno check packages/runtime/mod.ts packages/react/mod.ts packages/vue/mod.ts packages/solid/mod.ts packages/svelte/mod.ts examples/js-embedded/main.ts examples/js-embedded/main_test.ts examples/ugoite-entries/adapter.ts examples/ugoite-entries/adapter_test.ts"
+run = "deno check packages/runtime/mod.ts packages/ikasue/mod.ts examples/js-embedded/main.ts examples/js-embedded/main_test.ts examples/ugoite-entries/adapter.ts examples/ugoite-entries/adapter_test.ts"
 
 [tasks."deno:test"]
 description = "Run deterministic TypeScript/Deno host tests"
-run = [
-    "node scripts/test-runtime-ui.js",
-    "deno test packages/runtime/tests packages/react/tests packages/vue/tests packages/solid/tests packages/svelte/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts",
-]
+run = "deno test packages/ikasue/tests examples/js-embedded/main_test.ts examples/ugoite-entries/adapter_test.ts"
 
 [tasks."python:install"]
 description = "Install the locked Python type-checking environment"

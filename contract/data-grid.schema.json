@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ugoite.github.io/egake/contract/data-grid.schema.json",
+  "title": "Ikasue controlled DataGrid ABI",
+  "type": "object",
+  "required": ["columns", "rows", "total", "loading"],
+  "additionalProperties": false,
+  "properties": {
+    "columns": { "type": "array", "items": { "$ref": "#/$defs/column" } },
+    "rows": { "type": "array", "items": { "$ref": "#/$defs/row" } },
+    "total": { "type": "integer", "minimum": 0 },
+    "loading": { "type": "boolean" },
+    "error": { "type": "string" },
+    "editable": { "type": "boolean" }
+  },
+  "$defs": {
+    "column": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": { "id": { "type": "string" }, "label": { "type": "string" } }
+    },
+    "row": {
+      "type": "object",
+      "required": ["id", "cells"],
+      "additionalProperties": false,
+      "properties": { "id": { "type": "string" }, "cells": { "type": "object" } }
+    }
+  }
+}
